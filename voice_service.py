@@ -507,6 +507,23 @@ async def simple_test():
         "timestamp": str(asyncio.get_event_loop().time())
     }
 
+@app.get("/", response_model=Dict[str, Any])
+async def root():
+    """Root endpoint that provides basic service information."""
+    return {
+        "status": "ok",
+        "message": "Voice Service API is running",
+        "endpoints": {
+            "/smart-home/command": "POST - Generate smart home commands",
+            "/models": "GET - List available models",
+            "/load-model": "GET - Load a specific model",
+            "/unload-model": "GET - Unload a specific model",
+            "/memory": "GET - Get memory usage information",
+            "/health": "GET - Health check endpoint",
+            "/simple-test": "GET - Simple test endpoint"
+        }
+    }
+
 if __name__ == "__main__":
     try:
         logger.info("Starting server...")
