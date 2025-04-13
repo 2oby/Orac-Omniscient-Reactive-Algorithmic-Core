@@ -32,6 +32,10 @@ from response_to_JSON_integration import (
     SmartHomeCommand
 )
 
+# Track server start time for uptime calculation
+start_time = time.time()
+
+
 # Configure logging with detailed traceback
 logging.basicConfig(
     level=logging.INFO,
@@ -507,35 +511,6 @@ async def simple_test():
         "timestamp": str(asyncio.get_event_loop().time())
     }
 
-@app.get("/", response_model=Dict[str, Any])
-async def root():
-    """Root endpoint that provides basic service information."""
-    return {
-        "status": "ok",
-        "message": "Voice Service API is running",
-        "endpoints": {
-            "/smart-home/command": "POST - Generate smart home commands",
-            "/models": "GET - List available models",
-            "/load-model": "GET - Load a specific model",
-            "/unload-model": "GET - Unload a specific model",
-            "/memory": "GET - Get memory usage information",
-            "/health": "GET - Health check endpoint",
-            "/simple-test": "GET - Simple test endpoint"
-        }
-    }
-
-if __name__ == "__main__":
-    try:
-        logger.info("Starting server...")
-        uvicorn.run(app, host="0.0.0.0", port=8000)
-    except Exception as e:
-        logger.error(f"Server crashed: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        sys.exit(1)
-
-# Track server start time for uptime calculation
-start_time = time.time()
-
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
     """Display a table of models and debug info, formatted for browser or curl."""
@@ -646,3 +621,13 @@ async def root(request: Request):
             text_content += f"{metric:<{max_metric_len}}  {value}\n"
         
         return PlainTextResponse(content=text_content)
+        
+
+if __name__ == "__main__":
+    try:
+        logger.info("Starting server...")
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    except Exception as e:
+        logger.error(f"Server crashed: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        sys.exit(1)
