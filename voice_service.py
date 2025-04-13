@@ -12,11 +12,18 @@ import sys
 import traceback
 import uvicorn
 import asyncio
+
+import time
+from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi import Request
+import pkg_resources
+
 from typing import Optional, Dict, Any, List
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from asyncio import Lock
+
 
 # Import JSON integration module (assumed to exist)
 from response_to_JSON_integration import (
@@ -508,3 +515,117 @@ if __name__ == "__main__":
         logger.error(f"Server crashed: {e}")
         logger.error(f"Traceback: {traceback.format_exc()}")
         sys.exit(1)
+
+# Track server start time for uptime calculation
+start_time = time.time()
+
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    """Display a table of models and debug info, formatted for browser or curl."""
+    # Gather model information
+    models_info = await list_models()  # Reuse existing endpoint logic
+    model_table = []
+    for model in models_info:
+        status = "LOADED" if model.is_loaded else "...."
+        model_table.append((model.model_id, status, model.model_type))
+
+    # Gather debug information
+    uptime_seconds = time.time() - start_time
+    uptime_str = f"{int(uptime_seconds // 3600)}h {int((uptime_seconds % 3600) // 60)}m {int(uptime_seconds % 60)}s"
+    
+    # Library versions
+    libraries = {
+        "fastapi": pkg_resources.get_distribution("fastapi").version,
+        "uvicorn": pkg_resources.get_distribution("uvicorn").version,
+        "torch": pkg_resources.get_distribution("torch").version,
+        "transformers": pkg_resources.get_distribution("transformers").version,
+        "psutil": pkg_resources.get_distribution("psutil").version,
+    }
+    
+    # Memory and GPU info
+    memory = await memory_info()
+    gpu_info = f"GPU: {DEVICE}" if DEVICE == "cuda" else "GPU: Not available"
+    if DEVICE == "cuda":
+        gpu_info += f", Total: {memory['total_gpu']:.2f} GB, Used: {memory['used_gpu']:.2f} GB ({memory['gpu_percent']:.1f}%)"
+
+    debug_info = [
+        ("Uptime", uptime_str),
+        ("Device", DEVICE),
+        ("GPU Info", gpu_info),
+        ("RAM", f"Total: {memory['total_ram']:.2f} GB, Used: {memory['used_ram']:.2f} GB ({memory['ram_percent']:.1f}%)"),
+        ("Python Version", sys.version.split()[0]),
+        ("FastAPI Version", libraries["fastapi"]),
+        ("Uvicorn Version", libraries["uvicorn"]),
+        ("PyTorch Version", libraries["torch"]),
+        ("Transformers Version", libraries["transformers"]),
+        ("Psutil Version", libraries["psutil"]),
+        ("Current Model", current_model_id or "None"),
+        ("Log File", "/app/logs/voice_service.log"),
+    ]
+
+    # Check Accept header to decide response format
+    accept_header = request.headers.get("accept", "").lower()
+    is_browser = "text/html" in accept_header or "*/ *" in accept_header or not accept_header
+
+    if is_browser:
+        # HTML response for browsers
+        html_content = """
+        <html>
+        <head>
+            <title>ORAC - Voice Service</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                table { border-collapse: collapse; width: 80%; margin-bottom: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                h2 { color: #333; }
+            </style>
+        </head>
+        <body>
+            <h2>ORAC - Omniscient Reactive Algorithmic Core</h2>
+            <h3>Available Models</h3>
+            <table>
+                <tr><th>Model ID</th><th>Status</th><th>Type</th></tr>
+        """
+        for model_id, status, model_type in model_table:
+            html_content += f"<tr><td>{model_id}</td><td>{status}</td><td>{model_type}</td></tr>"
+        
+        html_content += """
+            </table>
+            <h3>System Information</h3>
+            <table>
+                <tr><th>Metric</th><th>Value</th></tr>
+        """
+        for metric, value in debug_info:
+            html_content += f"<tr><td>{metric}</td><td>{value}</td></tr>"
+        
+        html_content += """
+            </table>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html_content)
+    
+    else:
+        # Plain text response for curl
+        max_model_len = max(len(model_id) for model_id, _, _ in model_table) if model_table else 10
+        max_status_len = 6  # Length of "LOADED" or "...."
+        max_type_len = max(len(model_type) for _, _, model_type in model_table) if model_table else 10
+        
+        text_content = "ORAC - Omniscient Reactive Algorithmic Core\n\n"
+        text_content += "Available Models\n"
+        text_content += f"{'Model ID':<{max_model_len}}  {'Status':<{max_status_len}}  {'Type':<{max_type_len}}\n"
+        text_content += "-" * max_model_len + "  " + "-" * max_status_len + "  " + "-" * max_type_len + "\n"
+        
+        for model_id, status, model_type in model_table:
+            text_content += f"{model_id:<{max_model_len}}  {status:<{max_status_len}}  {model_type:<{max_type_len}}\n"
+        
+        text_content += "\nSystem Information\n"
+        max_metric_len = max(len(metric) for metric, _ in debug_info)
+        text_content += f"{'Metric':<{max_metric_len}}  Value\n"
+        text_content += "-" * max_metric_len + "  " + "-" * 50 + "\n"
+        
+        for metric, value in debug_info:
+            text_content += f"{metric:<{max_metric_len}}  {value}\n"
+        
+        return PlainTextResponse(content=text_content)
