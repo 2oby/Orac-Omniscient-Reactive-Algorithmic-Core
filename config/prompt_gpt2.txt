@@ -1,0 +1,18 @@
+Smart home command: "{command}"
+
+Task: Convert to JSON with fields:
+device - what device to control
+location - where the device is located (or null)
+action - what to do with the device
+value - additional parameter (or null)
+
+Example 1: "Turn on kitchen lights"
+{{"device": "lights", "location": "kitchen", "action": "turn_on", "value": null}}
+
+Example 2: "Set thermostat to 72 degrees"
+{{"device": "thermostat", "location": null, "action": "set", "value": "72"}}
+
+Example 3: "Play jazz in living room"
+{{"device": "music_player", "location": "living room", "action": "play", "value": "jazz"}}
+
+JSON OUTPUT:

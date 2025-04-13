@@ -1,0 +1,90 @@
+# Smart Home Command Validation Configuration
+
+# Supported devices
+devices:
+  - lights
+  - thermostat
+  - tv
+  - music_player
+  - fan
+  - blinds
+  - door
+  - garage_door
+  - curtains
+  - speakers
+  - vacuum
+  - air_conditioner
+  - heater
+
+# Supported locations
+locations:
+  - kitchen
+  - living room
+  - bedroom
+  - master bedroom
+  - bathroom
+  - office
+  - hallway
+  - dining room
+  - garage
+  - basement
+  - attic
+  - porch
+  - backyard
+  - front yard
+
+# Supported actions
+actions:
+  - turn_on
+  - turn_off
+  - set
+  - adjust
+  - open
+  - close
+  - play
+  - pause
+  - stop
+  - start
+  - increase
+  - decrease
+  - lock
+  - unlock
+
+# Location synonyms and expansions
+synonyms:
+  locations:
+    all rooms:
+      - kitchen
+      - living room
+      - bedroom
+      - bathroom
+      - office
+      - hallway
+      - dining room
+    house:
+      - kitchen
+      - living room
+      - bedroom
+      - bathroom
+      - office
+      - hallway
+      - dining room
+    downstairs:
+      - kitchen
+      - living room
+      - hallway
+      - dining room
+    upstairs:
+      - bedroom
+      - bathroom
+      - office
+  
+  devices:
+    lights:
+      - light
+      - lamp
+      - lighting
+    music_player:
+      - speaker
+      - music
+      - radio

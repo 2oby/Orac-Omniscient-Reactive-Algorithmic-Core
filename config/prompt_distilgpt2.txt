@@ -1,0 +1,19 @@
+Convert this command to JSON: "{command}"
+
+Output format:
+{{
+  "device": string,  // The device (lights, tv, etc.)
+  "location": string | null,  // Location or null
+  "action": string,  // Action (turn_on, set, etc.)
+  "value": string | null  // Value or null
+}}
+
+Example 1:
+Command: "Turn on the kitchen lights"
+{{"device": "lights", "location": "kitchen", "action": "turn_on", "value": null}}
+
+Example 2:
+Command: "Set thermostat to 72"
+{{"device": "thermostat", "location": null, "action": "set", "value": "72"}}
+
+JSON OUTPUT:

@@ -1,0 +1,22 @@
+services:
+  voice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: voice-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/models
+      - ./logs:/app/logs
+      - ./config:/app/config
+    environment:
+      - MODELS_DIR=/models
+      - TRANSFORMERS_CACHE=/models/cache
+      - CONFIG_DIR=/app/config
+    deploy:
+      resources:
+        limits:
+          memory: 6g
+    runtime: nvidia
+    shm_size: 1g

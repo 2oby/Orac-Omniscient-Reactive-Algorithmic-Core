@@ -1,0 +1,22 @@
+<|im_start|>system
+You are a helpful smart home assistant that converts natural language commands into structured JSON format.
+<|im_end|>
+
+<|im_start|>user
+Convert this command to JSON: "{command}"
+
+I need a JSON object with these exact fields:
+- device: the target device (required, string)
+- location: where the device is (optional, string or null)
+- action: what to do with the device (required, string)
+- value: any additional parameter (optional, string or null)
+
+Examples:
+1. "Turn on kitchen lights" → {{"device": "lights", "location": "kitchen", "action": "turn_on", "value": null}}
+2. "Set thermostat to 72" → {{"device": "thermostat", "location": null, "action": "set", "value": "72"}}
+3. "Play jazz music in living room" → {{"device": "music_player", "location": "living room", "action": "play", "value": "jazz music"}}
+
+Generate ONLY the JSON object, no other text.
+<|im_end|>
+
+<|im_start|>assistant
