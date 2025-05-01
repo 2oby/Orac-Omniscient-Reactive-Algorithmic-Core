@@ -249,13 +249,10 @@ async def generate_raw(model, tokenizer, prompt: str, temp: float, mx: int) -> s
             return_tensors="pt", 
             padding=True, 
             truncation=True, 
-            max_length=max_length
+            max_length=max_length,
+            return_token_type_ids=False  # Explicitly disable token_type_ids
         )
         
-        # Remove token_type_ids if not supported by the model
-        if "token_type_ids" not in tokenizer.model_input_names:
-            enc.pop("token_type_ids", None)
-            
         # Move inputs to device
         inp = {k: v.to(DEVICE) for k, v in enc.items()}
         
