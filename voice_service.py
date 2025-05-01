@@ -145,8 +145,8 @@ async def load_model(mid: str) -> None:
             model.resize_token_embeddings(len(tokenizer))
 
         loaded_models[fid] = {"model": model, "tokenizer": tokenizer, "loaded_at": datetime.utcnow()}
-        current_model_id = fid = {"model": model, "tokenizer": tokenizer, "loaded_at": datetime.utcnow()}
         current_model_id = fid
+
 
 # ---------------- Generation helper ----------------
 async def generate_raw(model, tokenizer, prompt: str, temp: float, mx: int) -> str:
