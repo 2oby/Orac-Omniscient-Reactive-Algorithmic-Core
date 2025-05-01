@@ -182,22 +182,39 @@ async def unload_model(model_id: str):
         
         logger.info(f"Unloading model: {full_model_id}")
         try:
+            # Get references to model and tokenizer
             model = loaded_models[full_model_id]["model"]
             tokenizer = loaded_models[full_model_id]["tokenizer"]
+            
+            # Move model to CPU before deletion to ensure CUDA memory is freed
+            if hasattr(model, 'to'):
+                model.to('cpu')
+            
+            # Delete model and tokenizer
             del model
             del tokenizer
+            
+            # Remove from loaded_models
             del loaded_models[full_model_id]
+            
+            # Force garbage collection
             import gc
             gc.collect()
+            
+            # Clear CUDA cache if using GPU
             if DEVICE == "cuda":
                 torch.cuda.empty_cache()
                 torch.cuda.synchronize()  # Ensure CUDA operations complete
+            
+            # Update current_model_id if needed
             if current_model_id == full_model_id:
                 current_model_id = None
+            
             logger.info(f"Successfully unloaded model: {full_model_id}")
             return True
         except Exception as e:
             logger.error(f"Error unloading model {full_model_id}: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return False
 
 async def load_model(model_id: str, force_reload: bool = False):
@@ -327,21 +344,31 @@ async def generate_smart_home_command(request: QueryRequest, background_tasks: B
     
     try:
         if not request.model_id:
-            for model_id in RECOMMENDED_MODELS:
-                try:
-                    await load_model(model_id)
-                    request.model_id = model_id
-                    model_used = model_id
-                    break
-                except Exception as e:
-                    logger.warning(f"Failed to load recommended model {model_id}: {e}")
-            if not request.model_id or not current_model_id:
-                raise HTTPException(status_code=500, detail="Could not find a suitable model")
+            # If no model specified, use current model if one is loaded
+            if current_model_id:
+                model_used = current_model_id
+                logger.info(f"Using currently loaded model: {current_model_id}")
+            else:
+                # Try to load a recommended model if none is loaded
+                for model_id in RECOMMENDED_MODELS:
+                    try:
+                        await load_model(model_id)
+                        request.model_id = model_id
+                        model_used = model_id
+                        break
+                    except Exception as e:
+                        logger.warning(f"Failed to load recommended model {model_id}: {e}")
+                if not request.model_id or not current_model_id:
+                    raise HTTPException(status_code=500, detail="Could not find a suitable model")
         else:
+            # If a specific model is requested, load it
             await load_model(request.model_id)
             model_used = request.model_id
             if request.model_id.lower() in MODEL_ALIASES:
                 model_used = f"{request.model_id} ({MODEL_ALIASES[request.model_id.lower()]})"
+        
+        if not current_model_id or current_model_id not in loaded_models:
+            raise HTTPException(status_code=500, detail="No model is currently loaded")
         
         model = loaded_models[current_model_id]["model"]
         tokenizer = loaded_models[current_model_id]["tokenizer"]
