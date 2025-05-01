@@ -118,19 +118,34 @@ async def load_model(mid: str) -> None:
     fid = MODEL_ALIASES.get(mid.lower(), mid)
     async with model_lock:
         if fid in loaded_models:
-            current_model_id = fid; return
+            current_model_id = fid
+            return
         if current_model_id:
             await unload_model(current_model_id)
-        kwargs = {"trust_remote_code": True, "cache_dir": os.path.join(MODELS_DIR, "cache")}
-        tokenizer = AutoTokenizer.from_pretrained(fid, **kwargs)
+
+        cache = os.path.join(MODELS_DIR, "cache")
+        t_kwargs = {"trust_remote_code": True, "cache_dir": cache}
+        tokenizer = AutoTokenizer.from_pretrained(fid, **t_kwargs)
+
+        # -------- robust pad‑token handling --------
         if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token or tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+            if tokenizer.eos_token:
+                tokenizer.pad_token = tokenizer.eos_token  # reuse EOS token
+            else:
+                tokenizer.add_special_tokens({"pad_token": "[PAD]"})  # returns num_added_tokens (int)
+                tokenizer.pad_token = "[PAD]"  # now a real string value
+
+        m_kwargs = {"trust_remote_code": True, "cache_dir": cache}
         if DEVICE == "cuda":
-            kwargs.update({"device_map": "auto", "torch_dtype": torch.float16})
-        model = AutoModelForCausalLM.from_pretrained(fid, **kwargs)
-        if tokenizer.pad_token == "[PAD]":
+            m_kwargs.update({"device_map": "auto", "torch_dtype": torch.float16})
+        model = AutoModelForCausalLM.from_pretrained(fid, **m_kwargs)
+
+        # if we added a new special token, make sure model gets resized
+        if model.config.vocab_size < len(tokenizer):
             model.resize_token_embeddings(len(tokenizer))
+
         loaded_models[fid] = {"model": model, "tokenizer": tokenizer, "loaded_at": datetime.utcnow()}
+        current_model_id = fid = {"model": model, "tokenizer": tokenizer, "loaded_at": datetime.utcnow()}
         current_model_id = fid
 
 # ---------------- Generation helper ----------------
@@ -219,7 +234,18 @@ async def root(req: Request):
     for mid,st,tp in rows:
         loaded=st=="LOADED"
         html+=f"<tr><td>{mid}</td><td>{st}</td><td>{tp}</td><td><button onclick=act('{mid}','load') {'disabled' if loaded else ''}>Load</button><button onclick=act('{mid}','unload') {'disabled' if not loaded else ''}>Unload</button></td></tr>"
-    html+="</table><div id=msg></div><script>async function act(id,ac){const r=await fetch('/'+ac+'-model?model_id='+encodeURIComponent(id));const d=await r.json();document.getElementById('msg').textContent=d.message;setTimeout(()=>location.reload(),500);}</script></body></html>"
+    html+="</table><div id=msg></div><script>
+function flash(msg,cls){const m=document.getElementById('msg');m.textContent=msg;m.style.color=cls==='ok'?'#3c763d':'#a94442';}
+async function act(btn,id,ac){
+  const orig=btn.textContent;btn.disabled=true;btn.textContent=ac==='load'?'Loading…':'Unloading…';
+  try{
+    const r=await fetch(`/${ac}-model?model_id=`+encodeURIComponent(id));
+    const d=await r.json();
+    flash(d.message,r.ok?'ok':'err');
+  }catch(e){flash(e.message,'err');}
+  setTimeout(()=>location.reload(),800);
+}
+</script></body></html>"
     return HTMLResponse(html)
 
 # ---------------- Entrypoint -----------------------
