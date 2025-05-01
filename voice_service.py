@@ -73,11 +73,14 @@ MODEL_ALIASES = {
     "pythia": "EleutherAI/pythia-70m",
     "phi2": "microsoft/phi-2",
     "mistral": "nilq/mistral-1L-tiny",
-    "qwen": "Qwen/Qwen1.5-0.5B-Chat"
+    "qwen": "Qwen/Qwen1.5-0.5B-Chat",
+    "qwen3-1.7b": "Qwen/Qwen3-1.7B-FP8",
+    "qwen3-0.6b": "Qwen/Qwen3-0.6B",
+    "qwen3-0.6b-fp8": "Qwen/Qwen3-0.6B-FP8"
 }
 
 # Updated list with aliases, prioritizing TinyLlama for better performance
-RECOMMENDED_MODELS = ["tinyllama", "distilgpt2", "gpt2"]
+RECOMMENDED_MODELS = ["tinyllama", "qwen3-0.6b-fp8", "qwen3-0.6b", "qwen3-1.7b", "distilgpt2", "gpt2"]
 
 loaded_models = {}
 current_model_id = None
