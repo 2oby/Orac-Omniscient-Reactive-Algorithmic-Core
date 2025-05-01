@@ -190,9 +190,11 @@ async def unload_model(mid: str) -> bool:
             bundle["model"].to("cpu")
         except Exception:
             pass
-        del bundle; gc.collect()
+        del bundle
+            gc.collect()
             if DEVICE == "cuda":
-            torch.cuda.empty_cache(); torch.cuda.synchronize()
+                torch.cuda.empty_cache()
+            torch.cuda.synchronize()
         if current_model_id == fid:
                 current_model_id = None
             return True
@@ -221,7 +223,11 @@ async def load_model(mid: str) -> None:
 
         m_kwargs = {"trust_remote_code": True, "cache_dir": cache}
             if DEVICE == "cuda":
-            m_kwargs.update({"device_map": "auto", "torch_dtype": torch.float16})
+            m_kwargs.update({
+                "device_map": "auto",
+                "torch_dtype": torch.float16,
+                "low_cpu_mem_usage": True
+            })
         model = AutoModelForCausalLM.from_pretrained(fid, **m_kwargs)
 
         # if we added a new special token, make sure model gets resized
