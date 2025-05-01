@@ -321,33 +321,56 @@ async def load_model(model_id: str, force_reload: bool = False):
             logger.error(f"Traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=f"Failed to load model: {str(e)}")
 
-async def generate_raw_text(model, tokenizer, prompt: str, temperature: float = 0.7, max_tokens: int = 150):
-    logger.info(f"Generating raw text with temperature={temperature}, max_tokens={max_tokens}")
-    try:
-        inputs = tokenizer(prompt, return_tensors="pt", padding=True).to(DEVICE)
-        logger.debug("Inputs prepared for generation")
+async def generate_raw_text(
+    model: Any,
+    tokenizer: Any,
+    prompt: str,
+    temperature: float = 0.7,
+    max_tokens: int = 100
+) -> str:
+    """
+    Generate raw text from the model using the provided prompt.
+    
+    Args:
+        model: The loaded model
+        tokenizer: The model's tokenizer
+        prompt: The input prompt
+        temperature: Sampling temperature (default: 0.7)
+        max_tokens: Maximum tokens to generate (default: 100)
         
+    Returns:
+        Generated text as a string
+    """
+    try:
+        # Tokenize as before
+        raw_inputs = tokenizer(prompt, return_tensors="pt", padding=True)
+        
+        # If the tokenizer/model doesn't expect token_type_ids, drop them
+        unsupported = "token_type_ids" not in tokenizer.model_input_names
+        if unsupported and "token_type_ids" in raw_inputs:
+            del raw_inputs["token_type_ids"]
+        
+        # Move everything to device
+        inputs = {k: v.to(DEVICE) for k, v in raw_inputs.items()}
+        
+        # Generate text
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
                 max_new_tokens=max_tokens,
                 temperature=temperature,
                 do_sample=True,
-                top_k=50,
-                top_p=0.95,
-                pad_token_id=tokenizer.pad_token_id,
-                eos_token_id=tokenizer.eos_token_id
+                pad_token_id=tokenizer.eos_token_id
             )
         
-        raw_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        if raw_text.startswith(prompt):
-            raw_text = raw_text[len(prompt):].strip()
-        logger.info(f"Raw generation complete: {raw_text[:100]}..." if len(raw_text) > 100 else f"Raw generation complete: {raw_text}")
-        return raw_text
+        # Decode and return the generated text
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return generated_text
+        
     except Exception as e:
-        logger.error(f"Error in raw text generation: {str(e)}")
+        logger.error(f"Error in generate_raw_text: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise e
+        raise
 
 @app.post("/smart-home/command", response_model=QueryResponse)
 async def generate_smart_home_command(request: QueryRequest, background_tasks: BackgroundTasks):
