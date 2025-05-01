@@ -29,7 +29,8 @@ from asyncio import Lock
 from response_to_JSON_integration import (
     generate_json_from_response, 
     create_prompt, 
-    SmartHomeCommand
+    SmartHomeCommand,
+    process_command
 )
 
 # Track server start time for uptime calculation
@@ -384,23 +385,8 @@ async def generate_smart_home_command(request: QueryRequest, background_tasks: B
         model = loaded_models[current_model_id]["model"]
         tokenizer = loaded_models[current_model_id]["tokenizer"]
         
-        prompt = f"""Convert this command to JSON: "{request.prompt}"
-
-Output format:
-{{
-  "device": string,  // The device (lights, tv, etc.)
-  "location": string | null,  // Location or null
-  "action": string,  // Action (turn_on, set, etc.)
-  "value": string | null  // Value or null
-}}
-
-Examples:
-1. "Turn on the kitchen lights" -> {{"device": "lights", "location": "kitchen", "action": "turn_on", "value": null}}
-2. "Set thermostat to 72" -> {{"device": "thermostat", "location": null, "action": "set", "value": "72"}}
-3. "Turn off the TV" -> {{"device": "tv", "location": null, "action": "turn_off", "value": null}}
-
-JSON OUTPUT:
-"""
+        # Use the prompt template system
+        prompt = create_prompt(request.prompt, current_model_id)
         logger.info(f"Created prompt: {prompt}")
         
         command_json = None
@@ -427,37 +413,26 @@ JSON OUTPUT:
         
         logger.info("Using regex-based parsing for structured output...")
         try:
-            command_json = await generate_json_from_response(raw_text)
-            if not command_json:
-                logger.warning("Regex parsing failed, attempting fallback...")
-                import re
-                json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
-                if json_match:
-                    command_json = json.loads(json_match.group(0))
-                    logger.info(f"Fallback parsing succeeded: {command_json}")
-                else:
-                    error_msg = "Failed to extract valid command from model output"
+            command_json = process_command(raw_text)
+            if command_json:
+                logger.info(f"Successfully extracted JSON: {command_json}")
+            else:
+                error_msg = "Failed to extract valid JSON from model output"
+                logger.warning(error_msg)
         except Exception as e:
-            logger.error(f"JSON parsing failed: {str(e)}")
-            error_msg = f"Failed to parse JSON: {str(e)}"
+            error_msg = f"Error processing command: {str(e)}"
+            logger.error(error_msg)
         
-        response = {
+        return {
             "command": command_json,
             "raw_generation": raw_text,
             "model_used": model_used,
             "error": error_msg
         }
-        logger.info(f"Returning response with command: {json.dumps(command_json) if command_json else None}")
-        return response
     except Exception as e:
-        logger.error(f"Error processing request: {str(e)}")
+        logger.error(f"Error in generate_smart_home_command: {str(e)}")
         logger.error(f"Traceback: {traceback.format_exc()}")
-        return {
-            "command": None, 
-            "raw_generation": "", 
-            "model_used": model_used, 
-            "error": str(e)
-        }
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/models", response_model=List[ModelInfo])
 async def list_models():
