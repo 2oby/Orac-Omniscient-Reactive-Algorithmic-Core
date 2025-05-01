@@ -178,6 +178,18 @@ class ModelInfo(BaseModel):
     model_id: str; is_loaded: bool; is_current: bool = False; model_type: str = ""
     class Config: protected_namespaces = ()
 
+# ---------------- Model configs --------------------
+MODEL_CONFIGS = {
+    "microsoft/phi-2": {
+        "temperature": 0.7,  # Lower temperature for more stable outputs
+        "do_sample": False,  # Disable sampling for deterministic outputs
+        "return_token_type_ids": False
+    },
+    "nilq/mistral-1L-tiny": {
+        "return_token_type_ids": False
+    }
+}
+
 # ---------------- Model lifecycle ------------------
 async def unload_model(mid: str) -> bool:
     global current_model_id
@@ -240,8 +252,12 @@ async def load_model(mid: str) -> None:
 # ---------------- Generation helper ----------------
 async def generate_raw(model, tokenizer, prompt: str, temp: float, mx: int) -> str:
     try:
+        # Get model-specific config
+        model_id = next((mid for mid, bundle in loaded_models.items() if bundle["model"] is model), None)
+        config = MODEL_CONFIGS.get(model_id, {})
+        
         # Handle potential tokenizer overflow by ensuring max_length is within safe bounds
-        max_length = min(tokenizer.model_max_length, 2048)  # Use a safe default max length
+        max_length = min(tokenizer.model_max_length, 2048)
         
         # Tokenize the input
         enc = tokenizer(
@@ -250,19 +266,19 @@ async def generate_raw(model, tokenizer, prompt: str, temp: float, mx: int) -> s
             padding=True, 
             truncation=True, 
             max_length=max_length,
-            return_token_type_ids=False  # Explicitly disable token_type_ids
+            return_token_type_ids=config.get("return_token_type_ids", True)
         )
         
         # Move inputs to device
         inp = {k: v.to(DEVICE) for k, v in enc.items()}
         
-        # Generate with simplified parameters
+        # Generate with model-specific parameters
         with torch.no_grad():
             out = model.generate(
                 **inp,
                 max_new_tokens=mx,
-                temperature=temp,
-                do_sample=True,
+                temperature=config.get("temperature", temp),
+                do_sample=config.get("do_sample", True),
                 pad_token_id=tokenizer.eos_token_id
             )
             
