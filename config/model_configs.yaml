@@ -9,7 +9,8 @@ nilq/mistral-1L-tiny:
 
 EleutherAI/pythia-70m:
   return_token_type_ids: false
-  temperature: 0.7  # Slightly lower temperature for more focused outputs
-  do_sample: true   # Enable sampling for more natural responses
+  temperature: 1.0  # Use default temperature
+  do_sample: false  # Disable sampling to avoid probability issues
+  num_beams: 1      # Use greedy decoding
 
 # Add more model configurations below 
