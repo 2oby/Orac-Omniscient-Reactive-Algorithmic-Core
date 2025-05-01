@@ -6,7 +6,7 @@ WORKDIR /app
 RUN pip install --upgrade pip
 RUN pip install "fastapi>=0.104.1" \
                 "uvicorn>=0.24.0" \
-                "transformers>=4.38.0" \
+                "transformers>=4.51.0" \
                 "pydantic==2.4.2" \
                 "accelerate>=0.22.0" \
                 "bitsandbytes>=0.41.0" \
