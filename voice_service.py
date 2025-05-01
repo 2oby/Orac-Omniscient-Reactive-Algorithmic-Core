@@ -229,36 +229,135 @@ async def root(req: Request):
         txt+="\nUptime: "+str(uptime)+"s\nRAM used: {:.1f}%".format(mem['ram_percent'])
         return PlainTextResponse(txt)
     # --- HTML ---
-    html="<html><head><title>ORAC</title><style>body{font-family:sans-serif;margin:20px}table{border-collapse:collapse}th,td{border:1px solid #ddd;padding:6px}</style></head><body>"
-    html+="<h2>ORAC – Voice Service</h2><table><tr><th>ID</th><th>Status</th><th>Type</th><th>Action</th></tr>"
+    html="""<html><head><title>ORAC</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        table { border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 6px; }
+        .prompt-section { margin: 20px 0; }
+        .prompt-input { width: 100%; padding: 8px; margin: 10px 0; }
+        .response-section { margin: 20px 0; }
+        .json-response { 
+            background: #f5f5f5; 
+            padding: 10px; 
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .json-highlight { 
+            color: #0066cc; 
+            font-weight: bold; 
+        }
+        button { 
+            padding: 6px 12px; 
+            margin: 0 4px;
+            cursor: pointer;
+        }
+        button:disabled { 
+            opacity: 0.5; 
+            cursor: not-allowed;
+        }
+        #msg { 
+            margin-top: 10px; 
+            font-weight: bold; 
+        }
+        .loading { 
+            opacity: 0.5; 
+            pointer-events: none; 
+        }
+    </style>
+    </head>
+    <body>
+    <h2>ORAC – Voice Service</h2>
+    
+    <div class="prompt-section">
+        <h3>Test Prompt</h3>
+        <textarea id="prompt" class="prompt-input" rows="3" placeholder="Enter your command here..."></textarea>
+        <button onclick="submitPrompt()" id="submitBtn">Submit</button>
+    </div>
+    
+    <div class="response-section" id="responseSection" style="display: none;">
+        <h3>Response</h3>
+        <div id="rawResponse" class="json-response"></div>
+        <div id="jsonResponse" class="json-response"></div>
+    </div>
+    
+    <h3>Available Models</h3>
+    <table>
+        <tr><th>ID</th><th>Status</th><th>Type</th><th>Action</th></tr>"""
+    
     for mid,st,tp in rows:
         loaded=st=="LOADED"
         html+=f"<tr><td>{mid}</td><td>{st}</td><td>{tp}</td><td><button onclick=\"act(this,'{mid}','load')\" {'disabled' if loaded else ''}>Load</button><button onclick=\"act(this,'{mid}','unload')\" {'disabled' if not loaded else ''}>Unload</button></td></tr>"
+    
     html += """
-</table>
-<div id='msg' style='margin-top:10px;font-weight:bold;'></div>
-<script>
-function flash(msg, ok) {
-  const m = document.getElementById('msg');
-  m.textContent = msg;
-  m.style.color = ok ? '#3c763d' : '#a94442';
-}
-async function act(btn,id,action){
-  const orig=btn.textContent;
-  btn.disabled=true;
-  btn.textContent = action==='load' ? 'Loading…' : 'Unloading…';
-  try{
-      const res = await fetch(`/${action}-model?model_id=`+encodeURIComponent(id));
-      const data = await res.json();
-      flash(data.message, res.ok);
-  }catch(e){
-      flash(e.message,false);
-  }
-  setTimeout(()=>location.reload(),800);
-}
-</script>
-</body></html>
-"""
+    </table>
+    <div id='msg' style='margin-top:10px;font-weight:bold;'></div>
+    
+    <script>
+    function flash(msg, ok) {
+        const m = document.getElementById('msg');
+        m.textContent = msg;
+        m.style.color = ok ? '#3c763d' : '#a94442';
+    }
+    
+    async function act(btn,id,action){
+        const orig=btn.textContent;
+        btn.disabled=true;
+        btn.textContent = action==='load' ? 'Loading…' : 'Unloading…';
+        try{
+            const res = await fetch(`/${action}-model?model_id=`+encodeURIComponent(id));
+            const data = await res.json();
+            flash(data.message, res.ok);
+        }catch(e){
+            flash(e.message,false);
+        }
+        setTimeout(()=>location.reload(),800);
+    }
+    
+    async function submitPrompt() {
+        const prompt = document.getElementById('prompt').value;
+        if (!prompt) return;
+        
+        const submitBtn = document.getElementById('submitBtn');
+        const responseSection = document.getElementById('responseSection');
+        const rawResponse = document.getElementById('rawResponse');
+        const jsonResponse = document.getElementById('jsonResponse');
+        
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Processing...';
+        responseSection.style.display = 'none';
+        
+        try {
+            const res = await fetch('/smart-home/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: prompt })
+            });
+            const data = await res.json();
+            
+            // Display raw response
+            rawResponse.textContent = data.raw_generation;
+            
+            // Display JSON response if available
+            if (data.command) {
+                jsonResponse.innerHTML = '<span class="json-highlight">' + 
+                    JSON.stringify(data.command, null, 2) + '</span>';
+            } else {
+                jsonResponse.textContent = 'No JSON command found';
+            }
+            
+            responseSection.style.display = 'block';
+            flash(data.error || 'Success', !data.error);
+        } catch (e) {
+            flash(e.message, false);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit';
+        }
+    }
+    </script>
+    </body></html>"""
     return HTMLResponse(html)
 
 # ---------------- Entrypoint -----------------------
