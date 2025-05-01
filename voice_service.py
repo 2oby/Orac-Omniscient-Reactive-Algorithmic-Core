@@ -19,24 +19,56 @@ from asyncio import Lock
 
 # ---------------- Project‑local --------------------
 try:
-    from response_to_JSON_integration import create_prompt, process_command
+    from response_to_JSON_integration import create_prompt, process_command, load_prompt_template
 except ImportError as e:
     logging.warning(f"Original integration module not found: {e}")
     # Define fallback functions
+    def load_prompt_template(model_id: str) -> Optional[str]:
+        """Load model-specific prompt template from config directory."""
+        # Clean the model_id to create a valid filename
+        clean_model_id = model_id.replace('/', '_').replace('.', '_').replace('-', '_').lower()
+        
+        # First try exact model ID match
+        template_path = os.path.join(CONFIG_DIR, f"prompt_{clean_model_id}.txt")
+        
+        if not os.path.exists(template_path):
+            # Try to find a generic template for the model family
+            if "gpt2" in model_id.lower():
+                template_path = os.path.join(CONFIG_DIR, "prompt_gpt2.txt")
+            elif "llama" in model_id.lower():
+                template_path = os.path.join(CONFIG_DIR, "prompt_llama.txt")
+            else:
+                # Default template
+                template_path = os.path.join(CONFIG_DIR, "prompt_default.txt")
+        
+        try:
+            if os.path.exists(template_path):
+                with open(template_path, 'r') as f:
+                    return f.read()
+            else:
+                logger.warning(f"Prompt template not found for {model_id} at {template_path}")
+                return None
+        except Exception as e:
+            logger.error(f"Error loading prompt template for {model_id}: {e}")
+            return None
+
     def create_prompt(command: str, model_id: str) -> str:
         """Create a prompt for the model to convert a command to JSON."""
-        # Simple template that avoids complex formatting
-        return f"""You are a smart home assistant. Convert the following command into a structured JSON object.
-
-USER COMMAND: "{command}"
-
-Return ONLY a valid JSON object with these fields:
-- device: the device to control (e.g., "lights", "thermostat", "tv")
-- location: where the device is (e.g., "kitchen", "bedroom") or null if unspecified
-- action: the action to perform (e.g., "turn_on", "turn_off", "set", "adjust")
-- value: any additional value (e.g., temperature value, brightness level) or null if none
-
-JSON OUTPUT:"""
+        # Get the appropriate template for the model
+        template = load_prompt_template(model_id)
+        if not template:
+            # If no template is found, use a minimal fallback
+            return f'Convert this command to JSON: "{command}"\n\nOutput format:\n{{"device": string, "location": string | null, "action": string, "value": string | null}}'
+        
+        # Escape any quotes in the command to prevent format string issues
+        escaped_command = command.replace('"', '\\"')
+        
+        try:
+            return template.format(command=escaped_command)
+        except Exception as e:
+            logger.error(f"Error formatting prompt template: {e}")
+            # Use minimal fallback if formatting fails
+            return f'Convert this command to JSON: "{escaped_command}"\n\nOutput format:\n{{"device": string, "location": string | null, "action": string, "value": string | null}}'
 
     def process_command(raw_text: str) -> dict:
         """Extract JSON from model output."""
