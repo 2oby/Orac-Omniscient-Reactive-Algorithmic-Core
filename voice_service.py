@@ -191,11 +191,11 @@ async def unload_model(mid: str) -> bool:
         except Exception:
             pass
         del bundle; gc.collect()
-        if DEVICE == "cuda":
+            if DEVICE == "cuda":
             torch.cuda.empty_cache(); torch.cuda.synchronize()
         if current_model_id == fid:
-            current_model_id = None
-        return True
+                current_model_id = None
+            return True
 
 async def load_model(mid: str) -> None:
     global current_model_id
@@ -206,13 +206,13 @@ async def load_model(mid: str) -> None:
             return
         if current_model_id:
             await unload_model(current_model_id)
-
+        
         cache = os.path.join(MODELS_DIR, "cache")
         t_kwargs = {"trust_remote_code": True, "cache_dir": cache}
         tokenizer = AutoTokenizer.from_pretrained(fid, **t_kwargs)
 
         # -------- robust pad‑token handling --------
-        if tokenizer.pad_token is None:
+            if tokenizer.pad_token is None:
             if tokenizer.eos_token:
                 tokenizer.pad_token = tokenizer.eos_token  # reuse EOS token
             else:
@@ -220,7 +220,7 @@ async def load_model(mid: str) -> None:
                 tokenizer.pad_token = "[PAD]"  # now a real string value
 
         m_kwargs = {"trust_remote_code": True, "cache_dir": cache}
-        if DEVICE == "cuda":
+            if DEVICE == "cuda":
             m_kwargs.update({"device_map": "auto", "torch_dtype": torch.float16})
         model = AutoModelForCausalLM.from_pretrained(fid, **m_kwargs)
 
@@ -237,6 +237,7 @@ async def generate_raw(model, tokenizer, prompt: str, temp: float, mx: int) -> s
         # Handle potential tokenizer overflow by ensuring max_length is within safe bounds
         max_length = min(tokenizer.model_max_length, 2048)  # Use a safe default max length
         
+        # Tokenize the input
         enc = tokenizer(
             prompt, 
             return_tensors="pt", 
@@ -245,25 +246,24 @@ async def generate_raw(model, tokenizer, prompt: str, temp: float, mx: int) -> s
             max_length=max_length
         )
         
+        # Remove token_type_ids if not supported by the model
         if "token_type_ids" not in tokenizer.model_input_names:
             enc.pop("token_type_ids", None)
             
+        # Move inputs to device
         inp = {k: v.to(DEVICE) for k, v in enc.items()}
         
+        # Generate with simplified parameters
         with torch.no_grad():
             out = model.generate(
-                **inp, 
-                max_new_tokens=mx, 
-                temperature=temp, 
-                do_sample=True, 
+                **inp,
+                max_new_tokens=mx,
+                temperature=temp,
+                do_sample=True,
                 pad_token_id=tokenizer.eos_token_id
             )
             
         return tokenizer.decode(out[0], skip_special_tokens=True)
-    
-    except OverflowError as e:
-        logger.error(f"Tokenizer overflow error: {e}")
-        return f"Error: Input prompt too long or complex for this model."
     
     except Exception as e:
         logger.error(f"Generation error: {e}")
@@ -376,9 +376,9 @@ async def root(req: Request):
             opacity: 0.5; 
             pointer-events: none; 
         }
-    </style>
-    </head>
-    <body>
+            </style>
+        </head>
+        <body>
     <h2>ORAC – Voice Service</h2>
     
     <div class="prompt-section">
@@ -393,8 +393,8 @@ async def root(req: Request):
         <div id="jsonResponse" class="json-response"></div>
     </div>
     
-    <h3>Available Models</h3>
-    <table>
+            <h3>Available Models</h3>
+            <table>
         <tr><th>ID</th><th>Status</th><th>Type</th><th>Action</th></tr>"""
     
     for mid,st,tp in rows:
@@ -402,7 +402,7 @@ async def root(req: Request):
         html+=f"<tr><td>{mid}</td><td>{st}</td><td>{tp}</td><td><button onclick=\"act(this,'{mid}','load')\" {'disabled' if loaded else ''}>Load</button><button onclick=\"act(this,'{mid}','unload')\" {'disabled' if not loaded else ''}>Unload</button></td></tr>"
     
     html += """
-    </table>
+            </table>
     <div id='msg' style='margin-top:10px;font-weight:bold;'></div>
     
     <script>
