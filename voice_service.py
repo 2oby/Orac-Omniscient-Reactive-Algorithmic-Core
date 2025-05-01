@@ -12,6 +12,7 @@ import sys
 import traceback
 import uvicorn
 import asyncio
+from datetime import datetime
 
 import time
 from fastapi.responses import HTMLResponse, PlainTextResponse
@@ -218,108 +219,73 @@ async def unload_model(model_id: str):
             logger.error(f"Traceback: {traceback.format_exc()}")
             return False
 
-async def load_model(model_id: str, force_reload: bool = False):
-    global loaded_models, current_model_id
-    full_model_id = MODEL_ALIASES.get(model_id.lower(), model_id)
-    logger.info(f"Requested model: {model_id}, using: {full_model_id}")
+async def load_model(model_id: str) -> None:
+    """
+    Load a model and its tokenizer.
     
-    async with model_lock:
-        if full_model_id in loaded_models and not force_reload:
-            logger.info(f"Using cached model: {full_model_id}")
-            current_model_id = full_model_id
-            return loaded_models[full_model_id]["model"], loaded_models[full_model_id]["tokenizer"]
+    Args:
+        model_id: The model identifier to load
+    """
+    global current_model_id
+    
+    try:
+        # Check if model is already loaded
+        if model_id in loaded_models:
+            logger.info(f"Model {model_id} is already loaded")
+            current_model_id = model_id
+            return
         
-        if current_model_id and current_model_id != full_model_id:
-            logger.info(f"Unloading current model {current_model_id} to load {full_model_id}")
+        # Unload current model if one is loaded
+        if current_model_id:
             await unload_model(current_model_id)
         
-        if not is_model_available(full_model_id):
-            logger.info(f"Model {full_model_id} not found in cache, attempting to download...")
-            try:
-                # Check if this is a Qwen model
-                is_qwen = "qwen" in full_model_id.lower()
-                trust_remote = is_qwen  # Only trust remote code for Qwen models
-                
-                tokenizer = AutoTokenizer.from_pretrained(
-                    full_model_id,
-                    cache_dir=os.path.join(MODELS_DIR, "cache"),
-                    padding_side="left",
-                    trust_remote_code=trust_remote
-                )
-                model = AutoModelForCausalLM.from_pretrained(
-                    full_model_id,
-                    cache_dir=os.path.join(MODELS_DIR, "cache"),
-                    torch_dtype=torch.float16,
-                    low_cpu_mem_usage=True,
-                    device_map="auto",
-                    trust_remote_code=trust_remote
-                )
-                logger.info(f"Successfully downloaded model: {full_model_id}")
-            except Exception as e:
-                logger.error(f"Failed to download model {full_model_id}: {str(e)}")
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Failed to download model: {str(e)}"
-                )
+        logger.info(f"Loading model {model_id}...")
         
-        logger.info(f"Loading model: {full_model_id}")
+        # Check if model is available
         try:
-            # Check if this is a Qwen model
-            is_qwen = "qwen" in full_model_id.lower()
-            trust_remote = is_qwen  # Only trust remote code for Qwen models
+            # Try to load the tokenizer first to check if model exists
+            tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+            logger.info("Tokenizer loaded successfully")
             
-            logger.info(f"Step 1: Loading tokenizer for {full_model_id}...")
-            tokenizer = AutoTokenizer.from_pretrained(
-                full_model_id, 
-                cache_dir=os.path.join(MODELS_DIR, "cache"), 
-                padding_side="left",
-                local_files_only=True,
-                trust_remote_code=trust_remote
-            )
-            logger.info("Step 1 COMPLETE: Tokenizer loaded.")
-            
-            logger.info("Step 2: Setting pad token and fixing tokenizer attributes...")
-            if tokenizer.pad_token is None:
-                tokenizer.pad_token = tokenizer.eos_token or "</s>"
-            if not hasattr(tokenizer, 'vocabulary'):
-                tokenizer.vocabulary = tokenizer.get_vocab() if hasattr(tokenizer, 'get_vocab') else tokenizer.encoder
-                logger.info(f"Added vocabulary from get_vocab with {len(tokenizer.vocabulary)} items")
-            logger.info(f"Step 2 COMPLETE: Pad token set to '{tokenizer.pad_token}' and tokenizer attributes fixed.")
-            
-            logger.info(f"Step 3: Loading model weights for {full_model_id}...")
-            if DEVICE == "cuda":
-                before_load = torch.cuda.mem_get_info()[0] / (1024 ** 3)
-                logger.info(f"Available memory before loading model: {before_load:.2f} GB")
-            
+            # Load the model with appropriate configuration
             model = AutoModelForCausalLM.from_pretrained(
-                full_model_id,
-                cache_dir=os.path.join(MODELS_DIR, "cache"),
-                torch_dtype=torch.float16,
-                low_cpu_mem_usage=True,
+                model_id,
                 device_map="auto",
-                local_files_only=True,
-                trust_remote_code=trust_remote
+                trust_remote_code=True,
+                torch_dtype=torch.float16
             )
-            model.to(DEVICE)
-            model.eval()
-            logger.info(f"Model moved to device: {DEVICE}")
+            logger.info("Model loaded successfully")
             
-            if DEVICE == "cuda":
-                after_load = torch.cuda.mem_get_info()[0] / (1024 ** 3)
-                logger.info(f"Available memory after loading model: {after_load:.2f} GB")
-                logger.info(f"Memory used by model: {before_load - after_load:.2f} GB")
+            # Check if model supports token_type_ids
+            if "token_type_ids" not in tokenizer.model_input_names:
+                logger.info(f"Model {model_id} does not support token_type_ids")
+                # Configure tokenizer to not use token_type_ids
+                tokenizer.model_input_names = [name for name in tokenizer.model_input_names if name != "token_type_ids"]
             
-            logger.info("Step 3 COMPLETE: Model weights loaded.")
+            # Store the loaded model and tokenizer
+            loaded_models[model_id] = {
+                "model": model,
+                "tokenizer": tokenizer,
+                "loaded_at": datetime.now()
+            }
+            current_model_id = model_id
             
-            model_type = model.config.model_type if hasattr(model.config, 'model_type') else "unknown"
-            loaded_models[full_model_id] = {"model": model, "tokenizer": tokenizer, "type": model_type}
-            current_model_id = full_model_id
-            logger.info(f"Successfully loaded model: {full_model_id} (Type: {model_type})")
-            return model, tokenizer
+            # Log memory usage
+            if torch.cuda.is_available():
+                free_mem, total_mem = torch.cuda.mem_get_info()
+                used_mem = total_mem - free_mem
+                logger.info(f"GPU Memory - Total: {total_mem/1024**3:.2f} GB, Used: {used_mem/1024**3:.2f} GB ({(used_mem/total_mem)*100:.1f}%)")
+            
+            logger.info(f"Model {model_id} loaded successfully")
+            
         except Exception as e:
-            logger.error(f"Error loading model {full_model_id}: {str(e)}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            logger.error(f"Error loading model {model_id}: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to load model: {str(e)}")
+            
+    except Exception as e:
+        logger.error(f"Error in load_model: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to load model: {str(e)}")
 
 async def generate_raw_text(
     model: Any,
@@ -517,7 +483,7 @@ async def list_models():
 @app.get("/load-model")
 async def load_model_endpoint(model_id: str):
     try:
-        await load_model(model_id, force_reload=True)
+        await load_model(model_id)
         return {"status": "success", "message": f"Model {model_id} loaded successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
