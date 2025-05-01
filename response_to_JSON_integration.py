@@ -91,48 +91,22 @@ def load_prompt_template(model_id: str) -> Optional[str]:
 
 def create_prompt(user_query: str, model_id: str = None) -> str:
     """
-    Create a model-specific prompt for the user query
-    
-    Args:
-        user_query: The user's command (e.g., "Turn on the kitchen lights")
-        model_id: Optional model identifier for model-specific prompts
-    
-    Returns:
-        The formatted prompt string
+    Create a prompt for the model based on the model type and user query.
     """
-    # Load model-specific template if available
-    template = None
-    if model_id:
-        template = load_prompt_template(model_id)
+    # Get the appropriate template for the model
+    template = load_prompt_template(model_id)
     
-    # Fall back to default template if needed
-    if not template:
-        template = """You are a smart home assistant. Convert the following command into a structured JSON object.
-
-USER COMMAND: "{command}"
-
-Your task is to generate a JSON object that matches the specified schema. Do not include any additional text or explanations; just output the JSON object.
-
-The JSON object should have these fields:
-- device: the device to control (e.g., "lights", "thermostat", "tv")
-- location: where the device is (e.g., "kitchen", "bedroom") or null if unspecified
-- action: the action to perform (e.g., "turn_on", "turn_off", "set", "adjust")
-- value: any additional value (e.g., temperature value, brightness level) or null if none
-
-Examples:
-- For "Turn on the kitchen lights":
-  {{"device": "lights", "location": "kitchen", "action": "turn_on", "value": null}}
-- For "Set the living room thermostat to 72 degrees":
-  {{"device": "thermostat", "location": "living room", "action": "set", "value": "72"}}
-- For "Play some jazz music":
-  {{"device": "music_player", "location": null, "action": "play", "value": "jazz music"}}
-
-So, for the command "{command}", produce the corresponding JSON object.
-JSON OUTPUT:
-"""
+    # Escape any quotes in the user query to prevent format string issues
+    escaped_query = user_query.replace('"', '\\"')
     
-    # Format the template with the user's command
-    return template.format(command=user_query)
+    try:
+        return template.format(command=escaped_query)
+    except KeyError as e:
+        logger.error(f"Error formatting prompt template: {e}")
+        logger.error(f"Template: {template}")
+        logger.error(f"User query: {user_query}")
+        # Fallback to a simple format if the template fails
+        return f'Convert this command to JSON: "{escaped_query}"\n\nOutput format:\n{{"device": string, "location": string | null, "action": string, "value": string | null}}'
 
 def normalize_location(location: str, validation_config: Dict[str, Any]) -> Optional[str]:
     """
