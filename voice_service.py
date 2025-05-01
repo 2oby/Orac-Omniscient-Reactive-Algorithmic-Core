@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 # ---------------- Third‑party ----------------------
-import psutil, torch, uvicorn, pkg_resources
+import psutil, torch, uvicorn, pkg_resources, yaml
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
@@ -56,19 +56,62 @@ except ImportError as e:
         """Create a prompt for the model to convert a command to JSON."""
         # Get the appropriate template for the model
         template = load_prompt_template(model_id)
+        
+        # Get validation context
+        devices = VALIDATION_CONFIG.get("devices", [])
+        locations = VALIDATION_CONFIG.get("locations", [])
+        actions = VALIDATION_CONFIG.get("actions", [])
+        
+        # Build validation context
+        validation_context = f"""
+Available devices: {', '.join(devices)}
+Available locations: {', '.join(locations)}
+Available actions: {', '.join(actions)}
+
+Location synonyms:
+"""
+        # Add location synonyms
+        for syn_name, syn_locations in VALIDATION_CONFIG.get("synonyms", {}).get("locations", {}).items():
+            if isinstance(syn_locations, list):
+                validation_context += f"- {syn_name}: {', '.join(syn_locations)}\n"
+        
+        # Add device synonyms
+        validation_context += "\nDevice synonyms:\n"
+        for device, syns in VALIDATION_CONFIG.get("synonyms", {}).get("devices", {}).items():
+            if isinstance(syns, list):
+                validation_context += f"- {device}: {', '.join(syns)}\n"
+        
         if not template:
-            # If no template is found, use a minimal fallback
-            return f'Convert this command to JSON: "{command}"\n\nOutput format:\n{{"device": string, "location": string | null, "action": string, "value": string | null}}'
+            # If no template is found, use a minimal fallback with validation context
+            return f'''Convert this command to JSON: "{command}"
+
+{validation_context}
+
+Output format:
+{{"device": string, "location": string | null, "action": string, "value": string | null}}
+
+Note: Only use devices, locations, and actions from the lists above.'''
         
         # Escape any quotes in the command to prevent format string issues
         escaped_command = command.replace('"', '\\"')
         
         try:
-            return template.format(command=escaped_command)
+            # Add validation context to the template
+            return template.format(
+                command=escaped_command,
+                validation_context=validation_context
+            )
         except Exception as e:
             logger.error(f"Error formatting prompt template: {e}")
             # Use minimal fallback if formatting fails
-            return f'Convert this command to JSON: "{escaped_command}"\n\nOutput format:\n{{"device": string, "location": string | null, "action": string, "value": string | null}}'
+            return f'''Convert this command to JSON: "{escaped_command}"
+
+{validation_context}
+
+Output format:
+{{"device": string, "location": string | null, "action": string, "value": string | null}}
+
+Note: Only use devices, locations, and actions from the lists above.'''
 
     def process_command(raw_text: str) -> dict:
         """Extract JSON from model output."""
@@ -95,6 +138,12 @@ except ImportError as e:
                     logging.warning(f"Missing required field: {field}")
                     result[field] = None
                     
+            # Validate the command
+            validation_error = validate_command(result)
+            if validation_error:
+                logging.warning(f"Validation error: {validation_error}")
+                return None
+                
             return result
             
         except json.JSONDecodeError as e:
@@ -179,16 +228,98 @@ class ModelInfo(BaseModel):
     class Config: protected_namespaces = ()
 
 # ---------------- Model configs --------------------
-MODEL_CONFIGS = {
-    "microsoft/phi-2": {
-        "temperature": 0.7,  # Lower temperature for more stable outputs
-        "do_sample": False,  # Disable sampling for deterministic outputs
-        "return_token_type_ids": False
-    },
-    "nilq/mistral-1L-tiny": {
-        "return_token_type_ids": False
-    }
-}
+def load_configs() -> tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
+    """Load model-specific configurations and validation rules from YAML files."""
+    model_config_path = os.path.join(CONFIG_DIR, "model_configs.yaml")
+    validation_path = os.path.join(CONFIG_DIR, "validation.yaml")
+    
+    model_configs = {}
+    validation_config = {}
+    
+    try:
+        if os.path.exists(model_config_path):
+            with open(model_config_path, 'r') as f:
+                model_configs = yaml.safe_load(f) or {}
+        else:
+            logger.warning(f"Model config file not found at {model_config_path}")
+            
+        if os.path.exists(validation_path):
+            with open(validation_path, 'r') as f:
+                validation_config = yaml.safe_load(f) or {}
+        else:
+            logger.warning(f"Validation config file not found at {validation_path}")
+            
+    except Exception as e:
+        logger.error(f"Error loading configs: {e}")
+    
+    return model_configs, validation_config
+
+MODEL_CONFIGS, VALIDATION_CONFIG = load_configs()
+
+def validate_command(cmd: Dict[str, Any]) -> Optional[str]:
+    """Validate a command against the validation rules."""
+    if not cmd:
+        return "No command provided"
+        
+    # Validate device
+    if cmd.get("device") not in VALIDATION_CONFIG.get("devices", []):
+        return f"Invalid device: {cmd.get('device')}"
+        
+    # Validate location if provided
+    if cmd.get("location"):
+        valid_locations = VALIDATION_CONFIG.get("locations", [])
+        # Check synonyms
+        for syn_group in VALIDATION_CONFIG.get("synonyms", {}).get("locations", {}).values():
+            if isinstance(syn_group, list) and cmd["location"] in syn_group:
+                return None
+        if cmd["location"] not in valid_locations:
+            return f"Invalid location: {cmd.get('location')}"
+            
+    # Validate action
+    if cmd.get("action") not in VALIDATION_CONFIG.get("actions", []):
+        return f"Invalid action: {cmd.get('action')}"
+        
+    return None
+
+def process_command(raw_text: str) -> dict:
+    """Extract JSON from model output."""
+    try:
+        # Try to find JSON-like content using regex
+        import re
+        json_pattern = r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}'
+        matches = re.findall(json_pattern, raw_text)
+        
+        if not matches:
+            logging.warning("No JSON-like content found in response")
+            return None
+            
+        # Find the longest match which is most likely to be our full JSON object
+        best_match = max(matches, key=len)
+        
+        # Parse and validate JSON
+        result = json.loads(best_match)
+        
+        # Ensure the required fields are present
+        required_fields = ["device", "location", "action", "value"]
+        for field in required_fields:
+            if field not in result:
+                logging.warning(f"Missing required field: {field}")
+                result[field] = None
+                
+        # Validate the command
+        validation_error = validate_command(result)
+        if validation_error:
+            logging.warning(f"Validation error: {validation_error}")
+            return None
+                
+        return result
+        
+    except json.JSONDecodeError as e:
+        logging.error(f"JSON decode error: {e}")
+        return None
+    except Exception as e:
+        logging.error(f"Error processing command: {e}")
+        return None
 
 # ---------------- Model lifecycle ------------------
 async def unload_model(mid: str) -> bool:

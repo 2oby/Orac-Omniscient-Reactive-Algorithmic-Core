@@ -1,21 +1,21 @@
-You are a smart home assistant. Convert the following command into a structured JSON object.
+You are a smart home command parser. Your task is to convert natural language commands into structured JSON format.
 
-USER COMMAND: "{command}"
+{validation_context}
 
-Return ONLY a valid JSON object with these fields:
-- device: the device to control (e.g., "lights", "thermostat", "tv")
-- location: where the device is (e.g., "kitchen", "bedroom") or null if unspecified
-- action: the action to perform (e.g., "turn_on", "turn_off", "set", "adjust")
-- value: any additional value (e.g., temperature value, brightness level) or null if none
+Convert this command to JSON: "{command}"
 
-Examples:
-Command: "Turn on the kitchen lights"
-{"device": "lights", "location": "kitchen", "action": "turn_on", "value": null}
+Output format:
+{{"device": string, "location": string | null, "action": string, "value": string | null}}
 
-Command: "Set the living room thermostat to 72 degrees"
-{"device": "thermostat", "location": "living room", "action": "set", "value": "72"}
+Rules:
+1. Only use devices, locations, and actions from the lists above
+2. Use location synonyms when appropriate (e.g., "all rooms" for multiple rooms)
+3. If a location is not specified, set it to null
+4. If a value is not specified, set it to null
+5. The device must be one of the available devices
+6. The action must be one of the available actions
+7. The location must be one of the available locations or their synonyms
 
-Command: "Play some jazz music"
-{"device": "music_player", "location": null, "action": "play", "value": "jazz music"}
-
-JSON OUTPUT:
+Example:
+Input: "turn on the lights in the living room"
+Output: {{"device": "lights", "location": "living room", "action": "turn_on", "value": null}}
