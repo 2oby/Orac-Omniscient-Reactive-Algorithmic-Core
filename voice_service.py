@@ -233,7 +233,7 @@ async def root(req: Request):
     html+="<h2>ORAC – Voice Service</h2><table><tr><th>ID</th><th>Status</th><th>Type</th><th>Action</th></tr>"
     for mid,st,tp in rows:
         loaded=st=="LOADED"
-        html+=f"<tr><td>{mid}</td><td>{st}</td><td>{tp}</td><td><button onclick=act('{mid}','load') {'disabled' if loaded else ''}>Load</button><button onclick=act('{mid}','unload') {'disabled' if not loaded else ''}>Unload</button></td></tr>"
+        html+=f"<tr><td>{mid}</td><td>{st}</td><td>{tp}</td><td><button onclick=\"act(this,'{mid}','load')\" {'disabled' if loaded else ''}>Load</button><button onclick=\"act(this,'{mid}','unload')\" {'disabled' if not loaded else ''}>Unload</button></td></tr>"
     html += """
 </table>
 <div id='msg' style='margin-top:10px;font-weight:bold;'></div>
