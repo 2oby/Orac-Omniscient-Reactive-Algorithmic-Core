@@ -229,46 +229,69 @@ async def load_model(model_id: str) -> None:
     global current_model_id
     
     try:
+        # Convert alias to full model ID if needed
+        full_model_id = MODEL_ALIASES.get(model_id.lower(), model_id)
+        logger.info(f"Requested model: {model_id}, using: {full_model_id}")
+        
         # Check if model is already loaded
-        if model_id in loaded_models:
-            logger.info(f"Model {model_id} is already loaded")
-            current_model_id = model_id
+        if full_model_id in loaded_models:
+            logger.info(f"Model {full_model_id} is already loaded")
+            current_model_id = full_model_id
             return
         
         # Unload current model if one is loaded
         if current_model_id:
             await unload_model(current_model_id)
         
-        logger.info(f"Loading model {model_id}...")
+        logger.info(f"Loading model {full_model_id}...")
         
         # Check if model is available
         try:
             # Try to load the tokenizer first to check if model exists
-            tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(
+                full_model_id,
+                trust_remote_code=True,
+                cache_dir=os.path.join(MODELS_DIR, "cache")
+            )
             logger.info("Tokenizer loaded successfully")
+            
+            # Set pad token if not set
+            if tokenizer.pad_token is None:
+                if tokenizer.eos_token is not None:
+                    tokenizer.pad_token = tokenizer.eos_token
+                    logger.info(f"Set pad_token to eos_token: {tokenizer.pad_token}")
+                else:
+                    tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+                    logger.info("Added new pad_token: [PAD]")
             
             # Load the model with appropriate configuration
             model = AutoModelForCausalLM.from_pretrained(
-                model_id,
+                full_model_id,
                 device_map="auto",
                 trust_remote_code=True,
-                torch_dtype=torch.float16
+                torch_dtype=torch.float16,
+                cache_dir=os.path.join(MODELS_DIR, "cache")
             )
             logger.info("Model loaded successfully")
             
+            # Resize token embeddings if we added a new pad token
+            if tokenizer.pad_token == '[PAD]':
+                model.resize_token_embeddings(len(tokenizer))
+                logger.info("Resized token embeddings for new pad token")
+            
             # Check if model supports token_type_ids
             if "token_type_ids" not in tokenizer.model_input_names:
-                logger.info(f"Model {model_id} does not support token_type_ids")
+                logger.info(f"Model {full_model_id} does not support token_type_ids")
                 # Configure tokenizer to not use token_type_ids
                 tokenizer.model_input_names = [name for name in tokenizer.model_input_names if name != "token_type_ids"]
             
             # Store the loaded model and tokenizer
-            loaded_models[model_id] = {
+            loaded_models[full_model_id] = {
                 "model": model,
                 "tokenizer": tokenizer,
                 "loaded_at": datetime.now()
             }
-            current_model_id = model_id
+            current_model_id = full_model_id
             
             # Log memory usage
             if torch.cuda.is_available():
@@ -276,10 +299,11 @@ async def load_model(model_id: str) -> None:
                 used_mem = total_mem - free_mem
                 logger.info(f"GPU Memory - Total: {total_mem/1024**3:.2f} GB, Used: {used_mem/1024**3:.2f} GB ({(used_mem/total_mem)*100:.1f}%)")
             
-            logger.info(f"Model {model_id} loaded successfully")
+            logger.info(f"Model {full_model_id} loaded successfully")
             
         except Exception as e:
-            logger.error(f"Error loading model {model_id}: {str(e)}")
+            logger.error(f"Error loading model {full_model_id}: {str(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=f"Failed to load model: {str(e)}")
             
     except Exception as e:
