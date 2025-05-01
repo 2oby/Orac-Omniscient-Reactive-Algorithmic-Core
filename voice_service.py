@@ -18,7 +18,59 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from asyncio import Lock
 
 # ---------------- Project‑local --------------------
-from response_to_JSON_integration import create_prompt, process_command  # noqa: F401
+try:
+    from response_to_JSON_integration import create_prompt, process_command
+except ImportError as e:
+    logging.warning(f"Original integration module not found: {e}")
+    # Define fallback functions
+    def create_prompt(command: str, model_id: str) -> str:
+        """Create a prompt for the model to convert a command to JSON."""
+        # Simple template that avoids complex formatting
+        return f"""You are a smart home assistant. Convert the following command into a structured JSON object.
+
+USER COMMAND: "{command}"
+
+Return ONLY a valid JSON object with these fields:
+- device: the device to control (e.g., "lights", "thermostat", "tv")
+- location: where the device is (e.g., "kitchen", "bedroom") or null if unspecified
+- action: the action to perform (e.g., "turn_on", "turn_off", "set", "adjust")
+- value: any additional value (e.g., temperature value, brightness level) or null if none
+
+JSON OUTPUT:"""
+
+    def process_command(raw_text: str) -> dict:
+        """Extract JSON from model output."""
+        try:
+            # Try to find JSON-like content using regex
+            import re
+            json_pattern = r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}'
+            matches = re.findall(json_pattern, raw_text)
+            
+            if not matches:
+                logging.warning("No JSON-like content found in response")
+                return None
+                
+            # Find the longest match which is most likely to be our full JSON object
+            best_match = max(matches, key=len)
+            
+            # Parse and validate JSON
+            result = json.loads(best_match)
+            
+            # Ensure the required fields are present
+            required_fields = ["device", "location", "action", "value"]
+            for field in required_fields:
+                if field not in result:
+                    logging.warning(f"Missing required field: {field}")
+                    result[field] = None
+                    
+            return result
+            
+        except json.JSONDecodeError as e:
+            logging.error(f"JSON decode error: {e}")
+            return None
+        except Exception as e:
+            logging.error(f"Error processing command: {e}")
+            return None
 
 # ---------------- Logging & device -----------------
 logging.basicConfig(level=logging.INFO,
@@ -30,7 +82,7 @@ logger.info(f"Using device: {DEVICE}")
 if DEVICE == "cuda":
     try:
         gprop = torch.cuda.get_device_properties(0)
-        logger.info(f"GPU: {gprop.name} | {gprop.total_memory/1e9:.2f} GB")
+        logger.info(f"GPU: {gprop.name} | {gprop.total_memory/1e9:.2f} GB")
     except Exception as e:
         logger.warning(f"GPU info retrieval failed: {e}")
 
@@ -147,16 +199,43 @@ async def load_model(mid: str) -> None:
         loaded_models[fid] = {"model": model, "tokenizer": tokenizer, "loaded_at": datetime.utcnow()}
         current_model_id = fid
 
-
 # ---------------- Generation helper ----------------
 async def generate_raw(model, tokenizer, prompt: str, temp: float, mx: int) -> str:
-    enc = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True, max_length=tokenizer.model_max_length)
-    if "token_type_ids" not in tokenizer.model_input_names:
-        enc.pop("token_type_ids", None)
-    inp = {k: v.to(DEVICE) for k, v in enc.items()}
-    with torch.no_grad():
-        out = model.generate(**inp, max_new_tokens=mx, temperature=temp, do_sample=True, pad_token_id=tokenizer.eos_token_id)
-    return tokenizer.decode(out[0], skip_special_tokens=True)
+    try:
+        # Handle potential tokenizer overflow by ensuring max_length is within safe bounds
+        max_length = min(tokenizer.model_max_length, 2048)  # Use a safe default max length
+        
+        enc = tokenizer(
+            prompt, 
+            return_tensors="pt", 
+            padding=True, 
+            truncation=True, 
+            max_length=max_length
+        )
+        
+        if "token_type_ids" not in tokenizer.model_input_names:
+            enc.pop("token_type_ids", None)
+            
+        inp = {k: v.to(DEVICE) for k, v in enc.items()}
+        
+        with torch.no_grad():
+            out = model.generate(
+                **inp, 
+                max_new_tokens=mx, 
+                temperature=temp, 
+                do_sample=True, 
+                pad_token_id=tokenizer.eos_token_id
+            )
+            
+        return tokenizer.decode(out[0], skip_special_tokens=True)
+    
+    except OverflowError as e:
+        logger.error(f"Tokenizer overflow error: {e}")
+        return f"Error: Input prompt too long or complex for this model."
+    
+    except Exception as e:
+        logger.error(f"Generation error: {e}")
+        return f"Error: Could not generate response: {str(e)}"
 
 # ---------------- FastAPI --------------------------
 app = FastAPI(title="Voice Service – Smart Home Control")
