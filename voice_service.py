@@ -216,11 +216,28 @@ async def load_model(model_id: str, force_reload: bool = False):
             await unload_model(current_model_id)
         
         if not is_model_available(full_model_id):
-            logger.error(f"Model {full_model_id} not found in cache directory")
-            raise HTTPException(
-                status_code=404, 
-                detail=f"Model {full_model_id} not available. Please check the models directory or download the model first."
-            )
+            logger.info(f"Model {full_model_id} not found in cache, attempting to download...")
+            try:
+                # Try to download the model
+                tokenizer = AutoTokenizer.from_pretrained(
+                    full_model_id,
+                    cache_dir=os.path.join(MODELS_DIR, "cache"),
+                    padding_side="left"
+                )
+                model = AutoModelForCausalLM.from_pretrained(
+                    full_model_id,
+                    cache_dir=os.path.join(MODELS_DIR, "cache"),
+                    torch_dtype=torch.float16,
+                    low_cpu_mem_usage=True,
+                    device_map="auto"
+                )
+                logger.info(f"Successfully downloaded model: {full_model_id}")
+            except Exception as e:
+                logger.error(f"Failed to download model {full_model_id}: {str(e)}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to download model: {str(e)}"
+                )
         
         logger.info(f"Loading model: {full_model_id}")
         try:
