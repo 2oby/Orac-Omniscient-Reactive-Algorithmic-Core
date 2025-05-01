@@ -5,12 +5,10 @@ devices:
   - lights
   - thermostat
   - tv
-  - music_player
+  - music
   - fan
   - blinds
   - door
-  - garage_door
-  - curtains
   - speakers
   - vacuum
   - air_conditioner
@@ -21,22 +19,14 @@ locations:
   - kitchen
   - living room
   - bedroom
-  - master bedroom
   - bathroom
-  - office
   - hallway
-  - dining room
-  - garage
-  - basement
-  - attic
-  - porch
-  - backyard
-  - front yard
+
 
 # Supported actions
 actions:
-  - turn_on
-  - turn_off
+  - on
+  - off
   - set
   - adjust
   - open
