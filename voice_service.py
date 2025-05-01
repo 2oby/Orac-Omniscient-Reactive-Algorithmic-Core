@@ -214,7 +214,7 @@ async def load_model(mid: str) -> None:
         tokenizer = AutoTokenizer.from_pretrained(fid, **t_kwargs)
 
         # -------- robust pad‑token handling --------
-            if tokenizer.pad_token is None:
+        if tokenizer.pad_token is None:
             if tokenizer.eos_token:
                 tokenizer.pad_token = tokenizer.eos_token  # reuse EOS token
             else:
@@ -222,7 +222,7 @@ async def load_model(mid: str) -> None:
                 tokenizer.pad_token = "[PAD]"  # now a real string value
 
         m_kwargs = {"trust_remote_code": True, "cache_dir": cache}
-            if DEVICE == "cuda":
+        if DEVICE == "cuda":
             m_kwargs.update({
                 "device_map": "auto",
                 "torch_dtype": torch.float16,
