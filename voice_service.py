@@ -234,18 +234,31 @@ async def root(req: Request):
     for mid,st,tp in rows:
         loaded=st=="LOADED"
         html+=f"<tr><td>{mid}</td><td>{st}</td><td>{tp}</td><td><button onclick=act('{mid}','load') {'disabled' if loaded else ''}>Load</button><button onclick=act('{mid}','unload') {'disabled' if not loaded else ''}>Unload</button></td></tr>"
-    html+="</table><div id=msg></div><script>
-function flash(msg,cls){const m=document.getElementById('msg');m.textContent=msg;m.style.color=cls==='ok'?'#3c763d':'#a94442';}
-async function act(btn,id,ac){
-  const orig=btn.textContent;btn.disabled=true;btn.textContent=ac==='load'?'Loading…':'Unloading…';
+    html += """
+</table>
+<div id='msg' style='margin-top:10px;font-weight:bold;'></div>
+<script>
+function flash(msg, ok) {
+  const m = document.getElementById('msg');
+  m.textContent = msg;
+  m.style.color = ok ? '#3c763d' : '#a94442';
+}
+async function act(btn,id,action){
+  const orig=btn.textContent;
+  btn.disabled=true;
+  btn.textContent = action==='load' ? 'Loading…' : 'Unloading…';
   try{
-    const r=await fetch(`/${ac}-model?model_id=`+encodeURIComponent(id));
-    const d=await r.json();
-    flash(d.message,r.ok?'ok':'err');
-  }catch(e){flash(e.message,'err');}
+      const res = await fetch(`/${action}-model?model_id=`+encodeURIComponent(id));
+      const data = await res.json();
+      flash(data.message, res.ok);
+  }catch(e){
+      flash(e.message,false);
+  }
   setTimeout(()=>location.reload(),800);
 }
-</script></body></html>"
+</script>
+</body></html>
+"""
     return HTMLResponse(html)
 
 # ---------------- Entrypoint -----------------------
