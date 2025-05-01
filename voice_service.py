@@ -618,16 +618,112 @@ async def root(request: Request):
                 th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
                 th { background-color: #f2f2f2; }
                 h2 { color: #333; }
+                .button {
+                    padding: 5px 10px;
+                    margin: 0 5px;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 12px;
+                }
+                .load-btn {
+                    background-color: #4CAF50;
+                    color: white;
+                }
+                .unload-btn {
+                    background-color: #f44336;
+                    color: white;
+                }
+                .button:disabled {
+                    background-color: #cccccc;
+                    cursor: not-allowed;
+                }
+                .status {
+                    font-weight: bold;
+                }
+                .status.loaded {
+                    color: #4CAF50;
+                }
+                .status.not-loaded {
+                    color: #666;
+                }
+                #message {
+                    margin: 10px 0;
+                    padding: 10px;
+                    border-radius: 4px;
+                    display: none;
+                }
+                .success {
+                    background-color: #dff0d8;
+                    color: #3c763d;
+                }
+                .error {
+                    background-color: #f2dede;
+                    color: #a94442;
+                }
             </style>
+            <script>
+                async function handleModelAction(modelId, action) {
+                    const messageDiv = document.getElementById('message');
+                    const button = event.target;
+                    const originalText = button.textContent;
+                    
+                    try {
+                        button.disabled = true;
+                        button.textContent = action === 'load' ? 'Loading...' : 'Unloading...';
+                        
+                        const response = await fetch(`/${action}-model?model_id=${encodeURIComponent(modelId)}`);
+                        const data = await response.json();
+                        
+                        messageDiv.textContent = data.message;
+                        messageDiv.className = 'success';
+                        messageDiv.style.display = 'block';
+                        
+                        // Refresh the page after a short delay
+                        setTimeout(() => window.location.reload(), 1000);
+                    } catch (error) {
+                        messageDiv.textContent = `Error: ${error.message}`;
+                        messageDiv.className = 'error';
+                        messageDiv.style.display = 'block';
+                        button.disabled = false;
+                        button.textContent = originalText;
+                    }
+                }
+            </script>
         </head>
         <body>
             <h2>ORAC - Omniscient Reactive Algorithmic Core</h2>
+            <div id="message"></div>
             <h3>Available Models</h3>
             <table>
-                <tr><th>Model ID</th><th>Status</th><th>Type</th></tr>
+                <tr>
+                    <th>Model ID</th>
+                    <th>Status</th>
+                    <th>Type</th>
+                    <th>Actions</th>
+                </tr>
         """
         for model_id, status, model_type in model_table:
-            html_content += f"<tr><td>{model_id}</td><td>{status}</td><td>{model_type}</td></tr>"
+            is_loaded = status == "LOADED"
+            status_class = "loaded" if is_loaded else "not-loaded"
+            html_content += f"""
+                <tr>
+                    <td>{model_id}</td>
+                    <td class="status {status_class}">{status}</td>
+                    <td>{model_type}</td>
+                    <td>
+                        <button class="button load-btn" 
+                                onclick="handleModelAction('{model_id}', 'load')"
+                                {'' if not is_loaded else 'disabled'}>
+                            Load
+                        </button>
+                        <button class="button unload-btn" 
+                                onclick="handleModelAction('{model_id}', 'unload')"
+                                {'' if is_loaded else 'disabled'}>
+                            Unload
+                        </button>
+                    </td>
+                </tr>"""
         
         html_content += """
             </table>
