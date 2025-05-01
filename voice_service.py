@@ -191,13 +191,13 @@ async def unload_model(mid: str) -> bool:
         except Exception:
             pass
         del bundle
-            gc.collect()
-            if DEVICE == "cuda":
-                torch.cuda.empty_cache()
+        gc.collect()
+        if DEVICE == "cuda":
+            torch.cuda.empty_cache()
             torch.cuda.synchronize()
         if current_model_id == fid:
-                current_model_id = None
-            return True
+            current_model_id = None
+        return True
 
 async def load_model(mid: str) -> None:
     global current_model_id
