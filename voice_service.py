@@ -235,18 +235,23 @@ async def load_model(model_id: str, force_reload: bool = False):
         if not is_model_available(full_model_id):
             logger.info(f"Model {full_model_id} not found in cache, attempting to download...")
             try:
-                # Try to download the model
+                # Check if this is a Qwen model
+                is_qwen = "qwen" in full_model_id.lower()
+                trust_remote = is_qwen  # Only trust remote code for Qwen models
+                
                 tokenizer = AutoTokenizer.from_pretrained(
                     full_model_id,
                     cache_dir=os.path.join(MODELS_DIR, "cache"),
-                    padding_side="left"
+                    padding_side="left",
+                    trust_remote_code=trust_remote
                 )
                 model = AutoModelForCausalLM.from_pretrained(
                     full_model_id,
                     cache_dir=os.path.join(MODELS_DIR, "cache"),
                     torch_dtype=torch.float16,
                     low_cpu_mem_usage=True,
-                    device_map="auto"
+                    device_map="auto",
+                    trust_remote_code=trust_remote
                 )
                 logger.info(f"Successfully downloaded model: {full_model_id}")
             except Exception as e:
@@ -258,12 +263,17 @@ async def load_model(model_id: str, force_reload: bool = False):
         
         logger.info(f"Loading model: {full_model_id}")
         try:
+            # Check if this is a Qwen model
+            is_qwen = "qwen" in full_model_id.lower()
+            trust_remote = is_qwen  # Only trust remote code for Qwen models
+            
             logger.info(f"Step 1: Loading tokenizer for {full_model_id}...")
             tokenizer = AutoTokenizer.from_pretrained(
                 full_model_id, 
                 cache_dir=os.path.join(MODELS_DIR, "cache"), 
                 padding_side="left",
-                local_files_only=True
+                local_files_only=True,
+                trust_remote_code=trust_remote
             )
             logger.info("Step 1 COMPLETE: Tokenizer loaded.")
             
@@ -287,6 +297,7 @@ async def load_model(model_id: str, force_reload: bool = False):
                 low_cpu_mem_usage=True,
                 device_map="auto",
                 local_files_only=True,
+                trust_remote_code=trust_remote
             )
             model.to(DEVICE)
             model.eval()
@@ -661,6 +672,61 @@ async def root(request: Request):
                     background-color: #f2dede;
                     color: #a94442;
                 }
+                .prompt-section {
+                    margin: 20px 0;
+                    padding: 20px;
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                }
+                .prompt-input {
+                    width: 80%;
+                    padding: 10px;
+                    margin: 10px 0;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    font-size: 14px;
+                }
+                .prompt-submit {
+                    background-color: #007bff;
+                    color: white;
+                    padding: 10px 20px;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 14px;
+                }
+                .prompt-submit:hover {
+                    background-color: #0056b3;
+                }
+                .response-section {
+                    margin: 20px 0;
+                    padding: 20px;
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    display: none;
+                }
+                .json-response {
+                    color: #0066cc;
+                    font-weight: bold;
+                    font-family: monospace;
+                    white-space: pre-wrap;
+                    background-color: #f0f0f0;
+                    padding: 10px;
+                    border-radius: 4px;
+                    margin: 10px 0;
+                }
+                .raw-response {
+                    font-family: monospace;
+                    white-space: pre-wrap;
+                    background-color: #f0f0f0;
+                    padding: 10px;
+                    border-radius: 4px;
+                    margin: 10px 0;
+                }
+                .error-response {
+                    color: #dc3545;
+                    font-weight: bold;
+                }
             </style>
             <script>
                 async function handleModelAction(modelId, action) {
@@ -689,11 +755,79 @@ async def root(request: Request):
                         button.textContent = originalText;
                     }
                 }
+
+                async function testPrompt() {
+                    const promptInput = document.getElementById('prompt-input');
+                    const responseSection = document.getElementById('response-section');
+                    const jsonResponse = document.getElementById('json-response');
+                    const rawResponse = document.getElementById('raw-response');
+                    const errorResponse = document.getElementById('error-response');
+                    const submitButton = document.getElementById('prompt-submit');
+                    
+                    try {
+                        submitButton.disabled = true;
+                        submitButton.textContent = 'Processing...';
+                        
+                        const response = await fetch('/smart-home/command', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                prompt: promptInput.value,
+                                temperature: 0.7,
+                                max_tokens: 150
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        responseSection.style.display = 'block';
+                        
+                        if (data.error) {
+                            errorResponse.textContent = data.error;
+                            errorResponse.style.display = 'block';
+                            jsonResponse.style.display = 'none';
+                            rawResponse.style.display = 'none';
+                        } else {
+                            errorResponse.style.display = 'none';
+                            if (data.command) {
+                                jsonResponse.textContent = JSON.stringify(data.command, null, 2);
+                                jsonResponse.style.display = 'block';
+                            } else {
+                                jsonResponse.style.display = 'none';
+                            }
+                            rawResponse.textContent = data.raw_generation;
+                            rawResponse.style.display = 'block';
+                        }
+                    } catch (error) {
+                        errorResponse.textContent = `Error: ${error.message}`;
+                        errorResponse.style.display = 'block';
+                        jsonResponse.style.display = 'none';
+                        rawResponse.style.display = 'none';
+                    } finally {
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Test Prompt';
+                    }
+                }
             </script>
         </head>
         <body>
             <h2>ORAC - Omniscient Reactive Algorithmic Core</h2>
             <div id="message"></div>
+            
+            <div class="prompt-section">
+                <h3>Test Prompt</h3>
+                <input type="text" id="prompt-input" class="prompt-input" placeholder="Enter a command (e.g., 'Turn on the kitchen lights')">
+                <button id="prompt-submit" class="prompt-submit" onclick="testPrompt()">Test Prompt</button>
+            </div>
+            
+            <div id="response-section" class="response-section">
+                <h3>Response</h3>
+                <div id="error-response" class="error-response" style="display: none;"></div>
+                <div id="json-response" class="json-response" style="display: none;"></div>
+                <div id="raw-response" class="raw-response" style="display: none;"></div>
+            </div>
+            
             <h3>Available Models</h3>
             <table>
                 <tr>
