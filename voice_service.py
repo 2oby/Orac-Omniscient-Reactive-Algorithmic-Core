@@ -577,6 +577,7 @@ async def root(request: Request):
 # Entrypoint
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    # Only run the dev server if launched directly (docker/Kubernetes will usually run uvicorn externally)
-    logger.info("Starting development server on http://0.0.0.0:8000 …")
-    uvicorn.run("voice_service_fixed:app", host="0.0.0.0", port=8000, reload=False)
+    """Run with `python voice_service.py` – uvicorn is started internally."""
+    logger.info("Starting server on http://0.0.0.0:8000 …")
+    # Using the `app` object directly avoids the need for the module path string
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
