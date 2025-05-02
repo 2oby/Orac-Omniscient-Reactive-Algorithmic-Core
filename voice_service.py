@@ -364,6 +364,38 @@ class ModelLoader:
             return os.path.join(self.gguf_dir, model_id)
         return os.path.join(self.gguf_dir, f"{model_id}.gguf")
     
+    def verify_gguf_model(self, model_path: str) -> bool:
+        """Verify that a GGUF model file is valid."""
+        try:
+            # Check file exists and is readable
+            if not os.path.exists(model_path):
+                logger.error(f"Model file does not exist: {model_path}")
+                return False
+                
+            if not os.access(model_path, os.R_OK):
+                logger.error(f"Model file is not readable: {model_path}")
+                return False
+                
+            # Check file size
+            size = os.path.getsize(model_path)
+            if size < 1000000:  # Less than 1MB
+                logger.error(f"Model file is too small: {size} bytes")
+                return False
+                
+            # Try to read the first few bytes to check if it's a valid file
+            with open(model_path, 'rb') as f:
+                header = f.read(8)
+                if not header.startswith(b'GGUF'):
+                    logger.error(f"File does not appear to be a valid GGUF model: {header.hex()}")
+                    return False
+                    
+            logger.info(f"GGUF model file appears valid: {model_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error verifying GGUF model: {e}")
+            return False
+    
     def load_gguf_model(self, model_id: str) -> tuple[Any, Any]:
         """Load a GGUF model and create a compatible tokenizer."""
         if not GGUF_AVAILABLE:
@@ -372,18 +404,25 @@ class ModelLoader:
         model_path = self.get_gguf_path(model_id)
         logger.info(f"Attempting to load GGUF model from: {model_path}")
         
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"GGUF model not found at: {model_path}")
-            
-        if not os.access(model_path, os.R_OK):
-            raise PermissionError(f"No read permission for model file: {model_path}")
+        # Verify the model file first
+        if not self.verify_gguf_model(model_path):
+            raise ValueError(f"Invalid GGUF model file: {model_path}")
             
         # Get model-specific config
         config = MODEL_CONFIGS.get(model_id, {})
         logger.info(f"Using config for {model_id}: {config}")
         
         try:
-            # Load the GGUF model with configuration
+            # Start with minimal parameters
+            model = Llama(
+                model_path=model_path,
+                n_ctx=2048,
+                n_threads=4,
+                verbose=True
+            )
+            logger.info(f"Successfully loaded GGUF model: {model_id}")
+            
+            # If basic loading works, update with additional parameters
             model = Llama(
                 model_path=model_path,
                 n_ctx=config.get("n_ctx", 2048),
@@ -395,9 +434,8 @@ class ModelLoader:
                 vocab_only=config.get("vocab_only", False),
                 use_mmap=config.get("use_mmap", True),
                 use_mlock=config.get("use_mlock", False),
-                verbose=True  # Enable verbose logging for debugging
+                verbose=True
             )
-            logger.info(f"Successfully loaded GGUF model: {model_id}")
             
         except Exception as e:
             logger.error(f"Failed to load GGUF model {model_id}: {str(e)}")
@@ -405,6 +443,7 @@ class ModelLoader:
             logger.error(f"File exists: {os.path.exists(model_path)}")
             logger.error(f"File size: {os.path.getsize(model_path) if os.path.exists(model_path) else 'N/A'}")
             logger.error(f"File permissions: {oct(os.stat(model_path).st_mode)[-3:] if os.path.exists(model_path) else 'N/A'}")
+            logger.error(f"llama-cpp-python version: {pkg_resources.get_distribution('llama-cpp-python').version}")
             raise
         
         # Create a simple tokenizer interface
