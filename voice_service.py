@@ -439,19 +439,43 @@ async def unload_model(mid: str) -> bool:
     async with model_lock:
         if fid not in loaded_models:
             return False
+            
         bundle = loaded_models.pop(fid)
         try:
-            bundle["model"].to("cpu")
-        except Exception:
-            pass
-        del bundle
-        gc.collect()
-        if DEVICE == "cuda":
-            torch.cuda.empty_cache()
-            torch.cuda.synchronize()
-        if current_model_id == fid:
-            current_model_id = None
-        return True
+            # Check if it's a GGUF model
+            if isinstance(bundle["model"], Llama):
+                # GGUF models need explicit cleanup
+                bundle["model"].free()
+            else:
+                # Hugging Face models
+                bundle["model"].to("cpu")
+                bundle["model"].cpu()
+                
+            # Clear tokenizer
+            if hasattr(bundle["tokenizer"], "model"):
+                bundle["tokenizer"].model = None
+                
+            # Delete the bundle
+            del bundle
+            
+            # Force garbage collection
+            gc.collect()
+            
+            # Clear CUDA cache if available
+            if DEVICE == "cuda":
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+                
+            # Reset current model if needed
+            if current_model_id == fid:
+                current_model_id = None
+                
+            logger.info(f"Successfully unloaded model: {fid}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error unloading model {fid}: {e}")
+            return False
 
 async def load_model(mid: str) -> None:
     global current_model_id
