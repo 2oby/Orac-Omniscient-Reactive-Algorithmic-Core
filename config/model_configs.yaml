@@ -18,4 +18,27 @@ TinyLlama/TinyLlama-1.1B-Chat-v1.0:
   temperature: 0.7  # Slightly lower temperature for more focused outputs
   do_sample: true   # Enable sampling for more natural responses
 
+# GGUF Model Configurations
+Qwen3-0.6B-Q4_K_M.gguf:
+  temperature: 0.7
+  n_ctx: 2048
+  n_threads: 4
+  n_gpu_layers: 0
+  n_batch: 512
+  repeat_penalty: 1.1
+  top_k: 40
+  top_p: 0.95
+  stop: ["</s>", "}"]  # Stop at end of sentence or JSON
+
+Qwen3-1.7B-Q4_K_M.gguf:
+  temperature: 0.7
+  n_ctx: 2048
+  n_threads: 4
+  n_gpu_layers: 0
+  n_batch: 512
+  repeat_penalty: 1.1
+  top_k: 40
+  top_p: 0.95
+  stop: ["</s>", "}"]  # Stop at end of sentence or JSON
+
 # Add more model configurations below 

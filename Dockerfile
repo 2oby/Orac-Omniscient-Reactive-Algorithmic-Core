@@ -2,6 +2,13 @@ FROM nvcr.io/nvidia/l4t-ml:r36.2.0-py3
 
 WORKDIR /app
 
+# Install system dependencies for llama.cpp
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies
 RUN pip install --upgrade pip
 RUN pip install "fastapi>=0.104.1" \
@@ -19,10 +26,12 @@ RUN pip install "fastapi>=0.104.1" \
                 "sacremoses" \
                 "protobuf" \
                 "pyyaml>=6.0" \
-                "safetensors"
+                "safetensors" \
+                "llama-cpp-python>=0.2.0" \
+                "numpy>=1.24.0"  # Required for llama-cpp-python
 
 # Create necessary directories
-RUN mkdir -p /models /models/cache /app/logs
+RUN mkdir -p /models /models/cache /models/gguf /app/logs
 
 # Copy application code and config
 COPY config/ /app/config/

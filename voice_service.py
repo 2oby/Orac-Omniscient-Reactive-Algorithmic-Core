@@ -7,7 +7,8 @@ Fully self‑contained, syntax‑clean (fixed truncated block at /memory) and re
 # ---------------- Standard library ----------------
 import os, sys, time, gc, json, traceback, logging, asyncio
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
+from pathlib import Path
 
 # ---------------- Third‑party ----------------------
 import psutil, torch, uvicorn, pkg_resources, yaml
@@ -16,6 +17,14 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from asyncio import Lock
+
+# ---------------- GGUF Support --------------------
+try:
+    from llama_cpp import Llama
+    GGUF_AVAILABLE = True
+except ImportError:
+    GGUF_AVAILABLE = False
+    logger.warning("llama-cpp-python not installed. GGUF support disabled.")
 
 # ---------------- Project‑local --------------------
 try:
@@ -183,9 +192,14 @@ MODEL_ALIASES: dict[str, str] = {
     "qwen3-1.7b": "Qwen/Qwen3-1.7B",
     "qwen3-0.6b": "Qwen/Qwen3-0.6B",
     "qwen3-0.6b-fp8": "Qwen/Qwen3-0.6B-FP8",
+    # GGUF model aliases
+    "qwen3-0.6b-gguf": "Qwen3-0.6B-Q4_K_M.gguf",
+    "qwen3-1.7b-gguf": "Qwen3-1.7B-Q4_K_M.gguf"
 }
 RECOMMENDED_MODELS = [
-    "tinyllama", "qwen3-0.6b", "qwen3-0.6b-fp8", "qwen3-1.7b", "distilgpt2", "gpt2"
+    "tinyllama", "qwen3-0.6b", "qwen3-0.6b-fp8", "qwen3-1.7b", 
+    "qwen3-0.6b-gguf", "qwen3-1.7b-gguf",  # Add GGUF models to recommended list
+    "distilgpt2", "gpt2"
 ]
 
 # ---------------- State ----------------------------
@@ -321,6 +335,103 @@ def process_command(raw_text: str) -> dict:
         logging.error(f"Error processing command: {e}")
         return None
 
+# ---------------- GGUF Support --------------------
+class ModelLoader:
+    """Handles loading of both Hugging Face and GGUF models."""
+    
+    def __init__(self, models_dir: str):
+        self.models_dir = models_dir
+        self.gguf_dir = os.path.join(models_dir, "gguf")
+        os.makedirs(self.gguf_dir, exist_ok=True)
+    
+    def is_gguf_model(self, model_id: str) -> bool:
+        """Check if the model is a GGUF model."""
+        return model_id.endswith('.gguf') or os.path.exists(os.path.join(self.gguf_dir, model_id))
+    
+    def get_gguf_path(self, model_id: str) -> str:
+        """Get the full path to a GGUF model file."""
+        if model_id.endswith('.gguf'):
+            return os.path.join(self.gguf_dir, model_id)
+        return os.path.join(self.gguf_dir, f"{model_id}.gguf")
+    
+    def load_gguf_model(self, model_id: str) -> tuple[Any, Any]:
+        """Load a GGUF model and create a compatible tokenizer."""
+        if not GGUF_AVAILABLE:
+            raise ImportError("llama-cpp-python not installed")
+            
+        model_path = self.get_gguf_path(model_id)
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"GGUF model not found: {model_path}")
+            
+        # Get model-specific config
+        config = MODEL_CONFIGS.get(model_id, {})
+        
+        # Load the GGUF model with configuration
+        model = Llama(
+            model_path=model_path,
+            n_ctx=config.get("n_ctx", 2048),
+            n_threads=config.get("n_threads", 4),
+            n_gpu_layers=config.get("n_gpu_layers", 0),
+            n_batch=config.get("n_batch", 512),
+            verbose=False
+        )
+        
+        # Create a simple tokenizer interface
+        class GGUFTokenizer:
+            def __init__(self, model):
+                self.model = model
+                self.model_max_length = config.get("n_ctx", 2048)
+                self.pad_token = "</s>"
+                self.eos_token = "</s>"
+                self.pad_token_id = 0
+                self.eos_token_id = 0
+            
+            def __call__(self, text, **kwargs):
+                # Convert input to tokens
+                tokens = self.model.tokenize(text.encode())
+                return {"input_ids": torch.tensor([tokens])}
+            
+            def decode(self, tokens, **kwargs):
+                # Convert tokens back to text
+                return self.model.detokenize(tokens).decode()
+        
+        tokenizer = GGUFTokenizer(model)
+        return model, tokenizer
+    
+    def load_hf_model(self, model_id: str) -> tuple[Any, Any]:
+        """Load a Hugging Face model with quantization."""
+        cache = os.path.join(self.models_dir, "cache")
+        t_kwargs = {"trust_remote_code": True, "cache_dir": cache}
+        tokenizer = AutoTokenizer.from_pretrained(model_id, **t_kwargs)
+        
+        # Handle pad token
+        if tokenizer.pad_token is None:
+            if tokenizer.eos_token:
+                tokenizer.pad_token = tokenizer.eos_token
+            else:
+                tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+                tokenizer.pad_token = "[PAD]"
+        
+        # Load model with quantization
+        m_kwargs = {"trust_remote_code": True, "cache_dir": cache}
+        if DEVICE == "cuda":
+            m_kwargs.update({
+                "device_map": "auto",
+                "torch_dtype": torch.float16,
+                "low_cpu_mem_usage": True
+            })
+        
+        model = AutoModelForCausalLM.from_pretrained(model_id, **m_kwargs)
+        
+        # Resize token embeddings if needed
+        if model.config.vocab_size < len(tokenizer):
+            model.resize_token_embeddings(len(tokenizer))
+            
+        return model, tokenizer
+
+# Initialize model loader
+model_loader = ModelLoader(MODELS_DIR)
+
 # ---------------- Model lifecycle ------------------
 async def unload_model(mid: str) -> bool:
     global current_model_id
@@ -352,33 +463,18 @@ async def load_model(mid: str) -> None:
         if current_model_id:
             await unload_model(current_model_id)
         
-        cache = os.path.join(MODELS_DIR, "cache")
-        t_kwargs = {"trust_remote_code": True, "cache_dir": cache}
-        tokenizer = AutoTokenizer.from_pretrained(fid, **t_kwargs)
-
-        # -------- robust pad‑token handling --------
-        if tokenizer.pad_token is None:
-            if tokenizer.eos_token:
-                tokenizer.pad_token = tokenizer.eos_token  # reuse EOS token
+        try:
+            if model_loader.is_gguf_model(fid):
+                model, tokenizer = model_loader.load_gguf_model(fid)
             else:
-                tokenizer.add_special_tokens({"pad_token": "[PAD]"})  # returns num_added_tokens (int)
-                tokenizer.pad_token = "[PAD]"  # now a real string value
-
-        m_kwargs = {"trust_remote_code": True, "cache_dir": cache}
-        if DEVICE == "cuda":
-            m_kwargs.update({
-                "device_map": "auto",
-                "torch_dtype": torch.float16,
-                "low_cpu_mem_usage": True
-            })
-        model = AutoModelForCausalLM.from_pretrained(fid, **m_kwargs)
-
-        # if we added a new special token, make sure model gets resized
-        if model.config.vocab_size < len(tokenizer):
-            model.resize_token_embeddings(len(tokenizer))
-
-        loaded_models[fid] = {"model": model, "tokenizer": tokenizer, "loaded_at": datetime.utcnow()}
-        current_model_id = fid
+                model, tokenizer = model_loader.load_hf_model(fid)
+                
+            loaded_models[fid] = {"model": model, "tokenizer": tokenizer, "loaded_at": datetime.utcnow()}
+            current_model_id = fid
+            
+        except Exception as e:
+            logger.error(f"Error loading model {fid}: {e}")
+            raise
 
 # ---------------- Generation helper ----------------
 async def generate_raw(model, tokenizer, prompt: str, temp: float, mx: int) -> str:
@@ -390,30 +486,44 @@ async def generate_raw(model, tokenizer, prompt: str, temp: float, mx: int) -> s
         # Handle potential tokenizer overflow by ensuring max_length is within safe bounds
         max_length = min(tokenizer.model_max_length, 2048)
         
-        # Tokenize the input
-        enc = tokenizer(
-            prompt, 
-            return_tensors="pt", 
-            padding=True, 
-            truncation=True, 
-            max_length=max_length,
-            return_token_type_ids=config.get("return_token_type_ids", True)
-        )
+        # Check if this is a GGUF model
+        is_gguf = isinstance(model, Llama)
         
-        # Move inputs to device
-        inp = {k: v.to(DEVICE) for k, v in enc.items()}
-        
-        # Generate with model-specific parameters
-        with torch.no_grad():
-            out = model.generate(
-                **inp,
-                max_new_tokens=mx,
+        if is_gguf:
+            # GGUF model generation
+            response = model(
+                prompt,
+                max_tokens=mx,
                 temperature=config.get("temperature", temp),
-                do_sample=config.get("do_sample", True),
-                pad_token_id=tokenizer.eos_token_id
+                stop=["</s>", "}"],  # Stop at end of sentence or JSON
+                echo=False  # Don't include the prompt in the output
+            )
+            return response["choices"][0]["text"]
+        else:
+            # Hugging Face model generation
+            enc = tokenizer(
+                prompt, 
+                return_tensors="pt", 
+                padding=True, 
+                truncation=True, 
+                max_length=max_length,
+                return_token_type_ids=config.get("return_token_type_ids", True)
             )
             
-        return tokenizer.decode(out[0], skip_special_tokens=True)
+            # Move inputs to device
+            inp = {k: v.to(DEVICE) for k, v in enc.items()}
+            
+            # Generate with model-specific parameters
+            with torch.no_grad():
+                out = model.generate(
+                    **inp,
+                    max_new_tokens=mx,
+                    temperature=config.get("temperature", temp),
+                    do_sample=config.get("do_sample", True),
+                    pad_token_id=tokenizer.eos_token_id
+                )
+                
+            return tokenizer.decode(out[0], skip_special_tokens=True)
     
     except Exception as e:
         logger.error(f"Generation error: {e}")
