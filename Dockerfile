@@ -15,8 +15,10 @@ RUN pip install --no-cache-dir numpy==1.26.4 fastapi==0.110.3 uvicorn transforme
     pydantic==2.4.2 accelerate bitsandbytes einops sentencepiece \
     httpx rich psutil regex sacremoses protobuf pyyaml safetensors
 
-# Install llama-cpp-python 0.3.8
-RUN pip install --no-cache-dir --force-reinstall llama-cpp-python==0.3.8
+# Install llama-cpp-python 0.3.8 with limited parallel jobs
+ENV CMAKE_ARGS="-DGGML_CUDA=ON -DGGML_CUDA_ARCH=87"
+ENV FORCE_CMAKE=1
+RUN pip install --no-cache-dir --no-binary :all: --force-reinstall -v -j1 llama-cpp-python==0.3.8
 
 # Create necessary directories with permissions
 RUN mkdir -p /models /models/cache /models/gguf /app/logs && \
