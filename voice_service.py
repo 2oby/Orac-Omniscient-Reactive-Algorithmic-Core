@@ -360,21 +360,36 @@ class ModelLoader:
             raise ImportError("llama-cpp-python not installed")
             
         model_path = self.get_gguf_path(model_id)
+        logger.info(f"Attempting to load GGUF model from: {model_path}")
+        
         if not os.path.exists(model_path):
-            raise FileNotFoundError(f"GGUF model not found: {model_path}")
+            raise FileNotFoundError(f"GGUF model not found at: {model_path}")
+            
+        if not os.access(model_path, os.R_OK):
+            raise PermissionError(f"No read permission for model file: {model_path}")
             
         # Get model-specific config
         config = MODEL_CONFIGS.get(model_id, {})
+        logger.info(f"Using config for {model_id}: {config}")
         
-        # Load the GGUF model with configuration
-        model = Llama(
-            model_path=model_path,
-            n_ctx=config.get("n_ctx", 2048),
-            n_threads=config.get("n_threads", 4),
-            n_gpu_layers=config.get("n_gpu_layers", 0),
-            n_batch=config.get("n_batch", 512),
-            verbose=False
-        )
+        try:
+            # Load the GGUF model with configuration
+            model = Llama(
+                model_path=model_path,
+                n_ctx=config.get("n_ctx", 2048),
+                n_threads=config.get("n_threads", 4),
+                n_gpu_layers=config.get("n_gpu_layers", 0),
+                n_batch=config.get("n_batch", 512),
+                verbose=True  # Enable verbose logging for debugging
+            )
+            logger.info(f"Successfully loaded GGUF model: {model_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to load GGUF model {model_id}: {str(e)}")
+            logger.error(f"Model path: {model_path}")
+            logger.error(f"File exists: {os.path.exists(model_path)}")
+            logger.error(f"File size: {os.path.getsize(model_path) if os.path.exists(model_path) else 'N/A'}")
+            raise
         
         # Create a simple tokenizer interface
         class GGUFTokenizer:
@@ -488,13 +503,22 @@ async def load_model(mid: str) -> None:
             await unload_model(current_model_id)
         
         try:
+            # Check if it's a GGUF model
             if model_loader.is_gguf_model(fid):
+                # Verify GGUF model file exists
+                model_path = model_loader.get_gguf_path(fid)
+                if not os.path.exists(model_path):
+                    raise FileNotFoundError(f"GGUF model file not found: {model_path}")
+                logger.info(f"Loading GGUF model from: {model_path}")
                 model, tokenizer = model_loader.load_gguf_model(fid)
             else:
+                # Hugging Face model
+                logger.info(f"Loading Hugging Face model: {fid}")
                 model, tokenizer = model_loader.load_hf_model(fid)
                 
             loaded_models[fid] = {"model": model, "tokenizer": tokenizer, "loaded_at": datetime.utcnow()}
             current_model_id = fid
+            logger.info(f"Successfully loaded model: {fid}")
             
         except Exception as e:
             logger.error(f"Error loading model {fid}: {e}")

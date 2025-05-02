@@ -31,7 +31,9 @@ RUN pip install "fastapi>=0.104.1" \
                 "numpy>=1.24.0"  # Required for llama-cpp-python
 
 # Create necessary directories
-RUN mkdir -p /models /models/cache /models/gguf /app/logs
+RUN mkdir -p /models /models/cache /models/gguf /app/logs && \
+    chmod -R 777 /models && \
+    chmod -R 777 /app/logs
 
 # Copy application code and config
 COPY config/ /app/config/
