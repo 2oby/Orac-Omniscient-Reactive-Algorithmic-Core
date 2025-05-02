@@ -30,7 +30,7 @@ RUN pip install "fastapi>=0.104.1" \
                 "numpy>=1.24.0"
 
 # Install llama-cpp-python with specific version and build flags
-RUN CMAKE_ARGS="-DLLAMA_CUBLAS=ON" pip install llama-cpp-python==0.2.11
+RUN CMAKE_ARGS="-DLLAMA_CUBLAS=ON" pip install llama-cpp-python==0.3.8
 
 # Create necessary directories
 RUN mkdir -p /models /models/cache /models/gguf /app/logs && \
