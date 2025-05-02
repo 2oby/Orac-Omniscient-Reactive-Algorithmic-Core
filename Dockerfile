@@ -2,35 +2,19 @@ FROM nvcr.io/nvidia/l4t-ml:r36.2.0-py3
 
 WORKDIR /app
 
-# Install system dependencies for llama.cpp
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    git \
+        build-essential cmake git libopenblas-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+# Python libs (unchanged)
 RUN pip install --upgrade pip
-RUN pip install "fastapi>=0.104.1" \
-                "uvicorn>=0.24.0" \
-                "transformers>=4.51.0" \
-                "pydantic==2.4.2" \
-                "accelerate>=0.22.0" \
-                "bitsandbytes>=0.41.0" \
-                "einops>=0.6.0" \
-                "sentencepiece>=0.1.99" \
-                "httpx>=0.26.0" \
-                "rich>=13.7.0" \
-                "psutil>=5.9.0" \
-                "regex>=2022.10.31" \
-                "sacremoses" \
-                "protobuf" \
-                "pyyaml>=6.0" \
-                "safetensors" \
-                "numpy>=1.24.0"
+RUN pip install fastapi==0.110.3 uvicorn transformers==4.51.0 \
+        pydantic==2.4.2 accelerate bitsandbytes einops sentencepiece \
+        httpx rich psutil regex sacremoses protobuf pyyaml safetensors numpy
 
-# Install llama-cpp-python with specific version and build flags
-ENV CMAKE_ARGS="-DGGML_CUDA=ON"
+# Build llama‑cpp‑python 0.3.8 for Orin GPU
+ENV CMAKE_ARGS="-DGGML_CUDA=ON -DGGML_CUDA_ARCH=87"
+ENV FORCE_CMAKE=1           # prevent pip from ever grabbing an x86 wheel
 RUN pip install --no-binary :all: --no-cache-dir llama-cpp-python==0.3.8
 
 # Create necessary directories
