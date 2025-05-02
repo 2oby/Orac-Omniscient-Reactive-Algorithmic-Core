@@ -17,6 +17,6 @@ services:
     deploy:
       resources:
         limits:
-          memory: 6g
+          memory: 7g  # Set to 7 GB as requested
     runtime: nvidia
     shm_size: 1g
