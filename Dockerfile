@@ -12,7 +12,7 @@ RUN pip install fastapi==0.110.3 uvicorn transformers==4.51.0 \
         pydantic==2.4.2 accelerate bitsandbytes einops sentencepiece \
         httpx rich psutil regex sacremoses protobuf pyyaml safetensors numpy
 
-# Build llama‑cpp‑python 0.3.8 for Orin GPU
+# Build llama-cpp-python 0.3.8 for Orin GPU
 ENV CMAKE_ARGS="-DGGML_CUDA=ON -DGGML_CUDA_ARCH=87"
 ENV FORCE_CMAKE=1           # prevent pip from ever grabbing an x86 wheel
 RUN pip install --no-binary :all: --no-cache-dir llama-cpp-python==0.3.8
