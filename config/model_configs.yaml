@@ -29,6 +29,11 @@ Qwen3-0.6B-Q4_K_M.gguf:
   top_k: 40
   top_p: 0.95
   stop: ["</s>", "}"]  # Stop at end of sentence or JSON
+  f16_kv: true  # Use float16 for key/value cache
+  embedding: false  # Don't use embedding mode
+  vocab_only: false  # Load full model
+  use_mmap: true  # Use memory mapping
+  use_mlock: false  # Don't lock memory
 
 Qwen3-1.7B-Q4_K_M.gguf:
   temperature: 0.7
@@ -40,5 +45,10 @@ Qwen3-1.7B-Q4_K_M.gguf:
   top_k: 40
   top_p: 0.95
   stop: ["</s>", "}"]  # Stop at end of sentence or JSON
+  f16_kv: true  # Use float16 for key/value cache
+  embedding: false  # Don't use embedding mode
+  vocab_only: false  # Load full model
+  use_mmap: true  # Use memory mapping
+  use_mlock: false  # Don't lock memory
 
 # Add more model configurations below 

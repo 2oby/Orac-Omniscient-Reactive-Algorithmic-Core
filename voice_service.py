@@ -182,6 +182,16 @@ CONFIG_DIR = os.environ.get("CONFIG_DIR", "/app/config")
 os.makedirs(MODELS_DIR, exist_ok=True)
 os.makedirs(CONFIG_DIR, exist_ok=True)
 
+# Debug logging for paths and permissions
+logger.info(f"MODELS_DIR: {MODELS_DIR}")
+logger.info(f"CONFIG_DIR: {CONFIG_DIR}")
+logger.info(f"GGUF directory: {os.path.join(MODELS_DIR, 'gguf')}")
+if os.path.exists(os.path.join(MODELS_DIR, 'gguf')):
+    logger.info("GGUF directory contents:")
+    for file in os.listdir(os.path.join(MODELS_DIR, 'gguf')):
+        file_path = os.path.join(MODELS_DIR, 'gguf', file)
+        logger.info(f"  {file}: {os.path.getsize(file_path)} bytes, permissions: {oct(os.stat(file_path).st_mode)[-3:]}")
+
 # ---------------- Model aliases --------------------
 MODEL_ALIASES: dict[str, str] = {
     "tinyllama": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
@@ -380,6 +390,11 @@ class ModelLoader:
                 n_threads=config.get("n_threads", 4),
                 n_gpu_layers=config.get("n_gpu_layers", 0),
                 n_batch=config.get("n_batch", 512),
+                f16_kv=config.get("f16_kv", True),
+                embedding=config.get("embedding", False),
+                vocab_only=config.get("vocab_only", False),
+                use_mmap=config.get("use_mmap", True),
+                use_mlock=config.get("use_mlock", False),
                 verbose=True  # Enable verbose logging for debugging
             )
             logger.info(f"Successfully loaded GGUF model: {model_id}")
@@ -389,6 +404,7 @@ class ModelLoader:
             logger.error(f"Model path: {model_path}")
             logger.error(f"File exists: {os.path.exists(model_path)}")
             logger.error(f"File size: {os.path.getsize(model_path) if os.path.exists(model_path) else 'N/A'}")
+            logger.error(f"File permissions: {oct(os.stat(model_path).st_mode)[-3:] if os.path.exists(model_path) else 'N/A'}")
             raise
         
         # Create a simple tokenizer interface
