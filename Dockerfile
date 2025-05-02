@@ -10,12 +10,12 @@ RUN apt-get update && apt-get install -y \
 # Upgrade pip
 RUN pip install --upgrade pip
 
-# Install Python dependencies
-RUN pip install --no-cache-dir fastapi==0.110.3 uvicorn transformers==4.51.0 \
+# Install Python dependencies with pinned numpy
+RUN pip install --no-cache-dir numpy==1.26.4 fastapi==0.110.3 uvicorn transformers==4.51.0 \
     pydantic==2.4.2 accelerate bitsandbytes einops sentencepiece \
-    httpx rich psutil regex sacremoses protobuf pyyaml safetensors numpy
+    httpx rich psutil regex sacremoses protobuf pyyaml safetensors
 
-# Install llama-cpp-python 0.3.8 with precompiled wheel if available
+# Install llama-cpp-python 0.3.8
 RUN pip install --no-cache-dir --force-reinstall llama-cpp-python==0.3.8
 
 # Create necessary directories with permissions
