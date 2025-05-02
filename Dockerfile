@@ -3,18 +3,18 @@ FROM nvcr.io/nvidia/l4t-ml:r36.2.0-py3
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
-        build-essential cmake git libopenblas-dev \
+    build-essential cmake git libopenblas-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Python libs (unchanged)
+# Python libs
 RUN pip install --upgrade pip
 RUN pip install fastapi==0.110.3 uvicorn transformers==4.51.0 \
-        pydantic==2.4.2 accelerate bitsandbytes einops sentencepiece \
-        httpx rich psutil regex sacremoses protobuf pyyaml safetensors numpy
+    pydantic==2.4.2 accelerate bitsandbytes einops sentencepiece \
+    httpx rich psutil regex sacremoses protobuf pyyaml safetensors numpy
 
 # Build llama-cpp-python 0.3.8 for Orin GPU
 ENV CMAKE_ARGS="-DGGML_CUDA=ON -DGGML_CUDA_ARCH=87"
-ENV FORCE_CMAKE=1           # prevent pip from ever grabbing an x86 wheel
+ENV FORCE_CMAKE=1
 RUN pip install --no-binary :all: --no-cache-dir llama-cpp-python==0.3.8
 
 # Create necessary directories
