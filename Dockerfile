@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir numpy==1.26.4 fastapi==0.110.3 uvicorn transforme
     pydantic==2.4.2 accelerate bitsandbytes einops sentencepiece \
     httpx rich psutil regex sacremoses protobuf pyyaml safetensors
 
-# Install dependencies for building llama-cpp-python
+# Install git for cloning llama-cpp-python
 RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y \
 RUN git clone --recurse-submodules https://github.com/abetlen/llama-cpp-python.git /app/llama-cpp-python
 
 # Build and install llama-cpp-python with CUDA support for Jetson Orin
-RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on -DCMAKE_CUDA_ARCHITECTURES=86" pip install --no-cache-dir /app/llama-cpp-python
+RUN CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=86" pip install --no-cache-dir /app/llama-cpp-python
 
 # Create necessary directories with permissions
 RUN mkdir -p /models /models/cache /models/gguf /app/logs && \
