@@ -23,9 +23,6 @@ RUN apt-get update && apt-get install -y \
 # Clone llama-cpp-python with submodules (includes llama.cpp)
 RUN git clone --recurse-submodules https://github.com/abetlen/llama-cpp-python.git /app/llama-cpp-python
 
-# Install build dependencies for llama-cpp-python
-RUN pip install --no-cache-dir -r /app/llama-cpp-python/requirements.txt
-
 # Build and install llama-cpp-python with CUDA support for Jetson Orin
 RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on -DCMAKE_CUDA_ARCHITECTURES=86" pip install --no-cache-dir /app/llama-cpp-python
 
