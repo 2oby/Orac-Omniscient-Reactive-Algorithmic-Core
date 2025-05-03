@@ -20,3 +20,4 @@ services:
           memory: 7g
     runtime: nvidia
     shm_size: 2g
+    
