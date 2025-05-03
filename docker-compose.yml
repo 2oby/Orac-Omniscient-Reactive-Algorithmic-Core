@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: voice-service
+    container_name: ORAK
     ports:
       - "8000:8000"
     volumes:
@@ -17,6 +17,6 @@ services:
     deploy:
       resources:
         limits:
-          memory: 7g  # Set to 7 GB as requested
+          memory: 7g
     runtime: nvidia
-    shm_size: 1g
+    shm_size: 2g

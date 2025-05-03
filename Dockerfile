@@ -15,9 +15,19 @@ RUN pip install --no-cache-dir numpy==1.26.4 fastapi==0.110.3 uvicorn transforme
     pydantic==2.4.2 accelerate bitsandbytes einops sentencepiece \
     httpx rich psutil regex sacremoses protobuf pyyaml safetensors
 
-# Install llama-cpp-python 0.3.8, try precompiled wheel first
-RUN pip install --no-cache-dir -f https://github.com/jllllll/llama-cpp-python-cuBLAS-wheels/releases/download/wheels/llama_cpp_python-0.3.8-cp310-cp310-linux_aarch64.whl llama-cpp-python==0.3.8 || \
-    pip install --no-cache-dir --no-binary :all: -v llama-cpp-python==0.3.8
+# Install dependencies for building llama-cpp-python
+RUN apt-get update && apt-get install -y \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone llama-cpp-python with submodules (includes llama.cpp)
+RUN git clone --recurse-submodules https://github.com/abetlen/llama-cpp-python.git /app/llama-cpp-python
+
+# Install build dependencies for llama-cpp-python
+RUN pip install --no-cache-dir -r /app/llama-cpp-python/requirements.txt
+
+# Build and install llama-cpp-python with CUDA support for Jetson Orin
+RUN CMAKE_ARGS="-DLLAMA_CUBLAS=on -DCMAKE_CUDA_ARCHITECTURES=86" pip install --no-cache-dir /app/llama-cpp-python
 
 # Create necessary directories with permissions
 RUN mkdir -p /models /models/cache /models/gguf /app/logs && \
