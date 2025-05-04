@@ -70,11 +70,14 @@ class OllamaClient:
             try:
                 response = await self.client.post("/api/show", json={"name": model_name})
                 if response.status_code == 200:
+                    print(f"Model {model_name} is ready!")
                     return True
-            except httpx.HTTPStatusError:
-                pass
-            except Exception:
-                pass
+                else:
+                    print(f"Model {model_name} not ready yet (status {response.status_code})")
+            except httpx.HTTPStatusError as e:
+                print(f"HTTP error checking model status: {str(e)}")
+            except Exception as e:
+                print(f"Error checking model status: {str(e)}")
             
             if i < max_retries - 1:
                 print(f"Waiting for model {model_name} to be ready... (attempt {i + 1}/{max_retries})")
@@ -91,20 +94,31 @@ class OllamaClient:
             
             # For local GGUF files, use the create endpoint
             if name.endswith(".gguf"):
+                # Use absolute path for the model file
+                model_path = f"/models/gguf/{name}"
+                print(f"Creating model from file: {model_path}")
+                
                 response = await self.client.post(
                     "/api/create",
                     json={
                         "name": model_name,
-                        "path": f"/models/gguf/{name}"
+                        "path": model_path
                     }
                 )
-                response.raise_for_status()
+                
+                if response.status_code != 200:
+                    print(f"Create request failed with status {response.status_code}")
+                    print(f"Response: {response.text}")
+                    response.raise_for_status()
+                
+                print(f"Model creation initiated successfully")
                 
                 # Wait for the model to be ready
                 if not await self.wait_for_model(model_name):
                     raise Exception(f"Model {model_name} failed to load within timeout")
             else:
                 # For remote models, use the pull endpoint
+                print(f"Pulling remote model: {model_name}")
                 response = await self.client.post("/api/pull", json={"name": model_name})
                 response.raise_for_status()
             

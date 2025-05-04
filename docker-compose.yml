@@ -7,7 +7,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - /home/toby/ORAC/models/gguf:/models/gguf:ro
+      - ./models/gguf:/models/gguf:ro
     command: serve
     restart: unless-stopped
     networks:
@@ -19,7 +19,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - /home/toby/ORAC/models/gguf:/models/gguf:ro
+      - ./models/gguf:/models/gguf:ro
     depends_on:
       - ollama
     environment:
