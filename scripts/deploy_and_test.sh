@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./deploy_and_test.sh [commit_message] [branch]
+# Usage: ./deploy_and_test.sh [commit_message] [branch] [service_name]
 COMMIT_MSG=${1:-"Update ORAC MVP"}
 DEPLOY_BRANCH=${2:-"mvp"}
+SERVICE_NAME=${3:-"orac"}   # Docker Compose service to exec into
 REMOTE_ALIAS="orin"
 SSH_ORIGIN="git@github.com:2oby/Orac-Omniscient-Reactive-Algorithmic-Core.git"
 
@@ -22,15 +23,12 @@ if ! git diff --cached --quiet; then
 fi
 git push origin "$DEPLOY_BRANCH"
 
-# 2) Remote: pull, build & test
+# 2) Remote: pull, build & test in container
 echo "👉  Running remote update & tests on $REMOTE_ALIAS..."
 ssh "$REMOTE_ALIAS" "\
   set -euo pipefail; \
   cd \$HOME/ORAC; \
-  echo '💡 Before set-url:' \$(git remote get-url origin); \
-  git remote set-url origin $SSH_ORIGIN; \
-  echo '💡 After  set-url:' \$(git remote get-url origin); \
-  echo '💡 Fetching & checking out $DEPLOY_BRANCH...'; \
+  git remote set-url origin $SSH_ORIGIN || true; \
   git fetch origin; \
   if git show-ref --verify --quiet refs/heads/$DEPLOY_BRANCH; then \
     git checkout $DEPLOY_BRANCH; \
@@ -38,14 +36,15 @@ ssh "$REMOTE_ALIAS" "\
     git checkout -b $DEPLOY_BRANCH origin/$DEPLOY_BRANCH; \
   fi; \
   git pull origin $DEPLOY_BRANCH; \
-  echo '🐳 Building & starting containers...'; \
   if command -v docker compose &> /dev/null; then \
-    docker compose up --build -d; \
+    DOCKER_CMD='docker compose'; \
   else \
-    docker-compose up --build -d; \
+    DOCKER_CMD='docker-compose'; \
   fi; \
-  echo '🧪 Running pytest...'; \
-  pytest -q \
+  echo '🐳 Building & starting containers...'; \
+  \$DOCKER_CMD up --build -d; \
+  echo '🧪 Running pytest inside container \"$SERVICE_NAME\"...'; \
+  \$DOCKER_CMD exec -T $SERVICE_NAME pytest -q; \
 "
 
-echo "🎉 Deployment + remote tests succeeded!"
+echo "🎉 Deployment + remote tests inside '$SERVICE_NAME' succeeded!"
