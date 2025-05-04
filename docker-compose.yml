@@ -1,6 +1,15 @@
 version: "3.9"
 
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - /home/toby/ORAC/models/gguf:/models/gguf:ro
+    command: serve
+
   orac:
     build: .
     container_name: orac
@@ -8,3 +17,8 @@ services:
       - "8000:8000"
     volumes:
       - /home/toby/ORAC/models/gguf:/models/gguf:ro
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_HOST=ollama
+      - OLLAMA_PORT=11434

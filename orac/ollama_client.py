@@ -1,16 +1,19 @@
 """
 orac.ollama_client
 ------------------
-Thin async wrapper around the local Ollama REST API (http://127.0.0.1:11434).
+Thin async wrapper around the local Ollama REST API.
 """
 
 import json
 import time
+import os
 from typing import List, Dict, Any, Optional
 import httpx
 from .models import ModelLoadResponse, ModelUnloadResponse, PromptResponse
 
-OLLAMA_BASE_URL = "http://127.0.0.1:11434"
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "127.0.0.1")
+OLLAMA_PORT = os.getenv("OLLAMA_PORT", "11434")
+OLLAMA_BASE_URL = f"http://{OLLAMA_HOST}:{OLLAMA_PORT}"
 
 
 async def list_models() -> List[Dict[str, Any]]:
@@ -50,9 +53,9 @@ async def show(model: str) -> Dict[str, Any]:
 
 
 class OllamaClient:
-    def __init__(self, base_url: str = "http://127.0.0.1:11434"):
-        self.base_url = base_url
-        self.client = httpx.AsyncClient(base_url=base_url)
+    def __init__(self, base_url: str = None):
+        self.base_url = base_url or OLLAMA_BASE_URL
+        self.client = httpx.AsyncClient(base_url=self.base_url)
 
     async def list_models(self) -> List[dict]:
         """List all available models."""
