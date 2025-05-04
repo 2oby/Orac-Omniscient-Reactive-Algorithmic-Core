@@ -64,7 +64,7 @@ class OllamaClient:
         response.raise_for_status()
         return response.json()["models"]
 
-    async def wait_for_model(self, model_name: str, max_retries: int = 60, delay: float = 2.0) -> bool:
+    async def wait_for_model(self, model_name: str, max_retries: int = 30, delay: float = 2.0) -> bool:
         """Wait for a model to be ready."""
         for i in range(max_retries):
             try:
@@ -101,11 +101,11 @@ class OllamaClient:
             # Remove .gguf extension if present
             model_name = name.replace(".gguf", "")
             
-            # For local GGUF files, use the create endpoint
+            # For local GGUF files, use the pull endpoint with local path
             if name.endswith(".gguf"):
                 # Use absolute path for the model file
                 model_path = f"/models/gguf/{name}"
-                print(f"Creating model from file: {model_path}")
+                print(f"Loading model from file: {model_path}")
                 
                 # Check if file exists and is readable
                 if not os.path.exists(model_path):
@@ -117,20 +117,39 @@ class OllamaClient:
                 file_size = os.path.getsize(model_path)
                 print(f"Model file size: {file_size / (1024*1024):.2f} MB")
                 
-                response = await self.client.post(
-                    "/api/create",
+                # Load model using pull endpoint with local path
+                async with self.client.stream(
+                    "POST",
+                    "/api/pull",
                     json={
                         "name": model_name,
                         "path": model_path
                     }
-                )
-                
-                if response.status_code != 200:
-                    print(f"Create request failed with status {response.status_code}")
-                    print(f"Response: {response.text}")
+                ) as response:
                     response.raise_for_status()
+                    pull_complete = False
+                    error_message = None
+                    
+                    async for line in response.aiter_lines():
+                        if line:
+                            try:
+                                chunk = json.loads(line)
+                                if "error" in chunk:
+                                    error_message = chunk["error"]
+                                    break
+                                if chunk.get("status") == "success":
+                                    pull_complete = True
+                                    break
+                                print(f"Loading progress: {chunk.get('status', 'unknown')}")
+                            except json.JSONDecodeError as e:
+                                print(f"Failed to parse loading response: {str(e)}")
+                    
+                    if error_message:
+                        raise Exception(f"Model loading failed: {error_message}")
+                    if not pull_complete:
+                        raise Exception("Model loading did not complete successfully")
                 
-                print(f"Model creation initiated successfully")
+                print(f"Model loading completed, waiting for model to be ready...")
                 
                 # Wait for the model to be ready
                 if not await self.wait_for_model(model_name):
