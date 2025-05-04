@@ -101,7 +101,7 @@ class OllamaClient:
             # Remove .gguf extension if present
             model_name = name.replace(".gguf", "")
             
-            # For local GGUF files, use the pull endpoint with local path
+            # For local GGUF files, use the create endpoint with local path
             if name.endswith(".gguf"):
                 # Use absolute path for the model file
                 model_path = f"/models/gguf/{name}"
@@ -117,17 +117,18 @@ class OllamaClient:
                 file_size = os.path.getsize(model_path)
                 print(f"Model file size: {file_size / (1024*1024):.2f} MB")
                 
-                # Load model using pull endpoint with local path
+                # Create model using create endpoint with local path
                 async with self.client.stream(
                     "POST",
-                    "/api/pull",
+                    "/api/create",
                     json={
                         "name": model_name,
-                        "path": model_path
+                        "path": model_path,
+                        "modelfile": f"FROM {model_path}"
                     }
                 ) as response:
                     response.raise_for_status()
-                    pull_complete = False
+                    create_complete = False
                     error_message = None
                     
                     async for line in response.aiter_lines():
@@ -138,7 +139,7 @@ class OllamaClient:
                                     error_message = chunk["error"]
                                     break
                                 if chunk.get("status") == "success":
-                                    pull_complete = True
+                                    create_complete = True
                                     break
                                 print(f"Loading progress: {chunk.get('status', 'unknown')}")
                             except json.JSONDecodeError as e:
@@ -146,7 +147,7 @@ class OllamaClient:
                     
                     if error_message:
                         raise Exception(f"Model loading failed: {error_message}")
-                    if not pull_complete:
+                    if not create_complete:
                         raise Exception("Model loading did not complete successfully")
                 
                 print(f"Model loading completed, waiting for model to be ready...")
