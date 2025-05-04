@@ -44,7 +44,8 @@ ssh "$REMOTE_ALIAS" "\
   echo '🐳 Building & starting containers...'; \
   \$DOCKER_CMD up --build -d; \
   echo '🧪 Running pytest inside container \"$SERVICE_NAME\"...'; \
-  \$DOCKER_CMD exec -T $SERVICE_NAME pytest -q; \
+  \$DOCKER_CMD exec -T $SERVICE_NAME pytest -q tests/ --ignore=archive/legacy; \
+
 "
 
 echo "🎉 Deployment + remote tests inside '$SERVICE_NAME' succeeded!"
