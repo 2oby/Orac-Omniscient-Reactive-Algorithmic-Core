@@ -13,7 +13,7 @@ def ollama_client():
 async def test_prompt_success():
     # Mock successful prompt response
     expected_response = "Hello, I am an AI assistant."
-    respx.post("http://127.0.0.1:11434/api/generate").mock(
+    respx.post("http://orac-ollama:11434/api/generate").mock(
         return_value=Response(200, json={
             "response": expected_response,
             "done": True
@@ -29,7 +29,7 @@ async def test_prompt_success():
 @pytest.mark.asyncio
 async def test_prompt_model_not_loaded():
     # Mock model not loaded error
-    respx.post("http://127.0.0.1:11434/api/generate").mock(
+    respx.post("http://orac-ollama:11434/api/generate").mock(
         return_value=Response(404, json={"error": "Model not loaded"})
     )
     
@@ -64,7 +64,7 @@ async def test_prompt_streaming():
         
         return Response(200, content=generate())
     
-    respx.post("http://127.0.0.1:11434/api/generate").mock(side_effect=stream_response)
+    respx.post("http://orac-ollama:11434/api/generate").mock(side_effect=stream_response)
     
     client = OllamaClient()
     response = await client.generate("Qwen3-0.6B-Q4_K_M", "Hello", stream=True)

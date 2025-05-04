@@ -12,7 +12,7 @@ def ollama_client():
 @pytest.mark.asyncio
 async def test_load_model_success():
     # Mock successful model loading
-    respx.post("http://127.0.0.1:11434/api/pull").mock(
+    respx.post("http://orac-ollama:11434/api/pull").mock(
         return_value=Response(200, json={"status": "success"})
     )
     
@@ -24,7 +24,7 @@ async def test_load_model_success():
 @pytest.mark.asyncio
 async def test_load_model_not_found():
     # Mock model not found error
-    respx.post("http://127.0.0.1:11434/api/pull").mock(
+    respx.post("http://orac-ollama:11434/api/pull").mock(
         return_value=Response(404, json={"error": "Model not found"})
     )
     
@@ -37,7 +37,7 @@ async def test_load_model_not_found():
 @pytest.mark.asyncio
 async def test_unload_model_success():
     # Mock successful model unloading
-    respx.delete("http://127.0.0.1:11434/api/delete").mock(
+    respx.delete("http://orac-ollama:11434/api/delete").mock(
         return_value=Response(200, json={"status": "success"})
     )
     
@@ -49,7 +49,7 @@ async def test_unload_model_success():
 @pytest.mark.asyncio
 async def test_unload_model_not_loaded():
     # Mock model not loaded error
-    respx.delete("http://127.0.0.1:11434/api/delete").mock(
+    respx.delete("http://orac-ollama:11434/api/delete").mock(
         return_value=Response(404, json={"error": "Model not loaded"})
     )
     

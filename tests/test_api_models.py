@@ -10,7 +10,7 @@ client = TestClient(app)
 
 @respx.mock
 def test_list_models_endpoint():
-    respx.get("http://127.0.0.1:11434/api/tags").mock(
+    respx.get("http://orac-ollama:11434/api/tags").mock(
         return_value=Response(200, json={"models": [{"name": "tinyllama"}]})
     )
     resp = client.get("/v1/models")
