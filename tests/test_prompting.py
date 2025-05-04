@@ -50,14 +50,21 @@ async def test_prompt_empty_input():
 @pytest.mark.asyncio
 async def test_prompt_streaming():
     # Mock streaming response
-    responses = [
-        Response(200, json={"response": "Hello", "done": False}),
-        Response(200, json={"response": ", ", "done": False}),
-        Response(200, json={"response": "I am an AI", "done": False}),
-        Response(200, json={"response": " assistant.", "done": True})
+    chunks = [
+        '{"response": "Hello", "done": false}\n',
+        '{"response": ", ", "done": false}\n',
+        '{"response": "I am an AI", "done": false}\n',
+        '{"response": " assistant.", "done": true}\n'
     ]
     
-    respx.post("http://127.0.0.1:11434/api/generate").mock(side_effect=responses)
+    async def stream_response(request):
+        async def generate():
+            for chunk in chunks:
+                yield chunk.encode()
+        
+        return Response(200, content=generate())
+    
+    respx.post("http://127.0.0.1:11434/api/generate").mock(side_effect=stream_response)
     
     client = OllamaClient()
     response = await client.generate("Qwen3-0.6B-Q4_K_M", "Hello", stream=True)
