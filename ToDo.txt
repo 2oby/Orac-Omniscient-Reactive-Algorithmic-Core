@@ -1,0 +1,149 @@
+ToDO
+
+- update the name of the project and files from voice_service-voice. to ORAK.
+- check the swap settings once the build has completed successfully, can we use physical swap as we are running on NVME
+
+# GitHub Repository Migration Guide for ORAC MVP
+
+## Quick‑look summary
+- Rename the repository on GitHub to drop the trailing dash—GitHub will create automatic redirects, so old links keep working.
+- Create a long‑lived `mvp` branch that will house the brand‑new structure (Dockerfile, FastAPI package, tests, etc.).
+- Move the existing codebase into an `archive/legacy` folder in `main` so its history is preserved but stays out of the MVP's way.
+- Merge the fresh scaffold (from the Markdown guide) into `mvp` while keeping the old branch around for reference.
+- Open a pull request (`mvp → main`) and iterate until CI passes and Docker builds cleanly.
+- Protect both branches and enable required‑status‑checks so broken commits never land in `main`.
+
+## 1. Rename the repository (fix the dash)
+1. Visit Settings → General → Rename on the repo's GitHub page.
+2. Enter the new name, e.g. `Orac-Omniscient-Reactive-Algorithmic-Core` (no trailing "‑").
+3. Confirm.
+
+GitHub automatically creates HTTP 301 redirects for clones, issues, pull‑requests and wikis.
+[GitHub Docs](https://docs.github.com/en/repositories/creating-and-managing-repositories/renaming-a-repository)
+
+Your local clones keep working, but after renaming you should update origin:
+
+```bash
+git remote set-url origin https://github.com/2oby/Orac-Omniscient-Reactive-Algorithmic-Core.git
+```
+
+## 2. Freeze the old code in place
+
+```bash
+git checkout main
+git pull
+git checkout -b archive-pre-mvp
+```
+
+Move current files into an archive/legacy directory:
+
+```bash
+mkdir -p archive/legacy
+git mv $(ls -1A | grep -v '^archive$') archive/legacy/
+git commit -m "chore: move legacy code into archive/legacy before MVP refactor"
+git push -u origin archive-pre-mvp
+```
+
+Why? `git mv` keeps the file‑history intact. Tools such as `git log --follow` or GitHub's blame view can still trace changes after a move.
+[Stack Overflow](https://stackoverflow.com/questions/2314652/is-it-possible-to-move-rename-files-in-git-and-maintain-their-history)
+
+Tip: leave `main` pointing at the last known‑good legacy commit so production users (if any) aren't surprised.
+
+## 3. Create the clean MVP branch
+
+```bash
+git checkout -b mvp
+```
+
+Now drop in the directory skeleton from the Markdown guide:
+
+```bash
+# copy or create files following the 'High‑Level Directory Layout'
+mkdir -p orac/web tests scripts
+touch orac/__init__.py requirements.txt Dockerfile
+```
+
+Add the exact requirements.txt lines and commit:
+
+```bash
+git add .
+git commit -m "feat: scaffold ORAC MVP structure (empty packages, tests pass)"
+git push -u origin mvp
+```
+
+Run the blank test suite:
+
+```bash
+pytest -q   # should output "collected 0 items"
+```
+
+## 4. Develop in short, test‑backed increments
+Follow the Incremental Build Plan from the Markdown guide step‑by‑step:
+
+- Each step lives in one PR targeting `mvp`.
+- Add tests immediately—pytest must stay green.
+- Squash‑merge PRs to keep history tidy.
+
+When you reach Step 3.2 (Dockerfile), build locally on the Jetson:
+
+```bash
+docker build -t orac:mvp .
+```
+
+If the Jetson can't compile Python wheels because of low RAM, use the swapfile and the 32 GB swap you already set up, or add `pip install --no-cache-dir` (the guide includes this).
+[Stack Overflow](https://stackoverflow.com/questions/53204916/what-is-the-meaning-of-pip-install-no-cache-dir)
+
+## 5. Wire up CI early
+Enabling GitHub Actions now saves pain later:
+
+In `.github/workflows/ci.yml` run:
+- `pip install -r requirements.txt`
+- `pytest -q`
+
+Cache `~/.cache/pip` to speed builds.
+
+Add status checks so PRs must be green before merging.
+[GitHub Docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/defining-the-mergeability-of-pull-requests/managing-a-branch-protection-rule)
+[GitHub Docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/defining-the-mergeability-of-pull-requests/troubleshooting-required-status-checks)
+
+## 6. Merge MVP back to main
+Once all steps through 3.9 pass locally and in CI, open a pull request:
+
+```
+base: main
+compare: mvp
+```
+
+Review, squash‑merge, then tag:
+
+```bash
+git checkout main
+git pull
+git tag v0.1.0-mvp
+git push --tags
+```
+
+## 7. House‑cleaning follow‑ups
+
+### 7.1 Update READMEs
+Describe the new build instructions (docker build etc.) and deprecate the legacy code.
+
+### 7.2 Protect branches
+Enable branch protection on `main` and `mvp` so force‑pushes and failing CI merges are blocked.
+[GitHub Docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/defining-the-mergeability-of-pull-requests/about-protected-branches)
+[GitHub Docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/defining-the-mergeability-of-pull-requests/managing-a-branch-protection-rule)
+
+### 7.3 Delete the trailing‑dash redirect later
+When you're sure everyone has migrated to the new clone URL, you can reclaim the old name if desired. GitHub keeps redirects until someone else claims it.
+[GitHub Docs](https://docs.github.com/en/repositories/creating-and-managing-repositories/renaming-a-repository)
+
+## 8. FAQ
+
+| Question | Short answer |
+|----------|--------------|
+| Will renaming break existing clones? | No, GitHub keeps 301 redirects; old git push URLs keep working. [GitHub Docs](https://docs.github.com/en/repositories/creating-and-managing-repositories/renaming-a-repository) |
+| Do I lose history when moving files? | `git mv` plus `git log --follow` preserves history. [Stack Overflow](https://stackoverflow.com/questions/2314652/is-it-possible-to-move-rename-files-in-git-and-maintain-their-history) |
+| Why isolate legacy code in archive/legacy? | Keeps history but removes clutter so the FastAPI package is clean. |
+| What if I later need to build Ollama from source? | Add a second stage in the Dockerfile with `FROM nvcr.io/nvidia/l4t-base:r36.4.3` and compile Ollama—the guide notes this as an open question. |
+| How to benchmark safetensors? | Convert them to GGUF offline with `scripts/convert_safetensors.py`, commit only the script, not the big files. |
+

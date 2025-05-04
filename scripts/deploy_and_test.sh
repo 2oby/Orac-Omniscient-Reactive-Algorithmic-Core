@@ -17,11 +17,17 @@ if [ "$current_branch" != "$DEPLOY_BRANCH" ]; then
 fi
 
 git pull origin "$DEPLOY_BRANCH"
-git add .
-if ! git diff --cached --quiet; then
+
+# Add all changes
+git add -A
+
+# Commit if there are any changes
+if git diff --cached --quiet; then
+  echo "No changes to commit"
+else
   git commit -m "$COMMIT_MSG"
+  git push origin "$DEPLOY_BRANCH"
 fi
-git push origin "$DEPLOY_BRANCH"
 
 # 2) Remote: pull, build & test in container
 echo "👉  Running remote update & tests on $REMOTE_ALIAS..."
@@ -45,7 +51,6 @@ ssh "$REMOTE_ALIAS" "\
   \$DOCKER_CMD up --build -d; \
   echo '🧪 Running pytest inside container \"$SERVICE_NAME\"...'; \
   \$DOCKER_CMD exec -T $SERVICE_NAME pytest -q tests/ --ignore=archive/legacy; \
-
 "
 
 echo "🎉 Deployment + remote tests inside '$SERVICE_NAME' succeeded!"

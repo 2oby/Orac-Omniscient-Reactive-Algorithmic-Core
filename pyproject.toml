@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orac"
+version = "0.1.0"
+description = "Orac Omniscient Reactive Algorithmic Core"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "httpx",
+    "pytest",
+    "pytest-asyncio",
+    "respx",
+]
+
+[tool.setuptools]
+packages = ["orac"] 
