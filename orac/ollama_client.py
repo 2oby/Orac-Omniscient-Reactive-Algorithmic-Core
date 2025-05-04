@@ -68,7 +68,20 @@ class OllamaClient:
         try:
             # Remove .gguf extension if present
             model_name = name.replace(".gguf", "")
-            response = await self.client.post("/api/pull", json={"name": model_name})
+            
+            # For local GGUF files, use the create endpoint
+            if name.endswith(".gguf"):
+                response = await self.client.post(
+                    "/api/create",
+                    json={
+                        "name": model_name,
+                        "path": f"/models/gguf/{name}"
+                    }
+                )
+            else:
+                # For remote models, use the pull endpoint
+                response = await self.client.post("/api/pull", json={"name": model_name})
+            
             response.raise_for_status()
             return ModelLoadResponse(status="success")
         except httpx.HTTPStatusError as e:

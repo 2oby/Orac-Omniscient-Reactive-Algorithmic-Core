@@ -5,8 +5,8 @@ from orac.ollama_client import OllamaClient
 import httpx
 
 MODELS = [
-    "Qwen3-0.6B-Q4_K_M",
-    "Qwen3-1.7B-Q4_K_M"
+    "Qwen3-0.6B-Q4_K_M.gguf",
+    "Qwen3-1.7B-Q4_K_M.gguf"
 ]
 
 TEST_PROMPT = "What is the capital of France?"
