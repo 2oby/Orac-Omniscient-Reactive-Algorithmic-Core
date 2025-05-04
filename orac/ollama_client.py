@@ -10,6 +10,7 @@ import os
 from typing import List, Dict, Any, Optional
 import httpx
 from .models import ModelLoadResponse, ModelUnloadResponse, PromptResponse
+import asyncio
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "127.0.0.1")
 OLLAMA_PORT = os.getenv("OLLAMA_PORT", "11434")
@@ -63,6 +64,25 @@ class OllamaClient:
         response.raise_for_status()
         return response.json()["models"]
 
+    async def wait_for_model(self, model_name: str, max_retries: int = 30, delay: float = 1.0) -> bool:
+        """Wait for a model to be ready."""
+        for i in range(max_retries):
+            try:
+                response = await self.client.post("/api/show", json={"name": model_name})
+                if response.status_code == 200:
+                    return True
+            except httpx.HTTPStatusError:
+                pass
+            except Exception:
+                pass
+            
+            if i < max_retries - 1:
+                print(f"Waiting for model {model_name} to be ready... (attempt {i + 1}/{max_retries})")
+                await asyncio.sleep(delay)
+            else:
+                return False
+        return False
+
     async def load_model(self, name: str) -> ModelLoadResponse:
         """Load a model by name."""
         try:
@@ -78,11 +98,16 @@ class OllamaClient:
                         "path": f"/models/gguf/{name}"
                     }
                 )
+                response.raise_for_status()
+                
+                # Wait for the model to be ready
+                if not await self.wait_for_model(model_name):
+                    raise Exception(f"Model {model_name} failed to load within timeout")
             else:
                 # For remote models, use the pull endpoint
                 response = await self.client.post("/api/pull", json={"name": model_name})
+                response.raise_for_status()
             
-            response.raise_for_status()
             return ModelLoadResponse(status="success")
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
