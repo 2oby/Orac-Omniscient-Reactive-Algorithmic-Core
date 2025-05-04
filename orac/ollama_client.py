@@ -64,23 +64,32 @@ class OllamaClient:
         response.raise_for_status()
         return response.json()["models"]
 
-    async def wait_for_model(self, model_name: str, max_retries: int = 30, delay: float = 1.0) -> bool:
+    async def wait_for_model(self, model_name: str, max_retries: int = 60, delay: float = 2.0) -> bool:
         """Wait for a model to be ready."""
         for i in range(max_retries):
             try:
+                # First check if the model exists
                 response = await self.client.post("/api/show", json={"name": model_name})
                 if response.status_code == 200:
                     print(f"Model {model_name} is ready!")
                     return True
-                else:
-                    print(f"Model {model_name} not ready yet (status {response.status_code})")
+                
+                # If not found, check if it's still being created
+                response = await self.client.get("/api/tags")
+                if response.status_code == 200:
+                    models = response.json().get("models", [])
+                    for model in models:
+                        if model.get("name") == model_name:
+                            print(f"Model {model_name} is ready!")
+                            return True
+                
+                print(f"Model {model_name} not ready yet (attempt {i + 1}/{max_retries})")
             except httpx.HTTPStatusError as e:
                 print(f"HTTP error checking model status: {str(e)}")
             except Exception as e:
                 print(f"Error checking model status: {str(e)}")
             
             if i < max_retries - 1:
-                print(f"Waiting for model {model_name} to be ready... (attempt {i + 1}/{max_retries})")
                 await asyncio.sleep(delay)
             else:
                 return False
@@ -97,6 +106,16 @@ class OllamaClient:
                 # Use absolute path for the model file
                 model_path = f"/models/gguf/{name}"
                 print(f"Creating model from file: {model_path}")
+                
+                # Check if file exists and is readable
+                if not os.path.exists(model_path):
+                    raise Exception(f"Model file not found at {model_path}")
+                if not os.access(model_path, os.R_OK):
+                    raise Exception(f"Model file not readable at {model_path}")
+                
+                # Get file size
+                file_size = os.path.getsize(model_path)
+                print(f"Model file size: {file_size / (1024*1024):.2f} MB")
                 
                 response = await self.client.post(
                     "/api/create",
