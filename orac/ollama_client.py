@@ -117,44 +117,79 @@ class OllamaClient:
                 file_size = os.path.getsize(model_path)
                 print(f"Model file size: {file_size / (1024*1024):.2f} MB")
                 
-                # Create model using create endpoint with local path
-                async with self.client.stream(
-                    "POST",
-                    "/api/create",
-                    json={
-                        "name": model_name,
-                        "path": model_path,
-                        "modelfile": f"FROM {model_path}"
-                    }
-                ) as response:
-                    response.raise_for_status()
-                    create_complete = False
-                    error_message = None
-                    
-                    async for line in response.aiter_lines():
-                        if line:
-                            try:
-                                chunk = json.loads(line)
-                                if "error" in chunk:
-                                    error_message = chunk["error"]
-                                    break
-                                if chunk.get("status") == "success":
-                                    create_complete = True
-                                    break
-                                print(f"Loading progress: {chunk.get('status', 'unknown')}")
-                            except json.JSONDecodeError as e:
-                                print(f"Failed to parse loading response: {str(e)}")
-                    
-                    if error_message:
-                        raise Exception(f"Model loading failed: {error_message}")
-                    if not create_complete:
-                        raise Exception("Model loading did not complete successfully")
+                # Debug: Print current working directory and model path
+                print(f"Current working directory: {os.getcwd()}")
+                print(f"Absolute model path: {os.path.abspath(model_path)}")
                 
-                print(f"Model loading completed, waiting for model to be ready...")
+                # Try different modelfile formats
+                modelfile_formats = [
+                    # Format 1: Simple FROM directive
+                    f"FROM {model_path}",
+                    
+                    # Format 2: Complete Modelfile with parameters
+                    f"""FROM {model_path}
+PARAMETER temperature 0.7
+PARAMETER top_p 0.7
+PARAMETER stop "</s>"
+PARAMETER stop "<|endoftext|>" """,
+                    
+                    # Format 3: Using relative path
+                    f"FROM ./{name}"
+                ]
                 
-                # Wait for the model to be ready
-                if not await self.wait_for_model(model_name):
-                    raise Exception(f"Model {model_name} failed to load within timeout")
+                last_error = None
+                for modelfile in modelfile_formats:
+                    try:
+                        print(f"\nTrying modelfile format:\n{modelfile}")
+                        
+                        # Create model using create endpoint with local path
+                        async with self.client.stream(
+                            "POST",
+                            "/api/create",
+                            json={
+                                "name": model_name,
+                                "modelfile": modelfile
+                            }
+                        ) as response:
+                            response.raise_for_status()
+                            create_complete = False
+                            error_message = None
+                            
+                            async for line in response.aiter_lines():
+                                if line:
+                                    try:
+                                        chunk = json.loads(line)
+                                        print(f"Response chunk: {chunk}")  # Debug: Print response chunks
+                                        if "error" in chunk:
+                                            error_message = chunk["error"]
+                                            break
+                                        if chunk.get("status") == "success":
+                                            create_complete = True
+                                            break
+                                        print(f"Loading progress: {chunk.get('status', 'unknown')}")
+                                    except json.JSONDecodeError as e:
+                                        print(f"Failed to parse loading response: {str(e)}")
+                            
+                            if error_message:
+                                last_error = error_message
+                                print(f"Error with current format: {error_message}")
+                                continue  # Try next format
+                            
+                            if create_complete:
+                                print(f"Model loading completed, waiting for model to be ready...")
+                                
+                                # Wait for the model to be ready
+                                if not await self.wait_for_model(model_name):
+                                    raise Exception(f"Model {model_name} failed to load within timeout")
+                                return ModelLoadResponse(status="success")
+                    
+                    except Exception as e:
+                        last_error = str(e)
+                        print(f"Error with current format: {str(e)}")
+                        continue  # Try next format
+                
+                # If we get here, all formats failed
+                raise Exception(f"All modelfile formats failed. Last error: {last_error}")
             else:
                 # For remote models, use the pull endpoint
                 print(f"Pulling remote model: {model_name}")
