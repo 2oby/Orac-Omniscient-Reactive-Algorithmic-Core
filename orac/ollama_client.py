@@ -4,6 +4,7 @@ orac.ollama_client
 Thin async wrapper around the local Ollama REST API (http://127.0.0.1:11434).
 """
 
+import json
 import time
 from typing import List, Dict, Any, Optional
 import httpx
@@ -69,10 +70,10 @@ class OllamaClient:
             return ModelLoadResponse(status="success")
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                return ModelLoadResponse(status="error", error="Model not found")
-            return ModelLoadResponse(status="error", error=str(e))
+                raise Exception("Model not found")
+            raise Exception(f"Failed to load model: {str(e)}")
         except Exception as e:
-            return ModelLoadResponse(status="error", error=str(e))
+            raise Exception(f"Failed to load model: {str(e)}")
 
     async def unload_model(self, name: str) -> ModelUnloadResponse:
         """Unload a model by name."""
@@ -84,10 +85,10 @@ class OllamaClient:
             return ModelUnloadResponse(status="success")
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                return ModelUnloadResponse(status="error", error="Model not loaded")
-            return ModelUnloadResponse(status="error", error=str(e))
+                raise Exception("Model not loaded")
+            raise Exception(f"Failed to unload model: {str(e)}")
         except Exception as e:
-            return ModelUnloadResponse(status="error", error=str(e))
+            raise Exception(f"Failed to unload model: {str(e)}")
 
     async def generate(
         self, 
@@ -114,10 +115,13 @@ class OllamaClient:
                     response.raise_for_status()
                     async for line in response.aiter_lines():
                         if line:
-                            chunk = httpx.loads(line)
-                            full_response += chunk.get("response", "")
-                            if chunk.get("done", False):
-                                break
+                            try:
+                                chunk = json.loads(line)
+                                full_response += chunk.get("response", "")
+                                if chunk.get("done", False):
+                                    break
+                            except json.JSONDecodeError as e:
+                                raise Exception(f"Failed to parse streaming response: {str(e)}")
                 
                 elapsed_ms = (time.time() - start_time) * 1000
                 return PromptResponse(response=full_response, elapsed_ms=elapsed_ms)
