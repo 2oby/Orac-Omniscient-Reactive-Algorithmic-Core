@@ -16,7 +16,7 @@ ENV PATH="/usr/local/bin:${PATH}"
 WORKDIR /app
 
 # Copy only the files needed for dependency installation first
-COPY requirements.txt pyproject.toml /app/
+COPY requirements.txt setup.py /app/
 
 # Install dependencies in a separate layer for better caching
 RUN --mount=type=cache,target=/root/.cache/pip \
