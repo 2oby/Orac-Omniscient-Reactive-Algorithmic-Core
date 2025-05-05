@@ -102,6 +102,14 @@ class OllamaClient:
             response = await self.client.delete(f"/api/delete", params={"name": model_name})
             response.raise_for_status()
             return ModelUnloadResponse(status="success")
+        except httpx.HTTPStatusError as e:
+            # Extract error message from response body
+            try:
+                error_data = e.response.json()
+                error_message = error_data.get("error", str(e))
+            except:
+                error_message = str(e)
+            raise Exception(error_message)
         except Exception as e:
             raise Exception(str(e))
 
@@ -149,6 +157,14 @@ class OllamaClient:
                 elapsed_ms = (time.time() - start_time) * 1000
                 return PromptResponse(response=result["response"], elapsed_ms=elapsed_ms)
                 
+        except httpx.HTTPStatusError as e:
+            # Extract error message from response body
+            try:
+                error_data = e.response.json()
+                error_message = error_data.get("error", str(e))
+            except:
+                error_message = str(e)
+            raise Exception(error_message)
         except Exception as e:
             raise Exception(str(e))
 
