@@ -1,3 +1,16 @@
+"""
+orac.models
+-----------
+Pydantic models for the Ollama client API that define the data structures for:
+- Model information and metadata
+- API request/response payloads
+- Model loading and unloading operations
+- Prompt requests and responses
+
+These models ensure type safety and validation for all interactions with the Ollama API,
+providing clear interfaces for model management and inference operations.
+"""
+
 # orac/models.py
 from typing import List, Optional
 
