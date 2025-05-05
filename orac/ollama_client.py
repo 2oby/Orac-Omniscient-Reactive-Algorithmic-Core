@@ -93,7 +93,7 @@ class OllamaClient:
             result = await self.model_loader.load_model(name, max_retries)
             return ModelLoadResponse(status=result["status"])
         except Exception as e:
-            return ModelLoadResponse(status="error", error=str(e))
+            raise Exception(str(e))
 
     async def unload_model(self, name: str) -> ModelUnloadResponse:
         """Unload a model by name."""
@@ -103,7 +103,7 @@ class OllamaClient:
             response.raise_for_status()
             return ModelUnloadResponse(status="success")
         except Exception as e:
-            return ModelUnloadResponse(status="error", error=str(e))
+            raise Exception(str(e))
 
     async def generate(
         self, 
@@ -150,7 +150,7 @@ class OllamaClient:
                 return PromptResponse(response=result["response"], elapsed_ms=elapsed_ms)
                 
         except Exception as e:
-            return PromptResponse(response="", elapsed_ms=0, error=str(e))
+            raise Exception(str(e))
 
     async def close(self):
         """Close the HTTP client."""
