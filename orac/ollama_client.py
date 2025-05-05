@@ -113,18 +113,37 @@ class OllamaClient:
         version = await self.get_version()
         print(f"\nAttempting to load model with Ollama version: {version}\n")
         
+        # Parse version and determine if we should use new schema
+        try:
+            # More robust version parsing
+            version_parts = version.split('.')
+            if len(version_parts) >= 2:
+                major = int(version_parts[0])
+                minor = int(version_parts[1])
+                version_num = float(f"{major}.{minor}")
+                use_new_schema = version_num >= 0.6
+                print(f"Parsed version: {version_num}, using {'new' if use_new_schema else 'old'} schema")
+            else:
+                print("Warning: Unexpected version format, defaulting to new schema")
+                use_new_schema = True
+        except (ValueError, IndexError):
+            print("Warning: Could not parse Ollama version, defaulting to new schema")
+            use_new_schema = True
+        
         retry_count = 0
         last_error = None
 
         while retry_count < max_retries:
             try:
-                # Remove .gguf extension if present
-                model_name = name.replace(".gguf", "")
+                # Normalize model name: remove .gguf and convert to valid tag format
+                model_name = name.replace(".gguf", "").lower().replace("_", "-")
+                print(f"Normalized model name: {model_name}")
                 
                 # For local GGUF files, use the create endpoint with local path
                 if name.endswith(".gguf"):
-                    # Use absolute path for the model file
-                    model_path = f"/models/gguf/{name}"
+                    # Use configurable model path with fallback
+                    model_base_path = os.getenv("OLLAMA_MODEL_PATH", "/models/gguf")
+                    model_path = os.path.join(model_base_path, name)
                     print(f"Loading model from file: {model_path}")
                     
                     # Check if file exists and is readable
@@ -141,11 +160,15 @@ class OllamaClient:
                     print(f"Current working directory: {os.getcwd()}")
                     print(f"Absolute model path: {os.path.abspath(model_path)}")
                     
-                    # Create minimal Modelfile
-                    modelfile = f"FROM {model_path}\n"
+                    # Create minimal Modelfile based on version
+                    if use_new_schema:
+                        modelfile = f"FROM {model_path}\n"
+                    else:
+                        # For older versions, use a more minimal Modelfile
+                        modelfile = f"FROM {model_path}\n"
                     print(f"Using Modelfile:\n{modelfile}")
                     
-                    # Create model using create endpoint with minimal Modelfile
+                    # Create model using create endpoint
                     try:
                         async with self.client.stream(
                             "POST",
