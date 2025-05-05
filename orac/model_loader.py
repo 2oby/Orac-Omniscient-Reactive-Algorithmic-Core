@@ -34,7 +34,11 @@ class ModelLoader:
     async def get_ollama_version(self) -> Tuple[float, bool]:
         """Get Ollama version and determine if new schema should be used."""
         try:
+            url = self.client.base_url.join("/api/version")
+            print(f"[DEBUG] VERSION → {url}")
             response = await self.client.get("/api/version")
+            body = await response.aread()
+            print(f"[DEBUG] VERSION ← {response.status_code}, body={body!r}")
             response.raise_for_status()
             version = response.json().get("version", "0.0.0")
             
@@ -44,6 +48,10 @@ class ModelLoader:
                 minor = int(version_parts[1])
                 version_num = float(f"{major}.{minor}")
                 return version_num, version_num >= 0.6
+        except httpx.HTTPStatusError as e:
+            raw = await e.response.aread()
+            print(f"[ERROR] VERSION failed {e.response.status_code}: {raw!r}")
+            self._log_error(f"Failed to get Ollama version: {str(e)}")
         except Exception as e:
             self._log_error(f"Failed to get Ollama version: {str(e)}")
         return 0.0, True  # Default to new schema on error
@@ -97,14 +105,21 @@ class ModelLoader:
             if not name.endswith(".gguf"):
                 # Handle remote model pull
                 try:
+                    payload = {"name": model_name}
+                    url = self.client.base_url.join("/api/pull")
+                    print(f"[DEBUG] PULL   → {url}, payload={payload!r}")
                     response = await self.client.post(
                         "/api/pull", 
-                        json={"name": model_name},
+                        json=payload,
                         timeout=120.0
                     )
+                    body = await response.aread()
+                    print(f"[DEBUG] PULL   ← {response.status_code}, body={body!r}")
                     response.raise_for_status()
                     return {"status": "success"}
                 except httpx.HTTPStatusError as e:
+                    raw = await e.response.aread()
+                    print(f"[ERROR] PULL failed {e.response.status_code}: {raw!r}")
                     if e.response.status_code == 404:
                         raise Exception("Model not found")
                     raise Exception(f"Failed to pull model: {e.response.text}")
@@ -119,19 +134,24 @@ class ModelLoader:
             
             for attempt in range(max_retries):
                 try:
+                    payload = {
+                        "name": model_name,
+                        "modelfile": modelfile,
+                        "stream": False
+                    }
+                    url = self.client.base_url.join("/api/create")
+                    print(f"[DEBUG] CREATE → {url}, payload={payload!r}")
+                    
                     async with self.client.stream(
                         "POST",
                         "/api/create",
-                        json={
-                            "name": model_name,
-                            "modelfile": modelfile,
-                            "stream": False
-                        },
+                        json=payload,
                         timeout=120.0
                     ) as response:
                         # If the status code is 4xx/5xx, read the body before raising:
                         if response.status_code >= 400:
                             raw = (await response.aread()).decode(errors="ignore")
+                            print(f"[ERROR] CREATE failed {response.status_code}: {raw!r}")
                             self._log_error(f"HTTP {response.status_code} response: {raw}")
                             raise Exception(f"HTTP {response.status_code}: {raw}")
                         
@@ -154,6 +174,8 @@ class ModelLoader:
                                     break
                             except json.JSONDecodeError:
                                 continue
+                        
+                        print(f"[DEBUG] CREATE ← chunks={response_chunks!r}")
                         
                         if error_message:
                             # Bubble up server-side error message
