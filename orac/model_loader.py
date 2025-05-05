@@ -15,21 +15,37 @@ import os
 import json
 import asyncio
 import traceback
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict
 import httpx
 
 class ModelLoader:
     def __init__(self, client: httpx.AsyncClient):
         self.client = client
         self._error_logs: List[str] = []
+        self._debug_logs: List[Dict] = []
 
-    def _log_error(self, message: str):
-        """Add error message to logs."""
-        self._error_logs.append(message)
+    def _log_error(self, message: str, context: Dict = None):
+        """Add error message to logs with optional context."""
+        log_entry = {"message": message}
+        if context:
+            log_entry.update(context)
+        self._error_logs.append(json.dumps(log_entry))
+
+    def _log_debug(self, stage: str, data: Dict):
+        """Add debug information with stage and data."""
+        self._debug_logs.append({
+            "stage": stage,
+            "timestamp": asyncio.get_event_loop().time(),
+            "data": data
+        })
 
     def get_error_logs(self) -> List[str]:
         """Get collected error logs."""
         return self._error_logs
+
+    def get_debug_logs(self) -> List[Dict]:
+        """Get collected debug logs."""
+        return self._debug_logs
 
     async def get_ollama_version(self) -> Tuple[float, bool]:
         """Get Ollama version and determine if new schema should be used."""
@@ -99,38 +115,72 @@ class ModelLoader:
     async def load_model(self, name: str, max_retries: int = 3) -> dict:
         """Load a model into Ollama."""
         try:
+            self._log_debug("start_load", {"model_name": name})
+            
             version_num, use_new_schema = await self.get_ollama_version()
+            self._log_debug("version_check", {
+                "version": version_num,
+                "use_new_schema": use_new_schema
+            })
+            
             model_name = self.normalize_model_name(name)
+            self._log_debug("name_normalized", {"original": name, "normalized": model_name})
             
             if not name.endswith(".gguf"):
                 # Handle remote model pull
                 try:
                     payload = {"name": model_name}
                     url = self.client.base_url.join("/api/pull")
-                    print(f"[DEBUG] PULL   → {url}, payload={payload!r}")
+                    self._log_debug("pull_start", {"url": str(url), "payload": payload})
+                    
                     response = await self.client.post(
                         "/api/pull", 
                         json=payload,
                         timeout=120.0
                     )
                     body = await response.aread()
-                    print(f"[DEBUG] PULL   ← {response.status_code}, body={body!r}")
+                    self._log_debug("pull_response", {
+                        "status_code": response.status_code,
+                        "body": body.decode() if isinstance(body, bytes) else body
+                    })
+                    
                     response.raise_for_status()
                     return {"status": "success"}
                 except httpx.HTTPStatusError as e:
                     raw = await e.response.aread()
-                    print(f"[ERROR] PULL failed {e.response.status_code}: {raw!r}")
+                    error_msg = f"PULL failed {e.response.status_code}: {raw!r}"
+                    self._log_error(error_msg, {
+                        "stage": "pull",
+                        "status_code": e.response.status_code,
+                        "response": raw.decode() if isinstance(raw, bytes) else raw
+                    })
                     if e.response.status_code == 404:
-                        raise Exception("Model not found")
+                        raise Exception("Model not found in remote repository")
                     raise Exception(f"Failed to pull model: {e.response.text}")
                 except Exception as e:
+                    self._log_error("Pull failed", {
+                        "stage": "pull",
+                        "error": str(e),
+                        "traceback": traceback.format_exc()
+                    })
                     raise Exception(f"Failed to pull model: {str(e)}")
 
             # Handle local GGUF file
             model_path = self.resolve_model_path(name)
-            self.validate_model_file(model_path)
+            self._log_debug("path_resolved", {"path": model_path})
+            
+            try:
+                self.validate_model_file(model_path)
+            except (FileNotFoundError, PermissionError) as e:
+                self._log_error("Model file validation failed", {
+                    "stage": "validation",
+                    "path": model_path,
+                    "error": str(e)
+                })
+                raise
             
             modelfile = self.create_modelfile(model_path, use_new_schema)
+            self._log_debug("modelfile_created", {"content": modelfile})
             
             for attempt in range(max_retries):
                 try:
@@ -140,7 +190,11 @@ class ModelLoader:
                         "stream": False
                     }
                     url = self.client.base_url.join("/api/create")
-                    print(f"[DEBUG] CREATE → {url}, payload={payload!r}")
+                    self._log_debug("create_start", {
+                        "attempt": attempt + 1,
+                        "url": str(url),
+                        "payload": payload
+                    })
                     
                     async with self.client.stream(
                         "POST",
@@ -148,11 +202,15 @@ class ModelLoader:
                         json=payload,
                         timeout=120.0
                     ) as response:
-                        # If the status code is 4xx/5xx, read the body before raising:
                         if response.status_code >= 400:
                             raw = (await response.aread()).decode(errors="ignore")
-                            print(f"[ERROR] CREATE failed {response.status_code}: {raw!r}")
-                            self._log_error(f"HTTP {response.status_code} response: {raw}")
+                            error_msg = f"CREATE failed {response.status_code}: {raw!r}"
+                            self._log_error(error_msg, {
+                                "stage": "create",
+                                "attempt": attempt + 1,
+                                "status_code": response.status_code,
+                                "response": raw
+                            })
                             raise Exception(f"HTTP {response.status_code}: {raw}")
                         
                         create_complete = False
@@ -165,39 +223,56 @@ class ModelLoader:
                             try:
                                 chunk = json.loads(line)
                                 response_chunks.append(chunk)
+                                self._log_debug("create_chunk", {
+                                    "attempt": attempt + 1,
+                                    "chunk": chunk
+                                })
+                                
                                 if "error" in chunk:
                                     error_message = chunk["error"]
-                                    self._log_error(f"Ollama error response: {json.dumps(chunk, indent=2)}")
+                                    self._log_error("Ollama error response", {
+                                        "stage": "create",
+                                        "attempt": attempt + 1,
+                                        "error": error_message,
+                                        "chunk": chunk
+                                    })
                                     break
                                 if chunk.get("status") == "success":
                                     create_complete = True
                                     break
-                            except json.JSONDecodeError:
+                            except json.JSONDecodeError as e:
+                                self._log_error("Failed to parse response chunk", {
+                                    "stage": "create",
+                                    "attempt": attempt + 1,
+                                    "line": line,
+                                    "error": str(e)
+                                })
                                 continue
                         
-                        print(f"[DEBUG] CREATE ← chunks={response_chunks!r}")
-                        
                         if error_message:
-                            # Bubble up server-side error message
                             raise Exception(f"Model create error: {error_message}")
                         
                         if create_complete:
+                            self._log_debug("create_success", {"attempt": attempt + 1})
                             if not await self.wait_for_model(model_name):
                                 raise Exception(f"Model {model_name} failed to load within timeout")
                             return {"status": "success"}
                         
                 except Exception as e:
-                    self._log_error(f"[load_model] attempt {attempt+1} failed: {str(e)}")
+                    self._log_error(f"Load attempt failed", {
+                        "stage": "create",
+                        "attempt": attempt + 1,
+                        "error": str(e),
+                        "traceback": traceback.format_exc()
+                    })
                     if attempt == max_retries - 1:
-                        # Log the full traceback
-                        self._log_error("Client-side traceback:")
-                        self._log_error("".join(traceback.format_exception(type(e), e, e.__traceback__)))
                         raise Exception(f"Failed to load model after {max_retries} attempts: {str(e)}")
                     await asyncio.sleep(2 ** attempt)
             
             raise Exception(f"Failed to load model after {max_retries} attempts")
         except Exception as e:
-            # Log any unhandled exceptions
-            self._log_error("Client-side traceback:")
-            self._log_error("".join(traceback.format_exception(type(e), e, e.__traceback__)))
+            self._log_error("Unhandled exception in load_model", {
+                "error": str(e),
+                "traceback": traceback.format_exc()
+            })
             raise 
