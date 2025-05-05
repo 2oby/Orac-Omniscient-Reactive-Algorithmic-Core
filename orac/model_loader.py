@@ -15,6 +15,7 @@ import os
 import json
 import asyncio
 import traceback
+import tempfile
 from typing import Optional, Tuple, List, Dict
 import httpx
 
@@ -91,6 +92,35 @@ class ModelLoader:
     def create_modelfile(self, model_path: str, use_new_schema: bool) -> str:
         """Create appropriate Modelfile content based on schema version."""
         return f"FROM {model_path}\n"
+
+    def write_modelfile_to_temp(self, modelfile_content: str) -> Tuple[str, bool]:
+        """Write Modelfile content to a temporary file and return its path and whether it was created.
+        
+        Returns:
+            Tuple[str, bool]: (path to modelfile, whether it was newly created)
+        """
+        # First check if a Modelfile already exists in the model directory
+        model_dir = os.path.dirname(modelfile_content.split("FROM ")[1].strip())
+        existing_modelfile = os.path.join(model_dir, "Modelfile")
+        
+        if os.path.exists(existing_modelfile):
+            self._log_debug("using_existing_modelfile", {"path": existing_modelfile})
+            return existing_modelfile, False
+            
+        # If no existing Modelfile, create a temporary one
+        tf = tempfile.NamedTemporaryFile("w", delete=False, prefix="Modelfile_")
+        try:
+            tf.write(modelfile_content)
+            tf.close()
+            return tf.name, True
+        except Exception as e:
+            if tf:
+                tf.close()
+                try:
+                    os.unlink(tf.name)
+                except:
+                    pass
+            raise Exception(f"Failed to write Modelfile: {str(e)}")
 
     async def wait_for_model(self, model_name: str, max_retries: int = 30, delay: float = 2.0) -> bool:
         """Wait for a model to be ready."""
@@ -182,94 +212,114 @@ class ModelLoader:
             modelfile = self.create_modelfile(model_path, use_new_schema)
             self._log_debug("modelfile_created", {"content": modelfile})
             
-            for attempt in range(max_retries):
-                try:
-                    payload = {
-                        "name": model_name,
-                        "modelfile": modelfile,
-                        "stream": False
-                    }
-                    url = self.client.base_url.join("/api/create")
-                    self._log_debug("create_start", {
-                        "attempt": attempt + 1,
-                        "url": str(url),
-                        "payload": payload
-                    })
-                    
-                    async with self.client.stream(
-                        "POST",
-                        "/api/create",
-                        json=payload,
-                        timeout=120.0
-                    ) as response:
-                        if response.status_code >= 400:
-                            raw = (await response.aread()).decode(errors="ignore")
-                            error_msg = f"CREATE failed {response.status_code}: {raw!r}"
-                            self._log_error(error_msg, {
-                                "stage": "create",
-                                "attempt": attempt + 1,
-                                "status_code": response.status_code,
-                                "response": raw
-                            })
-                            raise Exception(f"HTTP {response.status_code}: {raw}")
+            # Write Modelfile to temporary file or use existing one
+            modelfile_path, created_temp = self.write_modelfile_to_temp(modelfile)
+            self._log_debug("modelfile_written", {"path": modelfile_path, "created_temp": created_temp})
+            
+            # Validate the modelfile is readable
+            if not os.path.exists(modelfile_path) or not os.access(modelfile_path, os.R_OK):
+                raise Exception(f"Modelfile not readable at {modelfile_path}")
+            
+            try:
+                for attempt in range(max_retries):
+                    try:
+                        # Use version-specific payload format
+                        if version_num < 0.6:
+                            payload = {"name": model_name, "from": model_path, "stream": False}
+                        else:
+                            payload = {"name": model_name, "path": modelfile_path, "stream": False}
+                            
+                        url = self.client.base_url.join("/api/create")
+                        self._log_debug("create_start", {
+                            "attempt": attempt + 1,
+                            "url": str(url),
+                            "payload": payload
+                        })
                         
-                        create_complete = False
-                        error_message = None
-                        response_chunks = []
-                        
-                        async for line in response.aiter_lines():
-                            if not line:
-                                continue
-                            try:
-                                chunk = json.loads(line)
-                                response_chunks.append(chunk)
-                                self._log_debug("create_chunk", {
-                                    "attempt": attempt + 1,
-                                    "chunk": chunk
-                                })
-                                
-                                if "error" in chunk:
-                                    error_message = chunk["error"]
-                                    self._log_error("Ollama error response", {
-                                        "stage": "create",
-                                        "attempt": attempt + 1,
-                                        "error": error_message,
-                                        "chunk": chunk
-                                    })
-                                    break
-                                if chunk.get("status") == "success":
-                                    create_complete = True
-                                    break
-                            except json.JSONDecodeError as e:
-                                self._log_error("Failed to parse response chunk", {
+                        async with self.client.stream(
+                            "POST",
+                            "/api/create",
+                            json=payload,
+                            timeout=120.0
+                        ) as response:
+                            if response.status_code >= 400:
+                                raw = (await response.aread()).decode(errors="ignore")
+                                error_msg = f"CREATE failed {response.status_code}: {raw!r}"
+                                self._log_error(error_msg, {
                                     "stage": "create",
                                     "attempt": attempt + 1,
-                                    "line": line,
-                                    "error": str(e)
+                                    "status_code": response.status_code,
+                                    "response": raw
                                 })
-                                continue
-                        
-                        if error_message:
-                            raise Exception(f"Model create error: {error_message}")
-                        
-                        if create_complete:
-                            self._log_debug("create_success", {"attempt": attempt + 1})
-                            if not await self.wait_for_model(model_name):
-                                raise Exception(f"Model {model_name} failed to load within timeout")
-                            return {"status": "success"}
-                        
-                except Exception as e:
-                    self._log_error(f"Load attempt failed", {
-                        "stage": "create",
-                        "attempt": attempt + 1,
-                        "error": str(e),
-                        "traceback": traceback.format_exc()
-                    })
-                    if attempt == max_retries - 1:
-                        raise Exception(f"Failed to load model after {max_retries} attempts: {str(e)}")
-                    await asyncio.sleep(2 ** attempt)
-            
-            raise Exception(f"Failed to load model after {max_retries} attempts")
+                                raise Exception(f"HTTP {response.status_code}: {raw}")
+                            
+                            create_complete = False
+                            error_message = None
+                            response_chunks = []
+                            
+                            async for line in response.aiter_lines():
+                                if not line:
+                                    continue
+                                try:
+                                    chunk = json.loads(line)
+                                    response_chunks.append(chunk)
+                                    self._log_debug("create_chunk", {
+                                        "attempt": attempt + 1,
+                                        "chunk": chunk
+                                    })
+                                    
+                                    if "error" in chunk:
+                                        error_message = chunk["error"]
+                                        self._log_error("Ollama error response", {
+                                            "stage": "create",
+                                            "attempt": attempt + 1,
+                                            "error": error_message,
+                                            "chunk": chunk
+                                        })
+                                        break
+                                    if chunk.get("status") == "success":
+                                        create_complete = True
+                                        break
+                                except json.JSONDecodeError as e:
+                                    self._log_error("Failed to parse response chunk", {
+                                        "stage": "create",
+                                        "attempt": attempt + 1,
+                                        "line": line,
+                                        "error": str(e)
+                                    })
+                                    continue
+                            
+                            if error_message:
+                                raise Exception(f"Model create error: {error_message}")
+                            
+                            if create_complete:
+                                self._log_debug("create_success", {"attempt": attempt + 1})
+                                if not await self.wait_for_model(model_name):
+                                    raise Exception(f"Model {model_name} failed to load within timeout")
+                                return {"status": "success"}
+                            
+                    except Exception as e:
+                        self._log_error(f"Load attempt failed", {
+                            "stage": "create",
+                            "attempt": attempt + 1,
+                            "error": str(e),
+                            "traceback": traceback.format_exc()
+                        })
+                        if attempt == max_retries - 1:
+                            raise Exception(f"Failed to load model after {max_retries} attempts: {str(e)}")
+                        await asyncio.sleep(2 ** attempt)
+                
+                raise Exception(f"Failed to load model after {max_retries} attempts")
+            finally:
+                # Only clean up if we created a temporary file
+                if created_temp:
+                    try:
+                        os.unlink(modelfile_path)
+                    except Exception as e:
+                        self._log_error("Failed to clean up temporary Modelfile", {
+                            "path": modelfile_path,
+                            "error": str(e)
+                        })
         except Exception as e:
             self._log_error("Unhandled exception in load_model", {
                 "error": str(e),
