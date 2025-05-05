@@ -16,6 +16,7 @@ import json
 import asyncio
 import traceback
 import tempfile
+import re
 from typing import Optional, Tuple, List, Dict
 import httpx
 
@@ -72,6 +73,21 @@ class ModelLoader:
         except Exception as e:
             self._log_error(f"Failed to get Ollama version: {str(e)}")
         return 0.0, True  # Default to new schema on error
+
+    def _sanitize_tag(self, name: str) -> str:
+        """
+        Turn "Qwen3-0.6B-Q4_K_M.gguf" into "qwen3-0-6b-q4-k-m"
+        (only lowercase letters, digits, and hyphens).
+        """
+        base = name.replace(".gguf", "").lower()
+        # turn dots/underscores into hyphens
+        base = re.sub(r"[._]+", "-", base)
+        # strip anything not a–z, 0–9, or hyphen
+        base = re.sub(r"[^a-z0-9-]+", "", base)
+        # collapse multiple hyphens
+        base = re.sub(r"-{2,}", "-", base)
+        # trim leading/trailing hyphens
+        return base.strip("-")
 
     def normalize_model_name(self, name: str) -> str:
         """Convert model name to valid Ollama tag format."""
@@ -153,7 +169,8 @@ class ModelLoader:
                 "use_new_schema": use_new_schema
             })
             
-            model_name = self.normalize_model_name(name)
+            # Normalize the tag: lowercase, no dots, no underscores, only hyphens
+            model_name = self._sanitize_tag(name)
             self._log_debug("name_normalized", {"original": name, "normalized": model_name})
             
             if not name.endswith(".gguf"):
@@ -223,11 +240,12 @@ class ModelLoader:
             try:
                 for attempt in range(max_retries):
                     try:
-                        # Use version-specific payload format
-                        if version_num < 0.6:
-                            payload = {"name": model_name, "from": model_path, "stream": False}
-                        else:
-                            payload = {"name": model_name, "path": modelfile_path, "stream": False}
+                        # Use legacy 'from' field as that's what the server actually checks
+                        payload = {
+                            "name": model_name,
+                            "from": model_path,    # legacy field the server actually checks
+                            "stream": False
+                        }
                             
                         url = self.client.base_url.join("/api/create")
                         self._log_debug("create_start", {
