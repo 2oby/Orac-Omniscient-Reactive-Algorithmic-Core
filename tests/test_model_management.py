@@ -10,6 +10,7 @@ def ollama_client():
 
 @pytest.mark.asyncio
 async def test_real_model_loading_and_prompting():
+    print("\n=== Starting real model loading test ===")
     client = OllamaClient()
     try:
         response = await client.load_model("Qwen3-0.6B-Q4_K_M.gguf")
