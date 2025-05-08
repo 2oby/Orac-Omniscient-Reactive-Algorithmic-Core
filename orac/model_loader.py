@@ -128,7 +128,7 @@ class ModelLoader:
 
     def normalize_model_name(self, name: str) -> str:
         """Convert model name to valid Ollama tag format."""
-        return name.replace(".gguf", "")
+        return self._sanitize_tag(name)
 
     def resolve_model_path(self, name: str) -> str:
         """Resolve the full path to a model file."""
