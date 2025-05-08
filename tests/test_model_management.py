@@ -4,6 +4,12 @@ from httpx import Response
 from orac.ollama_client import OllamaClient
 from orac.models import ModelLoadRequest, ModelLoadResponse, ModelUnloadResponse
 
+# Configure pytest to not show traceback
+def pytest_exception_interact(call, report):
+    if report.failed:
+        # Only show the error message, not the traceback
+        report.longrepr = str(call.excinfo.value)
+
 @pytest.fixture(autouse=True)
 def capture_logs(request):
     """Fixture to capture and format logs for failed tests."""
