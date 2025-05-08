@@ -9,8 +9,7 @@ def ollama_client():
     return OllamaClient()
 
 @respx.mock
-@pytest.mark.asyncio
-async def test_real_model_loading_and_prompting():
+def test_real_model_loading_and_prompting():
     # Mock version check
     respx.get("http://orac-ollama:11434/api/version").mock(
         return_value=Response(200, json={"version": "0.6.7"})
@@ -31,14 +30,36 @@ async def test_real_model_loading_and_prompting():
         return_value=Response(200, json={"models": [{"name": "test-model"}]})
     )
     
-    global client
+    # Mock generate endpoint
+    respx.post("http://orac-ollama:11434/api/generate").mock(
+        return_value=Response(200, json={
+            "response": "Test response",
+            "done": True
+        })
+    )
+    
+    # Mock delete endpoint for unloading
+    respx.delete("http://orac-ollama:11434/api/delete").mock(
+        return_value=Response(200, json={"status": "success"})
+    )
+    
     client = OllamaClient()
-    response = await client.load_model("test-model")
+    
+    # Test loading
+    response = client.load_model("test-model")
     assert response["status"] == "success"
+    
+    # Test prompting
+    prompt_response = client.generate("test-model", "Test prompt")
+    assert prompt_response.response == "Test response"
+    assert prompt_response.elapsed_ms > 0
+    
+    # Test unloading
+    unload_response = client.unload_model("test-model")
+    assert unload_response.status == "success"
 
 @respx.mock
-@pytest.mark.asyncio
-async def test_load_model_success():
+def test_load_model_success():
     # Mock version check
     respx.get("http://orac-ollama:11434/api/version").mock(
         return_value=Response(200, json={"version": "0.6.7"})
@@ -59,14 +80,12 @@ async def test_load_model_success():
         return_value=Response(200, json={"models": [{"name": "test-model"}]})
     )
     
-    global client
     client = OllamaClient()
-    response = await client.load_model("test-model")
+    response = client.load_model("test-model")
     assert response["status"] == "success"
 
 @respx.mock
-@pytest.mark.asyncio
-async def test_load_model_not_found():
+def test_load_model_not_found():
     # Mock model not found error
     respx.post("http://orac-ollama:11434/api/create").mock(
         return_value=Response(404, json={"error": "Model not found"})
@@ -76,35 +95,30 @@ async def test_load_model_not_found():
         return_value=Response(200, json={"version": "0.6.7"})
     )
     
-    global client
     client = OllamaClient()
     with pytest.raises(Exception) as exc_info:
-        await client.load_model("nonexistent-model")
+        client.load_model("nonexistent-model")
     assert "Model file not found" in str(exc_info.value)
 
 @respx.mock
-@pytest.mark.asyncio
-async def test_unload_model_success():
+def test_unload_model_success():
     # Mock successful model unloading
     respx.delete("http://orac-ollama:11434/api/delete").mock(
         return_value=Response(200, json={"status": "success"})
     )
     
-    global client
     client = OllamaClient()
-    response = await client.unload_model("Qwen3-0.6B-Q4_K_M")
+    response = client.unload_model("test-model")
     assert response.status == "success"
 
 @respx.mock
-@pytest.mark.asyncio
-async def test_unload_model_not_loaded():
+def test_unload_model_not_loaded():
     # Mock model not loaded error
     respx.delete("http://orac-ollama:11434/api/delete").mock(
         return_value=Response(404, json={"error": "Model not loaded"})
     )
     
-    global client
     client = OllamaClient()
     with pytest.raises(Exception) as exc_info:
-        await client.unload_model("Qwen3-0.6B-Q4_K_M")
+        client.unload_model("test-model")
     assert "Model not loaded" in str(exc_info.value) 

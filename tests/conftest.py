@@ -4,62 +4,41 @@ import pytest
 import logging
 import os
 from typing import Generator, Dict, Any
-import asyncio
-
-# Configure pytest-asyncio
-pytest_plugins = ("pytest_asyncio",)
-
-def pytest_configure(config):
-    """Configure pytest with asyncio settings."""
-    # Set asyncio mode and fixture loop scope
-    config.option.asyncio_mode = "auto"
-    config.option.asyncio_default_fixture_loop_scope = "function"
-    
-    # Add markers
-    config.addinivalue_line(
-        "markers",
-        "asyncio: mark test as async"
-    )
-
-@pytest.fixture(scope="function")
-async def event_loop():
-    """Create an instance of the default event loop for each test case."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-@pytest.fixture(autouse=True)
-def setup_logging():
-    """Set up logging for all tests."""
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+import httpx
+from orac.ollama_client import OllamaClient
+from orac.model_loader import ModelLoader
 
 @pytest.fixture
-def capture_logs(request) -> Generator[Dict[str, Any], None, None]:
+def ollama_client() -> Generator[OllamaClient, None, None]:
+    """Create an OllamaClient instance for testing."""
+    with httpx.Client(base_url="http://localhost:11434") as client:
+        yield OllamaClient(client)
+
+@pytest.fixture
+def model_loader(ollama_client: OllamaClient) -> Generator[ModelLoader, None, None]:
+    """Create a ModelLoader instance for testing."""
+    yield ModelLoader(ollama_client.client)
+
+@pytest.fixture(autouse=True)
+def capture_logs(request):
     """Capture logs during test execution."""
-    logs = {"debug": [], "error": []}
+    # Create a handler that captures log records
+    records = []
+    handler = logging.Handler()
+    handler.emit = lambda record: records.append(record)
     
-    class LogCapture:
-        def __init__(self, logs):
-            self.logs = logs
-            
-        def debug(self, msg, *args, **kwargs):
-            self.logs["debug"].append(msg)
-            
-        def error(self, msg, *args, **kwargs):
-            self.logs["error"].append(msg)
+    # Add handler to root logger
+    root_logger = logging.getLogger()
+    root_logger.addHandler(handler)
     
-    capture = LogCapture(logs)
-    yield logs
+    yield
     
-    # Log test results if test failed
+    # Remove handler
+    root_logger.removeHandler(handler)
+    
+    # Store logs in test report if test failed
     if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
-        logging.error("Test failed. Captured logs:")
-        for level, messages in logs.items():
-            for msg in messages:
-                logging.error(f"{level.upper()}: {msg}")
+        request.node.rep_call.logs = records
 
 def pytest_exception_interact(call, report):
     """Disable traceback in test output."""
