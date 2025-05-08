@@ -16,31 +16,52 @@ async def test_real_model_loading_and_prompting():
         return_value=Response(200, json={"version": "0.6.7"})
     )
     
-    # Mock create endpoint
+    # Mock create endpoint with success
     respx.post("http://orac-ollama:11434/api/create").mock(
         return_value=Response(200, json={"status": "success"})
     )
     
+    # Mock show endpoint to indicate model is ready
+    respx.post("http://orac-ollama:11434/api/show").mock(
+        return_value=Response(200, json={"name": "test-model"})
+    )
+    
+    # Mock tags endpoint
+    respx.get("http://orac-ollama:11434/api/tags").mock(
+        return_value=Response(200, json={"models": [{"name": "test-model"}]})
+    )
+    
     global client
     client = OllamaClient()
-    response = await client.load_model("Qwen3-0.6B-Q4_K_M")
+    response = await client.load_model("test-model")
     assert response["status"] == "success"
 
 @respx.mock
 @pytest.mark.asyncio
 async def test_load_model_success():
-    # Mock successful model loading
-    respx.post("http://orac-ollama:11434/api/create").mock(
-        return_value=Response(200, json={"status": "success"})
-    )
     # Mock version check
     respx.get("http://orac-ollama:11434/api/version").mock(
         return_value=Response(200, json={"version": "0.6.7"})
     )
     
+    # Mock create endpoint with success
+    respx.post("http://orac-ollama:11434/api/create").mock(
+        return_value=Response(200, json={"status": "success"})
+    )
+    
+    # Mock show endpoint to indicate model is ready
+    respx.post("http://orac-ollama:11434/api/show").mock(
+        return_value=Response(200, json={"name": "test-model"})
+    )
+    
+    # Mock tags endpoint
+    respx.get("http://orac-ollama:11434/api/tags").mock(
+        return_value=Response(200, json={"models": [{"name": "test-model"}]})
+    )
+    
     global client
     client = OllamaClient()
-    response = await client.load_model("Qwen3-0.6B-Q4_K_M")
+    response = await client.load_model("test-model")
     assert response["status"] == "success"
 
 @respx.mock

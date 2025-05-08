@@ -19,13 +19,51 @@ import tempfile
 import re
 import time
 import subprocess
+import logging
 from typing import Optional, Tuple, List, Dict
 import httpx
+from pathlib import Path
 
 # Constants
 MODEL_LOAD_TIMEOUT = 600.0  # 10 minutes timeout for model loading
 MODEL_LOAD_RETRY_DELAY = 5.0  # 5 seconds between retries
 MAX_MODEL_LOAD_RETRIES = 3  # Maximum number of retries for model loading
+
+# Setup logging
+def setup_logging():
+    """Configure logging to both console and file."""
+    # Create logs directory if it doesn't exist
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+    
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    
+    # Console handler - INFO level
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_formatter = logging.Formatter('%(levelname)s: %(message)s')
+    console_handler.setFormatter(console_formatter)
+    
+    # File handler - DEBUG level with more details
+    file_handler = logging.FileHandler(log_dir / "model_loader.log")
+    file_handler.setLevel(logging.DEBUG)
+    file_formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s\n'
+        'Context: %(context)s\n'
+        'Traceback: %(traceback)s'
+    )
+    file_handler.setFormatter(file_formatter)
+    
+    # Add handlers to root logger
+    root_logger.addHandler(console_handler)
+    root_logger.addHandler(file_handler)
+    
+    return root_logger
+
+# Initialize logging
+logger = setup_logging()
 
 class ModelLoader:
     def __init__(self, client: httpx.AsyncClient):
@@ -34,29 +72,37 @@ class ModelLoader:
         self._debug_logs: List[Dict] = []
 
     def _log_error(self, message: str, context: Dict = None):
-        """Add error message to logs with optional context."""
+        """Log error to both console and file with different detail levels."""
+        # Console logging - high level
+        logger.error(message)
+        
+        # File logging - detailed
+        extra = {
+            'context': json.dumps(context, indent=2) if context else '{}',
+            'traceback': traceback.format_exc()
+        }
+        logger.debug(f"Detailed error: {message}", extra=extra)
+        
+        # Store in memory logs
         log_entry = {"message": message}
         if context:
-            # Filter out sensitive information from context
-            safe_context = {}
-            for key, value in context.items():
-                if key in ["error", "status_code", "stage", "attempt"]:
-                    safe_context[key] = value
-                elif key == "response":
-                    # Only include error message from response
-                    if isinstance(value, str):
-                        try:
-                            resp_data = json.loads(value)
-                            safe_context[key] = resp_data.get("error", "Unknown error")
-                        except:
-                            safe_context[key] = "Invalid JSON response"
-                else:
-                    safe_context[key] = value
-            log_entry.update(safe_context)
+            log_entry.update(context)
         self._error_logs.append(json.dumps(log_entry))
 
     def _log_debug(self, stage: str, data: Dict):
-        """Add debug information with stage and data."""
+        """Log debug information with stage and data."""
+        # Console logging - minimal
+        if stage in ["start_load", "create_success", "model_ready"]:
+            logger.info(f"{stage}: {data.get('model_name', 'unknown')}")
+        
+        # File logging - detailed
+        extra = {
+            'context': json.dumps(data, indent=2),
+            'traceback': ''
+        }
+        logger.debug(f"Stage: {stage}", extra=extra)
+        
+        # Store in memory logs
         log_entry = {
             "stage": stage,
             "timestamp": asyncio.get_event_loop().time(),
@@ -226,12 +272,13 @@ class ModelLoader:
 
     async def wait_for_model(self, model_name: str, max_retries: int = 60, delay: float = 5.0) -> bool:
         """Wait for a model to be ready with detailed status checking."""
+        start_time = time.time()
         for i in range(max_retries):
             try:
                 self._log_debug("checking_model_status", {
                     "attempt": i + 1,
                     "model_name": model_name,
-                    "elapsed_time": time.time() - self._start_time if hasattr(self, '_start_time') else None
+                    "elapsed_time": time.time() - start_time
                 })
                 
                 # Check model status via show endpoint
@@ -241,7 +288,8 @@ class ModelLoader:
                     self._log_debug("model_status", {
                         "status": "ready",
                         "model_info": model_info,
-                        "attempt": i + 1
+                        "attempt": i + 1,
+                        "elapsed_time": time.time() - start_time
                     })
                     return True
                 
@@ -254,7 +302,8 @@ class ModelLoader:
                         self._log_debug("model_found_in_tags", {
                             "status": "found",
                             "model_details": model,
-                            "attempt": i + 1
+                            "attempt": i + 1,
+                            "elapsed_time": time.time() - start_time
                         })
                         return True
                     
@@ -263,26 +312,30 @@ class ModelLoader:
                     "attempt": i + 1,
                     "model_name": model_name,
                     "show_status": response.status_code if response else None,
-                    "tags_status": response.status_code if response else None
+                    "tags_status": response.status_code if response else None,
+                    "elapsed_time": time.time() - start_time
                 })
             except Exception as e:
                 self._log_error("Error checking model status", {
                     "error": str(e),
-                    "attempt": i + 1
+                    "attempt": i + 1,
+                    "elapsed_time": time.time() - start_time
                 })
             
             if i < max_retries - 1:
                 self._log_debug("waiting_for_model", {
                     "attempt": i + 1,
                     "delay": delay,
-                    "model_name": model_name
+                    "model_name": model_name,
+                    "elapsed_time": time.time() - start_time
                 })
                 await asyncio.sleep(delay)
         
         self._log_error("Model load timeout", {
             "model_name": model_name,
             "max_retries": max_retries,
-            "total_time": max_retries * delay
+            "total_time": time.time() - start_time,
+            "max_wait_time": max_retries * delay
         })
         return False
 
@@ -298,10 +351,27 @@ class ModelLoader:
         """Load a model into Ollama."""
         try:
             start_time = time.time()
+            self._start_time = start_time
             self._log_debug("start_load", {
                 "model_name": name,
                 "start_time": start_time
             })
+            
+            # Check if model is already loaded
+            try:
+                response = await self.client.post("/api/show", json={"name": name})
+                if response.status_code == 200:
+                    self._log_debug("model_already_loaded", {
+                        "model_name": name,
+                        "elapsed_time": time.time() - start_time
+                    })
+                    return {"status": "success", "message": "Model already loaded"}
+            except Exception as e:
+                self._log_debug("model_not_loaded", {
+                    "model_name": name,
+                    "error": str(e),
+                    "elapsed_time": time.time() - start_time
+                })
             
             version_num, use_new_schema = await self.get_ollama_version()
             self._log_debug("version_check", {
@@ -340,137 +410,98 @@ class ModelLoader:
                 })
                 raise self.ModelError(str(e), "validation")
             
-            for attempt in range(max_retries):
-                try:
-                    # Log system state before model load
+            # Create Modelfile content
+            modelfile_content = self.create_modelfile(model_path, use_new_schema)
+            modelfile_path, is_temp = self.write_modelfile_to_temp(modelfile_content)
+            
+            try:
+                payload = {
+                    "name": model_name,
+                    "from": model_path,
+                    "stream": False
+                }
+                
+                url = self.client.base_url.join("/api/create")
+                self._log_debug("create_start", {
+                    "url": str(url),
+                    "payload": payload,
+                    "ollama_version": version_num,
+                    "request_headers": dict(self.client.headers),
+                    "model_path_exists": os.path.exists(model_path),
+                    "model_path_readable": os.access(model_path, os.R_OK) if os.path.exists(model_path) else False,
+                    "model_path_size": os.path.getsize(model_path) if os.path.exists(model_path) else 0,
+                    "model_path_permissions": oct(os.stat(model_path).st_mode)[-3:] if os.path.exists(model_path) else None,
+                    "model_path_owner": os.stat(model_path).st_uid if os.path.exists(model_path) else None,
+                    "model_path_group": os.stat(model_path).st_gid if os.path.exists(model_path) else None,
+                    "elapsed_time": time.time() - start_time
+                })
+                
+                # Use regular request instead of streaming with increased timeout
+                response = await self.client.post("/api/create", json=payload, timeout=MODEL_LOAD_TIMEOUT)
+                raw_response = await response.aread()
+                response_text = raw_response.decode(errors="ignore")
+                
+                # Log raw response
+                self._log_debug("create_raw_response", {
+                    "status_code": response.status_code,
+                    "raw_body": response_text,
+                    "elapsed_time": time.time() - start_time
+                })
+                
+                if response.status_code >= 400:
                     try:
-                        ps_output = subprocess.run(["ps", "aux"], capture_output=True, text=True)
-                        top_output = subprocess.run(["top", "-bn1"], capture_output=True, text=True)
-                        # Add memory monitoring
-                        free_output = subprocess.run(["free", "-h"], capture_output=True, text=True)
-                        vmstat_output = subprocess.run(["vmstat", "1", "1"], capture_output=True, text=True)
-                        self._log_debug("system_state_before_load", {
-                            "ps_output": ps_output.stdout,
-                            "top_output": top_output.stdout,
-                            "memory_info": free_output.stdout,
-                            "vm_stats": vmstat_output.stdout,
+                        error_data = json.loads(response_text)
+                        error_message = error_data.get("error", response_text)
+                    except json.JSONDecodeError:
+                        error_message = response_text
+                        
+                    self._log_error("Create failed", {
+                        "stage": "create",
+                        "status_code": response.status_code,
+                        "response": error_message,
+                        "elapsed_time": time.time() - start_time
+                    })
+                    raise self.ModelError(error_message, "create", response.status_code)
+                
+                try:
+                    result = json.loads(response_text)
+                    if "error" in result:
+                        error_message = result["error"]
+                        self._log_error("Ollama error", {
+                            "stage": "create",
+                            "error": error_message,
                             "elapsed_time": time.time() - start_time
                         })
+                        raise self.ModelError(error_message, "create")
+                        
+                    if result.get("status") == "success":
+                        self._log_debug("create_success", {
+                            "elapsed_time": time.time() - start_time
+                        })
+                        if not await self.wait_for_model(model_name):
+                            raise self.ModelError("Model failed to load within timeout", "create")
+                        return {"status": "success"}
+                except json.JSONDecodeError as e:
+                    self._log_error("Invalid response", {
+                        "stage": "create",
+                        "error": str(e),
+                        "response": response_text,
+                        "elapsed_time": time.time() - start_time
+                    })
+                    raise self.ModelError(f"Invalid response from Ollama: {str(e)}", "create")
+            finally:
+                # Clean up temporary Modelfile if we created one
+                if is_temp and os.path.exists(modelfile_path):
+                    try:
+                        os.unlink(modelfile_path)
                     except Exception as e:
-                        self._log_error("Failed to get system state", {
+                        self._log_error("Failed to clean up Modelfile", {
+                            "path": modelfile_path,
                             "error": str(e),
                             "elapsed_time": time.time() - start_time
                         })
-                    
-                    # Create Modelfile content
-                    modelfile_content = self.create_modelfile(model_path, use_new_schema)
-                    modelfile_path, is_temp = self.write_modelfile_to_temp(modelfile_content)
-                    
-                    try:
-                        payload = {
-                            "name": model_name,
-                            "from": model_path,
-                            "stream": False
-                        }
-                        
-                        url = self.client.base_url.join("/api/create")
-                        self._log_debug("create_start", {
-                            "attempt": attempt + 1,
-                            "url": str(url),
-                            "payload": payload,
-                            "ollama_version": version_num,
-                            "request_headers": dict(self.client.headers),
-                            "model_path_exists": os.path.exists(model_path),
-                            "model_path_readable": os.access(model_path, os.R_OK) if os.path.exists(model_path) else False,
-                            "model_path_size": os.path.getsize(model_path) if os.path.exists(model_path) else 0,
-                            "model_path_permissions": oct(os.stat(model_path).st_mode)[-3:] if os.path.exists(model_path) else None,
-                            "model_path_owner": os.stat(model_path).st_uid if os.path.exists(model_path) else None,
-                            "model_path_group": os.stat(model_path).st_gid if os.path.exists(model_path) else None,
-                            "elapsed_time": time.time() - start_time
-                        })
-                        
-                        # Use regular request instead of streaming with increased timeout
-                        response = await self.client.post("/api/create", json=payload, timeout=MODEL_LOAD_TIMEOUT)
-                        raw_response = await response.aread()
-                        response_text = raw_response.decode(errors="ignore")
-                        
-                        # Log raw response
-                        self._log_debug("create_raw_response", {
-                            "status_code": response.status_code,
-                            "raw_body": response_text,
-                            "elapsed_time": time.time() - start_time
-                        })
-                        
-                        if response.status_code >= 400:
-                            try:
-                                error_data = json.loads(response_text)
-                                error_message = error_data.get("error", response_text)
-                            except json.JSONDecodeError:
-                                error_message = response_text
-                                
-                            self._log_error("Create failed", {
-                                "stage": "create",
-                                "attempt": attempt + 1,
-                                "status_code": response.status_code,
-                                "response": error_message,
-                                "elapsed_time": time.time() - start_time
-                            })
-                            raise self.ModelError(error_message, "create", response.status_code)
-                        
-                        try:
-                            result = json.loads(response_text)
-                            if "error" in result:
-                                error_message = result["error"]
-                                self._log_error("Ollama error", {
-                                    "stage": "create",
-                                    "attempt": attempt + 1,
-                                    "error": error_message,
-                                    "elapsed_time": time.time() - start_time
-                                })
-                                raise self.ModelError(error_message, "create")
-                                
-                            if result.get("status") == "success":
-                                self._log_debug("create_success", {
-                                    "attempt": attempt + 1,
-                                    "elapsed_time": time.time() - start_time
-                                })
-                                if not await self.wait_for_model(model_name):
-                                    raise self.ModelError("Model failed to load within timeout", "create")
-                                return {"status": "success"}
-                        except json.JSONDecodeError as e:
-                            self._log_error("Invalid response", {
-                                "stage": "create",
-                                "attempt": attempt + 1,
-                                "error": str(e),
-                                "response": response_text,
-                                "elapsed_time": time.time() - start_time
-                            })
-                            raise self.ModelError(f"Invalid response from Ollama: {str(e)}", "create")
-                    finally:
-                        # Clean up temporary Modelfile if we created one
-                        if is_temp and os.path.exists(modelfile_path):
-                            try:
-                                os.unlink(modelfile_path)
-                            except Exception as e:
-                                self._log_error("Failed to clean up Modelfile", {
-                                    "path": modelfile_path,
-                                    "error": str(e),
-                                    "elapsed_time": time.time() - start_time
-                                })
-                except self.ModelError:
-                    raise
-                except Exception as e:
-                    self._log_error("Load attempt failed", {
-                        "stage": "create",
-                        "attempt": attempt + 1,
-                        "error": str(e),
-                        "elapsed_time": time.time() - start_time
-                    })
-                    if attempt == max_retries - 1:
-                        raise self.ModelError(f"Failed after {max_retries} attempts", "create")
-                    await asyncio.sleep(MODEL_LOAD_RETRY_DELAY * (2 ** attempt))  # Exponential backoff
             
-            raise self.ModelError(f"Failed after {max_retries} attempts", "create")
+            raise self.ModelError("Failed to load model", "create")
         except self.ModelError:
             raise
         except Exception as e:

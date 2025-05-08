@@ -4,14 +4,29 @@ import pytest
 import logging
 import os
 from typing import Generator, Dict, Any
+import asyncio
 
 # Configure pytest-asyncio
 pytest_plugins = ("pytest_asyncio",)
 
 def pytest_configure(config):
     """Configure pytest with asyncio settings."""
+    # Set asyncio mode and fixture loop scope
     config.option.asyncio_mode = "auto"
     config.option.asyncio_default_fixture_loop_scope = "function"
+    
+    # Add markers
+    config.addinivalue_line(
+        "markers",
+        "asyncio: mark test as async"
+    )
+
+@pytest.fixture(scope="function")
+async def event_loop():
+    """Create an instance of the default event loop for each test case."""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
 
 @pytest.fixture(autouse=True)
 def setup_logging():
