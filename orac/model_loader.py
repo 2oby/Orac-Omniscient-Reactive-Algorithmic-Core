@@ -268,7 +268,7 @@ class ModelLoader:
                     try:
                         payload = {
                             "name": model_name,
-                            "path": model_path,
+                            "from": model_path,
                             "stream": False
                         }
                         
