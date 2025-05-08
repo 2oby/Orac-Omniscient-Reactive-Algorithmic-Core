@@ -76,17 +76,33 @@ class ModelLoader:
 
     def _sanitize_tag(self, name: str) -> str:
         """
-        Turn "Qwen3-0.6B-Q4_K_M.gguf" into "qwen3-0-6b-q4-k-m"
-        (only lowercase letters, digits, and hyphens).
+        Sanitize model name to be compatible with Ollama 0.6.7+ requirements:
+        - Lowercase
+        - Only a-z, 0-9, and hyphens
+        - No consecutive hyphens
+        - No leading/trailing hyphens
+        - At most one colon for tag specification
         """
+        # Remove .gguf extension if present
         base = name.replace(".gguf", "").lower()
-        # turn dots/underscores into hyphens
+        
+        # Handle tag specification (e.g., "model:tag")
+        if ":" in base:
+            model, tag = base.split(":", 1)
+            model = self._sanitize_tag(model)  # Recursively sanitize model part
+            tag = self._sanitize_tag(tag)      # Recursively sanitize tag part
+            return f"{model}:{tag}"
+        
+        # Replace dots and underscores with hyphens
         base = re.sub(r"[._]+", "-", base)
-        # strip anything not a–z, 0–9, or hyphen
+        
+        # Strip anything not a-z, 0-9, or hyphen
         base = re.sub(r"[^a-z0-9-]+", "", base)
-        # collapse multiple hyphens
+        
+        # Collapse multiple hyphens
         base = re.sub(r"-{2,}", "-", base)
-        # trim leading/trailing hyphens
+        
+        # Trim leading/trailing hyphens
         return base.strip("-")
 
     def normalize_model_name(self, name: str) -> str:
@@ -161,24 +177,36 @@ class ModelLoader:
     async def load_model(self, name: str, max_retries: int = 3) -> dict:
         """Load a model into Ollama."""
         try:
-            self._log_debug("start_load", {"model_name": name})
+            self._log_debug("start_load", {
+                "model_name": name,
+                "timestamp": asyncio.get_event_loop().time()
+            })
             
             version_num, use_new_schema = await self.get_ollama_version()
             self._log_debug("version_check", {
                 "version": version_num,
-                "use_new_schema": use_new_schema
+                "use_new_schema": use_new_schema,
+                "timestamp": asyncio.get_event_loop().time()
             })
             
             # Normalize the tag: lowercase, no dots, no underscores, only hyphens
             model_name = self._sanitize_tag(name)
-            self._log_debug("name_normalized", {"original": name, "normalized": model_name})
+            self._log_debug("name_normalized", {
+                "original": name,
+                "normalized": model_name,
+                "timestamp": asyncio.get_event_loop().time()
+            })
             
             if not name.endswith(".gguf"):
                 # Handle remote model pull
                 try:
                     payload = {"name": model_name}
                     url = self.client.base_url.join("/api/pull")
-                    self._log_debug("pull_start", {"url": str(url), "payload": payload})
+                    self._log_debug("pull_start", {
+                        "url": str(url),
+                        "payload": payload,
+                        "timestamp": asyncio.get_event_loop().time()
+                    })
                     
                     response = await self.client.post(
                         "/api/pull", 
@@ -188,7 +216,8 @@ class ModelLoader:
                     body = await response.aread()
                     self._log_debug("pull_response", {
                         "status_code": response.status_code,
-                        "body": body.decode() if isinstance(body, bytes) else body
+                        "body": body.decode() if isinstance(body, bytes) else body,
+                        "timestamp": asyncio.get_event_loop().time()
                     })
                     
                     response.raise_for_status()
@@ -199,7 +228,8 @@ class ModelLoader:
                     self._log_error(error_msg, {
                         "stage": "pull",
                         "status_code": e.response.status_code,
-                        "response": raw.decode() if isinstance(raw, bytes) else raw
+                        "response": raw.decode() if isinstance(raw, bytes) else raw,
+                        "timestamp": asyncio.get_event_loop().time()
                     })
                     if e.response.status_code == 404:
                         raise Exception("Model not found in remote repository")
@@ -208,13 +238,17 @@ class ModelLoader:
                     self._log_error("Pull failed", {
                         "stage": "pull",
                         "error": str(e),
-                        "traceback": traceback.format_exc()
+                        "traceback": traceback.format_exc(),
+                        "timestamp": asyncio.get_event_loop().time()
                     })
                     raise Exception(f"Failed to pull model: {str(e)}")
 
             # Handle local GGUF file
             model_path = self.resolve_model_path(name)
-            self._log_debug("path_resolved", {"path": model_path})
+            self._log_debug("path_resolved", {
+                "path": model_path,
+                "timestamp": asyncio.get_event_loop().time()
+            })
             
             try:
                 self.validate_model_file(model_path)
@@ -222,28 +256,18 @@ class ModelLoader:
                 self._log_error("Model file validation failed", {
                     "stage": "validation",
                     "path": model_path,
-                    "error": str(e)
+                    "error": str(e),
+                    "timestamp": asyncio.get_event_loop().time()
                 })
                 raise
-            
-            modelfile = self.create_modelfile(model_path, use_new_schema)
-            self._log_debug("modelfile_created", {"content": modelfile})
-            
-            # Write Modelfile to temporary file or use existing one
-            modelfile_path, created_temp = self.write_modelfile_to_temp(modelfile)
-            self._log_debug("modelfile_written", {"path": modelfile_path, "created_temp": created_temp})
-            
-            # Validate the modelfile is readable
-            if not os.path.exists(modelfile_path) or not os.access(modelfile_path, os.R_OK):
-                raise Exception(f"Modelfile not readable at {modelfile_path}")
             
             try:
                 for attempt in range(max_retries):
                     try:
-                        # Use legacy 'from' field as that's what the server actually checks
+                        # Use the correct payload structure for Ollama 0.6.7+
                         payload = {
                             "name": model_name,
-                            "from": model_path,    # legacy field the server actually checks
+                            "path": model_path,  # Use path instead of from
                             "stream": False
                         }
                             
@@ -251,7 +275,13 @@ class ModelLoader:
                         self._log_debug("create_start", {
                             "attempt": attempt + 1,
                             "url": str(url),
-                            "payload": payload
+                            "payload": {
+                                "name": model_name,
+                                "path": model_path,
+                                "stream": False
+                            },
+                            "payload_structure": "Ollama 0.6.7+ compatible",
+                            "timestamp": asyncio.get_event_loop().time()
                         })
                         
                         async with self.client.stream(
@@ -267,7 +297,8 @@ class ModelLoader:
                                     "stage": "create",
                                     "attempt": attempt + 1,
                                     "status_code": response.status_code,
-                                    "response": raw
+                                    "response": raw,
+                                    "timestamp": asyncio.get_event_loop().time()
                                 })
                                 raise Exception(f"HTTP {response.status_code}: {raw}")
                             
@@ -283,7 +314,8 @@ class ModelLoader:
                                     response_chunks.append(chunk)
                                     self._log_debug("create_chunk", {
                                         "attempt": attempt + 1,
-                                        "chunk": chunk
+                                        "chunk": chunk,
+                                        "timestamp": asyncio.get_event_loop().time()
                                     })
                                     
                                     if "error" in chunk:
@@ -292,7 +324,8 @@ class ModelLoader:
                                             "stage": "create",
                                             "attempt": attempt + 1,
                                             "error": error_message,
-                                            "chunk": chunk
+                                            "chunk": chunk,
+                                            "timestamp": asyncio.get_event_loop().time()
                                         })
                                         break
                                     if chunk.get("status") == "success":
@@ -303,7 +336,8 @@ class ModelLoader:
                                         "stage": "create",
                                         "attempt": attempt + 1,
                                         "line": line,
-                                        "error": str(e)
+                                        "error": str(e),
+                                        "timestamp": asyncio.get_event_loop().time()
                                     })
                                     continue
                             
@@ -311,7 +345,10 @@ class ModelLoader:
                                 raise Exception(f"Model create error: {error_message}")
                             
                             if create_complete:
-                                self._log_debug("create_success", {"attempt": attempt + 1})
+                                self._log_debug("create_success", {
+                                    "attempt": attempt + 1,
+                                    "timestamp": asyncio.get_event_loop().time()
+                                })
                                 if not await self.wait_for_model(model_name):
                                     raise Exception(f"Model {model_name} failed to load within timeout")
                                 return {"status": "success"}
@@ -321,7 +358,8 @@ class ModelLoader:
                             "stage": "create",
                             "attempt": attempt + 1,
                             "error": str(e),
-                            "traceback": traceback.format_exc()
+                            "traceback": traceback.format_exc(),
+                            "timestamp": asyncio.get_event_loop().time()
                         })
                         if attempt == max_retries - 1:
                             raise Exception(f"Failed to load model after {max_retries} attempts: {str(e)}")
@@ -329,18 +367,12 @@ class ModelLoader:
                 
                 raise Exception(f"Failed to load model after {max_retries} attempts")
             finally:
-                # Only clean up if we created a temporary file
-                if created_temp:
-                    try:
-                        os.unlink(modelfile_path)
-                    except Exception as e:
-                        self._log_error("Failed to clean up temporary Modelfile", {
-                            "path": modelfile_path,
-                            "error": str(e)
-                        })
+                # Clean up any resources if needed
+                pass
         except Exception as e:
             self._log_error("Unhandled exception in load_model", {
                 "error": str(e),
-                "traceback": traceback.format_exc()
+                "traceback": traceback.format_exc(),
+                "timestamp": asyncio.get_event_loop().time()
             })
             raise 
