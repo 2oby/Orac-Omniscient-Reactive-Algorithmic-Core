@@ -8,6 +8,29 @@ from orac.models import ModelLoadRequest, ModelLoadResponse, ModelUnloadResponse
 def ollama_client():
     return OllamaClient()
 
+@pytest.mark.asyncio
+async def test_real_model_loading_and_prompting():
+    client = OllamaClient()
+    try:
+        response = await client.load_model("Qwen3-0.6B-Q4_K_M.gguf")
+        assert response.status == "success"
+    except Exception as e:
+        # Get debug logs from the client
+        debug_logs = client.get_debug_logs()
+        error_logs = client.get_error_logs()
+        
+        # Print debug information in a clean format
+        print("\n=== Debug Logs ===")
+        for log in debug_logs:
+            print(f"{log['stage']}: {log.get('data', {})}")
+            
+        print("\n=== Error Logs ===")
+        for log in error_logs:
+            print(log)
+            
+        # Re-raise the exception with a clean message
+        raise Exception(f"Model loading failed: {str(e)}")
+
 @respx.mock
 @pytest.mark.asyncio
 async def test_load_model_success():

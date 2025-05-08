@@ -35,10 +35,6 @@ class ModelLoader:
             for key, value in context.items():
                 if key in ["error", "status_code", "stage", "attempt"]:
                     safe_context[key] = value
-                elif key == "traceback":
-                    # Only include the last line of the traceback
-                    if isinstance(value, str):
-                        safe_context[key] = value.split("\n")[-1]
                 elif key == "response":
                     # Only include error message from response
                     if isinstance(value, str):
@@ -193,80 +189,60 @@ class ModelLoader:
                 await asyncio.sleep(delay)
         return False
 
+    class ModelError(Exception):
+        """Custom exception for model loading errors."""
+        def __init__(self, message: str, stage: str, status_code: int = None):
+            self.message = message
+            self.stage = stage
+            self.status_code = status_code
+            super().__init__(f"{stage}: {message}")
+
     async def load_model(self, name: str, max_retries: int = 3) -> dict:
         """Load a model into Ollama."""
         try:
-            self._log_debug("start_load", {
-                "model_name": name,
-                "timestamp": asyncio.get_event_loop().time()
-            })
+            self._log_debug("start_load", {"model_name": name})
             
             version_num, use_new_schema = await self.get_ollama_version()
             self._log_debug("version_check", {
                 "version": version_num,
-                "use_new_schema": use_new_schema,
-                "timestamp": asyncio.get_event_loop().time()
+                "use_new_schema": use_new_schema
             })
             
-            # Normalize the tag: lowercase, no dots, no underscores, only hyphens
             model_name = self._sanitize_tag(name)
             self._log_debug("name_normalized", {
                 "original": name,
-                "normalized": model_name,
-                "timestamp": asyncio.get_event_loop().time()
+                "normalized": model_name
             })
             
             if not name.endswith(".gguf"):
-                # Handle remote model pull
                 try:
                     payload = {"name": model_name}
                     url = self.client.base_url.join("/api/pull")
-                    self._log_debug("pull_start", {
-                        "url": str(url),
-                        "payload": payload,
-                        "timestamp": asyncio.get_event_loop().time()
-                    })
+                    self._log_debug("pull_start", {"url": str(url), "payload": payload})
                     
-                    response = await self.client.post(
-                        "/api/pull", 
-                        json=payload,
-                        timeout=120.0
-                    )
+                    response = await self.client.post("/api/pull", json=payload, timeout=120.0)
                     body = await response.aread()
                     self._log_debug("pull_response", {
                         "status_code": response.status_code,
-                        "body": body.decode() if isinstance(body, bytes) else body,
-                        "timestamp": asyncio.get_event_loop().time()
+                        "body": body.decode() if isinstance(body, bytes) else body
                     })
                     
                     response.raise_for_status()
                     return {"status": "success"}
                 except httpx.HTTPStatusError as e:
                     raw = await e.response.aread()
-                    error_msg = f"PULL failed {e.response.status_code}: {raw!r}"
-                    self._log_error(error_msg, {
-                        "stage": "pull",
-                        "status_code": e.response.status_code,
-                        "response": raw.decode() if isinstance(raw, bytes) else raw,
-                        "timestamp": asyncio.get_event_loop().time()
-                    })
-                    if e.response.status_code == 404:
-                        raise Exception("Model not found in remote repository")
-                    raise Exception(f"Failed to pull model: {e.response.text}")
-                except Exception as e:
                     self._log_error("Pull failed", {
                         "stage": "pull",
-                        "error": str(e),
-                        "timestamp": asyncio.get_event_loop().time()
+                        "status_code": e.response.status_code,
+                        "response": raw.decode() if isinstance(raw, bytes) else raw
                     })
-                    raise Exception(f"Failed to pull model: {str(e)}")
+                    raise self.ModelError("Model not found in remote repository", "pull", e.response.status_code)
+                except Exception as e:
+                    self._log_error("Pull failed", {"stage": "pull", "error": str(e)})
+                    raise self.ModelError(str(e), "pull")
 
-            # Handle local GGUF file
             model_path = self.resolve_model_path(name)
-            self._log_debug("path_resolved", {
-                "path": model_path,
-                "timestamp": asyncio.get_event_loop().time()
-            })
+            self._log_debug("path_resolved", {"path": model_path})
             
             try:
                 self.validate_model_file(model_path)
@@ -274,123 +250,92 @@ class ModelLoader:
                 self._log_error("Model file validation failed", {
                     "stage": "validation",
                     "path": model_path,
-                    "error": str(e),
-                    "timestamp": asyncio.get_event_loop().time()
+                    "error": str(e)
                 })
-                raise
+                raise self.ModelError(str(e), "validation")
             
-            try:
-                for attempt in range(max_retries):
-                    try:
-                        # Use the correct payload structure for Ollama 0.6.7+
-                        payload = {
-                            "name": model_name,
-                            "path": model_path,  # Use path instead of from
-                            "stream": False
-                        }
-                            
-                        url = self.client.base_url.join("/api/create")
-                        self._log_debug("create_start", {
-                            "attempt": attempt + 1,
-                            "url": str(url),
-                            "payload": {
-                                "name": model_name,
-                                "path": model_path,
-                                "stream": False
-                            },
-                            "payload_structure": "Ollama 0.6.7+ compatible",
-                            "timestamp": asyncio.get_event_loop().time()
-                        })
+            for attempt in range(max_retries):
+                try:
+                    payload = {
+                        "name": model_name,
+                        "path": model_path,
+                        "stream": False
+                    }
+                    
+                    url = self.client.base_url.join("/api/create")
+                    self._log_debug("create_start", {
+                        "attempt": attempt + 1,
+                        "url": str(url),
+                        "payload": payload
+                    })
+                    
+                    async with self.client.stream("POST", "/api/create", json=payload, timeout=120.0) as response:
+                        if response.status_code >= 400:
+                            raw = (await response.aread()).decode(errors="ignore")
+                            self._log_error("Create failed", {
+                                "stage": "create",
+                                "attempt": attempt + 1,
+                                "status_code": response.status_code,
+                                "response": raw
+                            })
+                            raise self.ModelError("Model creation failed", "create", response.status_code)
                         
-                        async with self.client.stream(
-                            "POST",
-                            "/api/create",
-                            json=payload,
-                            timeout=120.0
-                        ) as response:
-                            if response.status_code >= 400:
-                                raw = (await response.aread()).decode(errors="ignore")
-                                error_msg = f"CREATE failed {response.status_code}: {raw!r}"
-                                self._log_error(error_msg, {
-                                    "stage": "create",
+                        create_complete = False
+                        error_message = None
+                        
+                        async for line in response.aiter_lines():
+                            if not line:
+                                continue
+                            try:
+                                chunk = json.loads(line)
+                                self._log_debug("create_chunk", {
                                     "attempt": attempt + 1,
-                                    "status_code": response.status_code,
-                                    "response": raw,
-                                    "timestamp": asyncio.get_event_loop().time()
+                                    "chunk": chunk
                                 })
-                                # Raise a clean exception without the full response
-                                raise Exception(f"Model creation failed: {response.status_code}")
-                            
-                            create_complete = False
-                            error_message = None
-                            response_chunks = []
-                            
-                            async for line in response.aiter_lines():
-                                if not line:
-                                    continue
-                                try:
-                                    chunk = json.loads(line)
-                                    response_chunks.append(chunk)
-                                    self._log_debug("create_chunk", {
-                                        "attempt": attempt + 1,
-                                        "chunk": chunk,
-                                        "timestamp": asyncio.get_event_loop().time()
-                                    })
-                                    
-                                    if "error" in chunk:
-                                        error_message = chunk["error"]
-                                        self._log_error("Ollama error response", {
-                                            "stage": "create",
-                                            "attempt": attempt + 1,
-                                            "error": error_message,
-                                            "chunk": chunk,
-                                            "timestamp": asyncio.get_event_loop().time()
-                                        })
-                                        break
-                                    if chunk.get("status") == "success":
-                                        create_complete = True
-                                        break
-                                except json.JSONDecodeError as e:
-                                    self._log_error("Failed to parse response chunk", {
+                                
+                                if "error" in chunk:
+                                    error_message = chunk["error"]
+                                    self._log_error("Ollama error", {
                                         "stage": "create",
                                         "attempt": attempt + 1,
-                                        "line": line,
-                                        "error": str(e),
-                                        "timestamp": asyncio.get_event_loop().time()
+                                        "error": error_message
                                     })
-                                    continue
-                            
-                            if error_message:
-                                raise Exception(f"Model create error: {error_message}")
-                            
-                            if create_complete:
-                                self._log_debug("create_success", {
+                                    break
+                                if chunk.get("status") == "success":
+                                    create_complete = True
+                                    break
+                            except json.JSONDecodeError as e:
+                                self._log_error("Invalid response", {
+                                    "stage": "create",
                                     "attempt": attempt + 1,
-                                    "timestamp": asyncio.get_event_loop().time()
+                                    "error": str(e)
                                 })
-                                if not await self.wait_for_model(model_name):
-                                    raise Exception(f"Model {model_name} failed to load within timeout")
-                                return {"status": "success"}
-                            
-                    except Exception as e:
-                        self._log_error(f"Load attempt failed", {
-                            "stage": "create",
-                            "attempt": attempt + 1,
-                            "error": str(e),
-                            "timestamp": asyncio.get_event_loop().time()
-                        })
-                        if attempt == max_retries - 1:
-                            # Raise a clean exception without the full traceback
-                            raise Exception(f"Failed to load model after {max_retries} attempts")
-                        await asyncio.sleep(2 ** attempt)
-                
-                raise Exception(f"Failed to load model after {max_retries} attempts")
-            finally:
-                # Clean up any resources if needed
-                pass
+                                continue
+                        
+                        if error_message:
+                            raise self.ModelError(error_message, "create")
+                        
+                        if create_complete:
+                            self._log_debug("create_success", {"attempt": attempt + 1})
+                            if not await self.wait_for_model(model_name):
+                                raise self.ModelError("Model failed to load within timeout", "create")
+                            return {"status": "success"}
+                        
+                except self.ModelError:
+                    raise
+                except Exception as e:
+                    self._log_error("Load attempt failed", {
+                        "stage": "create",
+                        "attempt": attempt + 1,
+                        "error": str(e)
+                    })
+                    if attempt == max_retries - 1:
+                        raise self.ModelError(f"Failed after {max_retries} attempts", "create")
+                    await asyncio.sleep(2 ** attempt)
+            
+            raise self.ModelError(f"Failed after {max_retries} attempts", "create")
+        except self.ModelError:
+            raise
         except Exception as e:
-            self._log_error("Unhandled exception in load_model", {
-                "error": str(e),
-                "timestamp": asyncio.get_event_loop().time()
-            })
-            raise 
+            self._log_error("Unhandled error", {"error": str(e)})
+            raise self.ModelError(str(e), "unknown") 
