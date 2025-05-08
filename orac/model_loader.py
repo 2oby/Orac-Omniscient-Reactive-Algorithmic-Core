@@ -29,18 +29,22 @@ MODEL_LOAD_TIMEOUT = 600.0  # 10 minutes timeout for model loading
 MODEL_LOAD_RETRY_DELAY = 5.0  # 5 seconds between retries
 MAX_MODEL_LOAD_RETRIES = 3  # Maximum number of retries for model loading
 
-# Default log directory
-DEFAULT_LOG_DIR = os.getenv("ORAC_LOG_DIR", "logs")
+# Default log directory - use absolute path in project root
+DEFAULT_LOG_DIR = os.getenv("ORAC_LOG_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs"))
 
 def setup_logging():
     """Configure logging to both console and file."""
     # Create logs directory if it doesn't exist
     log_dir = Path(DEFAULT_LOG_DIR)
-    log_dir.mkdir(exist_ok=True)
+    log_dir.mkdir(exist_ok=True, parents=True)
     
     # Configure root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
+    
+    # Remove any existing handlers to avoid duplicate logs
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
     
     # Console handler - INFO level
     console_handler = logging.StreamHandler()

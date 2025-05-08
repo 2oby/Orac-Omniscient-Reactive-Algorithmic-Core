@@ -10,8 +10,8 @@ from pathlib import Path
 from orac.ollama_client import OllamaClient
 from orac.model_loader import ModelLoader
 
-# Test log directory
-TEST_LOG_DIR = "test_logs"
+# Test log directory - use absolute path in project root
+TEST_LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "test_logs")
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_logging():
@@ -23,7 +23,7 @@ def setup_test_logging():
     log_dir = Path(TEST_LOG_DIR)
     if log_dir.exists():
         shutil.rmtree(log_dir)
-    log_dir.mkdir()
+    log_dir.mkdir(parents=True)
     
     yield
     
