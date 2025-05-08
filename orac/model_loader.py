@@ -47,14 +47,24 @@ class ModelLoader:
                     safe_context[key] = value
             log_entry.update(safe_context)
         self._error_logs.append(json.dumps(log_entry))
+        # Print the error immediately
+        print(f"\n[ERROR] {message}")
+        if context:
+            for key, value in safe_context.items():
+                print(f"  {key}: {value}")
 
     def _log_debug(self, stage: str, data: Dict):
         """Add debug information with stage and data."""
-        self._debug_logs.append({
+        log_entry = {
             "stage": stage,
             "timestamp": asyncio.get_event_loop().time(),
             "data": data
-        })
+        }
+        self._debug_logs.append(log_entry)
+        # Print the log entry immediately
+        print(f"\n[DEBUG] {stage}:")
+        for key, value in data.items():
+            print(f"  {key}: {value}")
 
     def get_error_logs(self) -> List[str]:
         """Get collected error logs."""
@@ -91,38 +101,22 @@ class ModelLoader:
 
     def _sanitize_tag(self, name: str) -> str:
         """
-        Sanitize model name to be compatible with Ollama 0.6.7+ requirements:
-        - Lowercase
-        - Only a-z, 0-9, and hyphens
-        - No consecutive hyphens
-        - No leading/trailing hyphens
-        - At most one colon for tag specification
+        Sanitize model name to be compatible with Ollama 0.6.7+ requirements.
+        Keep original case and special characters, only remove .gguf extension.
         """
         # Remove .gguf extension if present
-        base = name.replace(".gguf", "").lower()
+        base = name.replace(".gguf", "")
         
         # Handle tag specification (e.g., "model:tag")
         if ":" in base:
             model, tag = base.split(":", 1)
-            model = self._sanitize_tag(model)  # Recursively sanitize model part
-            tag = self._sanitize_tag(tag)      # Recursively sanitize tag part
             return f"{model}:{tag}"
         
-        # Replace dots and underscores with hyphens
-        base = re.sub(r"[._]+", "-", base)
-        
-        # Strip anything not a-z, 0-9, or hyphen
-        base = re.sub(r"[^a-z0-9-]+", "", base)
-        
-        # Collapse multiple hyphens
-        base = re.sub(r"-{2,}", "-", base)
-        
-        # Trim leading/trailing hyphens
-        return base.strip("-")
+        return base
 
     def normalize_model_name(self, name: str) -> str:
         """Convert model name to valid Ollama tag format."""
-        return name.replace(".gguf", "").lower().replace("_", "-")
+        return name.replace(".gguf", "")
 
     def resolve_model_path(self, name: str) -> str:
         """Resolve the full path to a model file."""
@@ -271,7 +265,10 @@ class ModelLoader:
                         "request_headers": dict(self.client.headers),
                         "model_path_exists": os.path.exists(model_path),
                         "model_path_readable": os.access(model_path, os.R_OK) if os.path.exists(model_path) else False,
-                        "model_path_size": os.path.getsize(model_path) if os.path.exists(model_path) else 0
+                        "model_path_size": os.path.getsize(model_path) if os.path.exists(model_path) else 0,
+                        "model_path_permissions": oct(os.stat(model_path).st_mode)[-3:] if os.path.exists(model_path) else None,
+                        "model_path_owner": os.stat(model_path).st_uid if os.path.exists(model_path) else None,
+                        "model_path_group": os.stat(model_path).st_gid if os.path.exists(model_path) else None
                     })
                     
                     # Log the exact request we're about to make
@@ -281,7 +278,10 @@ class ModelLoader:
                     print(f"[DEBUG] Model path: {model_path}")
                     print(f"[DEBUG] Model exists: {os.path.exists(model_path)}")
                     print(f"[DEBUG] Model readable: {os.access(model_path, os.R_OK) if os.path.exists(model_path) else False}")
-                    print(f"[DEBUG] Model size: {os.path.getsize(model_path) if os.path.exists(model_path) else 0} bytes\n")
+                    print(f"[DEBUG] Model size: {os.path.getsize(model_path) if os.path.exists(model_path) else 0} bytes")
+                    print(f"[DEBUG] Model permissions: {oct(os.stat(model_path).st_mode)[-3:] if os.path.exists(model_path) else None}")
+                    print(f"[DEBUG] Model owner: {os.stat(model_path).st_uid if os.path.exists(model_path) else None}")
+                    print(f"[DEBUG] Model group: {os.stat(model_path).st_gid if os.path.exists(model_path) else None}\n")
                     
                     async with self.client.stream("POST", "/api/create", json=payload, timeout=120.0) as response:
                         if response.status_code >= 400:
