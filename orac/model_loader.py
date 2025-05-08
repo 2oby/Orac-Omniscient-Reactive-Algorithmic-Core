@@ -20,7 +20,8 @@ import re
 import time
 import subprocess
 import logging
-from typing import Optional, Tuple, List, Dict
+import psutil
+from typing import Optional, Tuple, List, Dict, NamedTuple
 import httpx
 from pathlib import Path
 
@@ -71,12 +72,52 @@ def setup_logging():
 # Initialize logging
 logger = setup_logging()
 
+class ModelError(Exception):
+    """Base class for model loading errors."""
+    def __init__(self, message: str, stage: str, status_code: int = None):
+        self.message = message
+        self.stage = stage
+        self.status_code = status_code
+        super().__init__(f"{stage}: {message}")
+
+class NetworkError(ModelError):
+    """Network-related errors during model operations."""
+    def __init__(self, message: str, status_code: int = None):
+        super().__init__(message, "network", status_code)
+
+class PermissionError(ModelError):
+    """Permission-related errors during model operations."""
+    def __init__(self, message: str, status_code: int = None):
+        super().__init__(message, "permission", status_code)
+
+class ResourceError(ModelError):
+    """Resource-related errors during model operations."""
+    def __init__(self, message: str, status_code: int = None):
+        super().__init__(message, "resource", status_code)
+
+class ConfigurationError(ModelError):
+    """Configuration-related errors during model operations."""
+    def __init__(self, message: str, status_code: int = None):
+        super().__init__(message, "configuration", status_code)
+
+class ModelSize(NamedTuple):
+    """Model size information."""
+    parameters: int
+    size_bytes: int
+    is_large: bool
+
 class ModelLoader:
     def __init__(self, client: httpx.AsyncClient):
         self.client = client
         self._error_logs: List[str] = []
         self._debug_logs: List[Dict] = []
         self._log_dir = Path(DEFAULT_LOG_DIR)
+        self._start_time = None
+        self._health_check_interval = 300  # 5 minutes
+        self._last_health_check = {}
+        self._model_semaphore = asyncio.Semaphore(2)  # Limit concurrent model loads
+        self._memory_threshold = 0.9  # 90% memory usage threshold
+        self._large_model_threshold = 7_000_000_000  # 7B parameters
 
     def _log_error(self, message: str, context: Dict = None):
         """Log error to both console and file with different detail levels."""
@@ -203,13 +244,16 @@ class ModelLoader:
     def resolve_model_path(self, name: str) -> str:
         """Resolve the full path to a model file."""
         # Try environment variable first
-        model_base_path = os.getenv("OLLAMA_MODEL_PATH")
+        model_base_path = os.getenv("OLLAMA_MODEL_PATH", os.getenv("OLLAMA_MODELS"))
+        
         if not model_base_path:
-            # Fallback to default paths
+            # Fallback to default paths with more extensive checking
             default_paths = [
-                "/models/gguf",  # Docker default
+                "/models/gguf",          # Docker default
+                "/app/models/gguf",      # App-relative path
                 os.path.expanduser("~/models/gguf"),  # User home
-                os.path.join(os.getcwd(), "models", "gguf")  # Current directory
+                os.path.join(os.getcwd(), "models", "gguf"),  # Current directory
+                os.path.join(os.path.dirname(os.getcwd()), "models", "gguf")  # Parent directory
             ]
             
             for path in default_paths:
@@ -225,20 +269,52 @@ class ModelLoader:
             name = f"{name}.gguf"
         
         model_path = os.path.join(model_base_path, name)
+        
+        # Add detailed debug logging
         self._log_debug("model_path_resolved", {
             "base_path": model_base_path,
             "model_name": name,
             "full_path": model_path,
-            "exists": os.path.exists(model_path)
+            "exists": os.path.exists(model_path),
+            "docker_env": os.getenv("OLLAMA_MODELS", "not_set")
         })
+        
         return model_path
 
     def validate_model_file(self, path: str) -> None:
         """Validate that model file exists and is readable."""
         if not os.path.exists(path):
-            raise FileNotFoundError(f"Model file not found at {path}")
+            self._log_error(f"Model file not found: {path}")
+            raise self.ModelError(f"Model file not found: {path}", "validation")
         if not os.access(path, os.R_OK):
-            raise PermissionError(f"Model file not readable at {path}")
+            self._log_error(f"Model file not readable: {path}")
+            raise self.ModelError(f"Model file not readable: {path}", "validation")
+
+    async def verify_model_status(self, model_name: str) -> bool:
+        """Verify that a model is properly loaded and ready."""
+        try:
+            # Check if model appears in the list of loaded models
+            response = await self.client.get("/api/tags")
+            if response.status_code == 200:
+                models = response.json().get("models", [])
+                if any(m.get("name") == model_name for m in models):
+                    # Verify the model can process a simple prompt
+                    test_response = await self.client.post(
+                        "/api/generate",
+                        json={"model": model_name, "prompt": "test", "stream": False}
+                    )
+                    if test_response.status_code == 200:
+                        self._log_debug("model_verification", {
+                            "status": "success",
+                            "model_name": model_name
+                        })
+                        return True
+                    
+            self._log_error(f"Model verification failed for {model_name}")
+            return False
+        except Exception as e:
+            self._log_error(f"Error verifying model {model_name}: {str(e)}")
+            return False
 
     def create_modelfile(self, model_path: str, use_new_schema: bool) -> str:
         """Create appropriate Modelfile content based on schema version."""
@@ -277,246 +353,232 @@ class ModelLoader:
             })
             raise Exception(f"Failed to write Modelfile: {str(e)}")
 
-    async def wait_for_model(self, model_name: str, max_retries: int = 60, delay: float = 5.0) -> bool:
-        """Wait for a model to be ready with detailed status checking."""
-        start_time = time.time()
-        for i in range(max_retries):
-            try:
-                self._log_debug("checking_model_status", {
-                    "attempt": i + 1,
-                    "model_name": model_name,
-                    "elapsed_time": time.time() - start_time
-                })
-                
-                # Check model status via show endpoint
-                response = await self.client.post("/api/show", json={"name": model_name})
-                if response.status_code == 200:
-                    model_info = response.json()
-                    self._log_debug("model_status", {
-                        "status": "ready",
-                        "model_info": model_info,
-                        "attempt": i + 1,
-                        "elapsed_time": time.time() - start_time
-                    })
-                    return True
-                
-                # Check model presence in tags
-                response = await self.client.get("/api/tags")
-                if response.status_code == 200:
-                    models = response.json().get("models", [])
-                    model = next((m for m in models if m.get("name") == model_name), None)
-                    if model:
-                        self._log_debug("model_found_in_tags", {
-                            "status": "found",
-                            "model_details": model,
-                            "attempt": i + 1,
-                            "elapsed_time": time.time() - start_time
-                        })
-                        return True
-                    
-                # Log current state
-                self._log_debug("model_not_ready", {
-                    "attempt": i + 1,
-                    "model_name": model_name,
-                    "show_status": response.status_code if response else None,
-                    "tags_status": response.status_code if response else None,
-                    "elapsed_time": time.time() - start_time
-                })
-            except Exception as e:
-                self._log_error("Error checking model status", {
-                    "error": str(e),
-                    "attempt": i + 1,
-                    "elapsed_time": time.time() - start_time
-                })
-            
-            if i < max_retries - 1:
-                self._log_debug("waiting_for_model", {
-                    "attempt": i + 1,
-                    "delay": delay,
-                    "model_name": model_name,
-                    "elapsed_time": time.time() - start_time
-                })
-                await asyncio.sleep(delay)
+    def _estimate_model_size(self, model_path: str) -> ModelSize:
+        """Estimate model size from filename and file size."""
+        file_size = os.path.getsize(model_path)
         
-        self._log_error("Model load timeout", {
-            "model_name": model_name,
-            "max_retries": max_retries,
-            "total_time": time.time() - start_time,
-            "max_wait_time": max_retries * delay
-        })
+        # Try to extract parameter count from filename
+        param_match = re.search(r'(\d+(?:\.\d+)?)[Bb]', os.path.basename(model_path))
+        if param_match:
+            param_str = param_match.group(1)
+            if '.' in param_str:
+                # Handle decimal billions (e.g., 1.5B)
+                params = int(float(param_str) * 1_000_000_000)
+            else:
+                # Handle integer billions (e.g., 7B)
+                params = int(param_str) * 1_000_000_000
+        else:
+            # Fallback: estimate from file size (rough approximation)
+            params = int(file_size / 2)  # Assume 2 bytes per parameter
+        
+        return ModelSize(
+            parameters=params,
+            size_bytes=file_size,
+            is_large=params >= self._large_model_threshold
+        )
+
+    def _check_memory_usage(self) -> bool:
+        """Check if system has enough memory available."""
+        memory = psutil.virtual_memory()
+        return memory.percent < (self._memory_threshold * 100)
+
+    async def _wait_for_memory(self, timeout: float = 300.0) -> bool:
+        """Wait for memory to become available."""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if self._check_memory_usage():
+                return True
+            await asyncio.sleep(5.0)
         return False
 
-    class ModelError(Exception):
-        """Custom exception for model loading errors."""
-        def __init__(self, message: str, stage: str, status_code: int = None):
-            self.message = message
-            self.stage = stage
-            self.status_code = status_code
-            super().__init__(f"{stage}: {message}")
-
     async def load_model(self, name: str, max_retries: int = MAX_MODEL_LOAD_RETRIES) -> dict:
-        """Load a model into Ollama."""
+        """Load a model into Ollama with progress tracking."""
+        start_time = time.time()
+        self._start_time = start_time
+        model_name = self._sanitize_tag(name)
+        
+        self._log_debug("model_load_started", {
+            "model_name": model_name,
+            "start_time": start_time
+        })
+        
+        # Check model paths with detailed logging
         try:
-            start_time = time.time()
-            self._start_time = start_time
-            self._log_debug("start_load", {
-                "model_name": name,
-                "start_time": start_time
-            })
-            
-            # Check if model is already loaded
-            try:
-                response = await self.client.post("/api/show", json={"name": name})
-                if response.status_code == 200:
-                    self._log_debug("model_already_loaded", {
-                        "model_name": name,
-                        "elapsed_time": time.time() - start_time
-                    })
-                    return {"status": "success", "message": "Model already loaded"}
-            except Exception as e:
-                self._log_debug("model_not_loaded", {
-                    "model_name": name,
-                    "error": str(e),
-                    "elapsed_time": time.time() - start_time
-                })
-            
-            version_num, use_new_schema = await self.get_ollama_version()
-            self._log_debug("version_check", {
-                "version": version_num,
-                "use_new_schema": use_new_schema,
-                "elapsed_time": time.time() - start_time
-            })
-            
-            model_name = self._sanitize_tag(name)
-            self._log_debug("name_normalized", {
-                "original": name,
-                "normalized": model_name,
-                "elapsed_time": time.time() - start_time
-            })
-            
             model_path = self.resolve_model_path(name)
+            self.validate_model_file(model_path)
             
-            # Log detailed file stats
-            self._log_debug("model_file_stats", {
-                "path": model_path,
-                "exists": os.path.exists(model_path),
-                "is_file": os.path.isfile(model_path),
-                "size": os.path.getsize(model_path) if os.path.exists(model_path) else None,
-                "permissions": oct(os.stat(model_path).st_mode)[-3:] if os.path.exists(model_path) else None,
-                "elapsed_time": time.time() - start_time
+            # Check model size and memory requirements
+            model_size = self._estimate_model_size(model_path)
+            self._log_debug("model_size_check", {
+                "model_name": model_name,
+                "parameters": model_size.parameters,
+                "size_bytes": model_size.size_bytes,
+                "is_large": model_size.is_large
             })
             
-            try:
-                self.validate_model_file(model_path)
-            except (FileNotFoundError, PermissionError) as e:
-                self._log_error("Model file validation failed", {
-                    "stage": "validation",
-                    "path": model_path,
-                    "error": str(e),
-                    "elapsed_time": time.time() - start_time
-                })
-                raise self.ModelError(str(e), "validation")
-            
-            # Create Modelfile content
+            if model_size.is_large:
+                if not self._check_memory_usage():
+                    self._log_debug("waiting_for_memory", {
+                        "model_name": model_name,
+                        "memory_percent": psutil.virtual_memory().percent
+                    })
+                    if not await self._wait_for_memory():
+                        raise ResourceError("Insufficient memory available for large model")
+        except Exception as e:
+            raise self._classify_error(e)
+        
+        # Get Ollama version and create Modelfile
+        try:
+            version_num, use_new_schema = await self.get_ollama_version()
             modelfile_content = self.create_modelfile(model_path, use_new_schema)
             modelfile_path, is_temp = self.write_modelfile_to_temp(modelfile_content)
-            
-            try:
-                payload = {
-                    "name": model_name,
-                    "from": model_path,
-                    "stream": False
-                }
-                
-                url = self.client.base_url.join("/api/create")
-                self._log_debug("create_start", {
-                    "url": str(url),
-                    "payload": payload,
-                    "ollama_version": version_num,
-                    "request_headers": dict(self.client.headers),
-                    "model_path_exists": os.path.exists(model_path),
-                    "model_path_readable": os.access(model_path, os.R_OK) if os.path.exists(model_path) else False,
-                    "model_path_size": os.path.getsize(model_path) if os.path.exists(model_path) else 0,
-                    "model_path_permissions": oct(os.stat(model_path).st_mode)[-3:] if os.path.exists(model_path) else None,
-                    "model_path_owner": os.stat(model_path).st_uid if os.path.exists(model_path) else None,
-                    "model_path_group": os.stat(model_path).st_gid if os.path.exists(model_path) else None,
-                    "elapsed_time": time.time() - start_time
-                })
-                
-                # Use regular request instead of streaming with increased timeout
-                response = await self.client.post("/api/create", json=payload, timeout=MODEL_LOAD_TIMEOUT)
-                raw_response = await response.aread()
-                response_text = raw_response.decode(errors="ignore")
-                
-                # Log raw response
-                self._log_debug("create_raw_response", {
-                    "status_code": response.status_code,
-                    "raw_body": response_text,
-                    "elapsed_time": time.time() - start_time
-                })
-                
-                if response.status_code >= 400:
-                    try:
-                        error_data = json.loads(response_text)
-                        error_message = error_data.get("error", response_text)
-                    except json.JSONDecodeError:
-                        error_message = response_text
-                        
-                    self._log_error("Create failed", {
-                        "stage": "create",
-                        "status_code": response.status_code,
-                        "response": error_message,
-                        "elapsed_time": time.time() - start_time
-                    })
-                    raise self.ModelError(error_message, "create", response.status_code)
-                
-                try:
-                    result = json.loads(response_text)
-                    if "error" in result:
-                        error_message = result["error"]
-                        self._log_error("Ollama error", {
-                            "stage": "create",
-                            "error": error_message,
-                            "elapsed_time": time.time() - start_time
-                        })
-                        raise self.ModelError(error_message, "create")
-                        
-                    if result.get("status") == "success":
-                        self._log_debug("create_success", {
-                            "elapsed_time": time.time() - start_time
-                        })
-                        if not await self.wait_for_model(model_name):
-                            raise self.ModelError("Model failed to load within timeout", "create")
-                        return {"status": "success"}
-                except json.JSONDecodeError as e:
-                    self._log_error("Invalid response", {
-                        "stage": "create",
-                        "error": str(e),
-                        "response": response_text,
-                        "elapsed_time": time.time() - start_time
-                    })
-                    raise self.ModelError(f"Invalid response from Ollama: {str(e)}", "create")
-            finally:
-                # Clean up temporary Modelfile if we created one
-                if is_temp and os.path.exists(modelfile_path):
-                    try:
-                        os.unlink(modelfile_path)
-                    except Exception as e:
-                        self._log_error("Failed to clean up Modelfile", {
-                            "path": modelfile_path,
-                            "error": str(e),
-                            "elapsed_time": time.time() - start_time
-                        })
-            
-            raise self.ModelError("Failed to load model", "create")
-        except self.ModelError:
-            raise
         except Exception as e:
-            self._log_error("Unhandled error", {
-                "error": str(e),
-                "elapsed_time": time.time() - start_time
-            })
-            raise self.ModelError(str(e), "unknown")
+            raise self._classify_error(e)
+        
+        # Initialize exponential backoff parameters
+        base_delay = 1.0  # Start with 1 second
+        max_delay = 30.0  # Maximum delay of 30 seconds
+        retry_count = 0
+        
+        # Use semaphore to limit concurrent model loads
+        async with self._model_semaphore:
+            while retry_count < max_retries:
+                try:
+                    # Prepare version-specific payload
+                    if use_new_schema:
+                        payload = {
+                            "name": model_name,
+                            "path": os.path.dirname(model_path),  # Directory containing both model and Modelfile
+                            "stream": True
+                        }
+                    else:
+                        payload = {
+                            "name": model_name,
+                            "modelfile": modelfile_content,
+                            "stream": True
+                        }
+                    
+                    # Stream the create response to track progress
+                    async with self.client.stream("POST", "/api/create", json=payload) as response:
+                        response.raise_for_status()
+                        
+                        async for line in response.aiter_lines():
+                            if line:
+                                try:
+                                    data = json.loads(line)
+                                    # Log progress
+                                    if "progress" in data:
+                                        self._log_debug("model_load_progress", {
+                                            "model_name": model_name,
+                                            "progress": data["progress"],
+                                            "elapsed_time": time.time() - start_time,
+                                            "retry_count": retry_count
+                                        })
+                                    # Check for completion
+                                    if data.get("status") == "success":
+                                        self._log_debug("model_load_success", {
+                                            "model_name": model_name,
+                                            "elapsed_time": time.time() - start_time,
+                                            "retry_count": retry_count
+                                        })
+                                        return {"status": "success"}
+                                except json.JSONDecodeError:
+                                    continue
+                    
+                    # If we get here, the model load was successful
+                    break
+                    
+                except Exception as e:
+                    retry_count += 1
+                    if retry_count >= max_retries:
+                        self._log_error(f"Model load failed after {max_retries} retries: {str(e)}")
+                        raise self._classify_error(e)
+                    
+                    # Calculate exponential backoff delay
+                    delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)
+                    self._log_debug("model_load_retry", {
+                        "model_name": model_name,
+                        "retry_count": retry_count,
+                        "delay": delay,
+                        "error": str(e)
+                    })
+                    await asyncio.sleep(delay)
+        
+        # Verify model is ready and perform initial health check
+        try:
+            if await self.verify_model_status(model_name):
+                # Perform initial health check
+                if await self.check_model_health(model_name):
+                    return {"status": "success"}
+                else:
+                    raise ResourceError("Model failed initial health check")
+        except Exception as e:
+            raise self._classify_error(e)
+        
+        raise ResourceError("Failed to load model within timeout")
+
+    async def check_model_health(self, model_name: str) -> bool:
+        """Check if a model is healthy and responsive."""
+        current_time = time.time()
+        last_check = self._last_health_check.get(model_name, 0)
+        
+        # Only perform health check if enough time has passed
+        if current_time - last_check < self._health_check_interval:
+            return True
+            
+        try:
+            # Try a simple prompt to verify model responsiveness
+            response = await self.client.post(
+                "/api/generate",
+                json={
+                    "model": model_name,
+                    "prompt": "test",
+                    "stream": False
+                },
+                timeout=10.0
+            )
+            response.raise_for_status()
+            self._last_health_check[model_name] = current_time
+            return True
+        except Exception as e:
+            self._log_error(f"Health check failed for model {model_name}: {str(e)}")
+            return False
+
+    async def reload_unhealthy_model(self, model_name: str) -> bool:
+        """Attempt to reload a model that failed health check."""
+        try:
+            # First try to unload the model
+            await self.client.delete("/api/delete", json={"name": model_name})
+            
+            # Then reload it
+            async with self._model_semaphore:
+                result = await self.load_model(model_name)
+                return result["status"] == "success"
+        except Exception as e:
+            self._log_error(f"Failed to reload unhealthy model {model_name}: {str(e)}")
+            return False
+
+    def _classify_error(self, error: Exception) -> ModelError:
+        """Classify an error into the appropriate error category."""
+        if isinstance(error, httpx.HTTPStatusError):
+            status_code = error.response.status_code
+            if status_code in (401, 403):
+                return PermissionError(str(error), status_code)
+            elif status_code in (404, 409):
+                return ResourceError(str(error), status_code)
+            elif status_code >= 500:
+                return NetworkError(str(error), status_code)
+            else:
+                return ConfigurationError(str(error), status_code)
+        elif isinstance(error, httpx.RequestError):
+            return NetworkError(str(error))
+        elif isinstance(error, OSError):
+            if error.errno in (13, 30):  # Permission denied, Read-only file system
+                return PermissionError(str(error))
+            else:
+                return ResourceError(str(error))
+        else:
+            return ModelError(str(error), "unknown")
 
     async def cleanup(self):
         """Clean up any temporary resources."""
