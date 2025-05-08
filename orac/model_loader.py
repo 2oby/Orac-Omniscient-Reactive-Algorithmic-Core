@@ -29,11 +29,13 @@ MODEL_LOAD_TIMEOUT = 600.0  # 10 minutes timeout for model loading
 MODEL_LOAD_RETRY_DELAY = 5.0  # 5 seconds between retries
 MAX_MODEL_LOAD_RETRIES = 3  # Maximum number of retries for model loading
 
-# Setup logging
+# Default log directory
+DEFAULT_LOG_DIR = os.getenv("ORAC_LOG_DIR", "logs")
+
 def setup_logging():
     """Configure logging to both console and file."""
     # Create logs directory if it doesn't exist
-    log_dir = Path("logs")
+    log_dir = Path(DEFAULT_LOG_DIR)
     log_dir.mkdir(exist_ok=True)
     
     # Configure root logger
@@ -70,6 +72,7 @@ class ModelLoader:
         self.client = client
         self._error_logs: List[str] = []
         self._debug_logs: List[Dict] = []
+        self._log_dir = Path(DEFAULT_LOG_DIR)
 
     def _log_error(self, message: str, context: Dict = None):
         """Log error to both console and file with different detail levels."""
@@ -105,7 +108,7 @@ class ModelLoader:
         # Store in memory logs
         log_entry = {
             "stage": stage,
-            "timestamp": asyncio.get_event_loop().time(),
+            "timestamp": time.time(),
             "data": data
         }
         self._debug_logs.append(log_entry)
