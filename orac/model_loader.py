@@ -30,7 +30,26 @@ class ModelLoader:
         """Add error message to logs with optional context."""
         log_entry = {"message": message}
         if context:
-            log_entry.update(context)
+            # Filter out sensitive information from context
+            safe_context = {}
+            for key, value in context.items():
+                if key in ["error", "status_code", "stage", "attempt"]:
+                    safe_context[key] = value
+                elif key == "traceback":
+                    # Only include the last line of the traceback
+                    if isinstance(value, str):
+                        safe_context[key] = value.split("\n")[-1]
+                elif key == "response":
+                    # Only include error message from response
+                    if isinstance(value, str):
+                        try:
+                            resp_data = json.loads(value)
+                            safe_context[key] = resp_data.get("error", "Unknown error")
+                        except:
+                            safe_context[key] = "Invalid JSON response"
+                else:
+                    safe_context[key] = value
+            log_entry.update(safe_context)
         self._error_logs.append(json.dumps(log_entry))
 
     def _log_debug(self, stage: str, data: Dict):
@@ -358,7 +377,6 @@ class ModelLoader:
                             "stage": "create",
                             "attempt": attempt + 1,
                             "error": str(e),
-                            "traceback": traceback.format_exc(),
                             "timestamp": asyncio.get_event_loop().time()
                         })
                         if attempt == max_retries - 1:
@@ -372,7 +390,6 @@ class ModelLoader:
         except Exception as e:
             self._log_error("Unhandled exception in load_model", {
                 "error": str(e),
-                "traceback": traceback.format_exc(),
                 "timestamp": asyncio.get_event_loop().time()
             })
             raise 
