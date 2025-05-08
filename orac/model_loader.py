@@ -101,13 +101,13 @@ class ModelLoader:
 
     def _sanitize_tag(self, name: str) -> str:
         """
-        Sanitize model name to be compatible with Ollama 0.6.7+ requirements.
-        - Remove .gguf extension
-        - Convert to lowercase
-        - Replace dots and underscores with hyphens
-        - Remove any other special characters
-        - Normalize multiple hyphens
-        - Remove leading/trailing hyphens
+        Sanitize model name to be compatible with Ollama's naming rules:
+        - Must be lowercase
+        - Can only contain a-z, 0-9, and hyphens
+        - Must start with a letter
+        - Maximum length of 64 characters
+        - No consecutive hyphens
+        - No leading/trailing hyphens
         """
         # Remove .gguf extension and convert to lowercase
         base_name = name.removesuffix(".gguf").lower()
@@ -124,9 +124,26 @@ class ModelLoader:
         # Remove leading/trailing hyphens
         base_name = base_name.strip('-')
         
+        # Ensure it starts with a letter
+        if not base_name or not base_name[0].isalpha():
+            base_name = 'm-' + base_name
+        
+        # Truncate to max length if needed
+        if len(base_name) > 64:
+            base_name = base_name[:64]
+            # Ensure we don't end with a hyphen
+            base_name = base_name.rstrip('-')
+        
         # Handle tag specification (e.g., "model:tag")
         if ":" in base_name:
             model, tag = base_name.split(":", 1)
+            # Ensure tag also follows naming rules
+            tag = re.sub(r'[^a-z0-9-]', '', tag.lower())
+            tag = re.sub(r'-{2,}', '-', tag).strip('-')
+            if not tag or not tag[0].isalpha():
+                tag = 't-' + tag
+            if len(tag) > 64:
+                tag = tag[:64].rstrip('-')
             return f"{model}:{tag}"
         
         return base_name
@@ -149,35 +166,39 @@ class ModelLoader:
 
     def create_modelfile(self, model_path: str, use_new_schema: bool) -> str:
         """Create appropriate Modelfile content based on schema version."""
-        return f"FROM {model_path}\n"
+        modelfile = []
+        
+        # Use relative path for the model file
+        model_filename = os.path.basename(model_path)
+        modelfile.append(f"FROM {model_filename}")
+        
+        # Add metadata
+        modelfile.append("")
+        modelfile.append("# Model metadata")
+        modelfile.append(f"PARAMETER temperature 0.7")
+        modelfile.append(f"PARAMETER top_p 0.7")
+        modelfile.append(f"PARAMETER top_k 40")
+        modelfile.append(f"PARAMETER repeat_penalty 1.1")
+        modelfile.append(f"PARAMETER stop \"<|im_end|>\"")
+        modelfile.append(f"PARAMETER stop \"<|endoftext|>\"")
+        
+        return "\n".join(modelfile)
 
     def write_modelfile_to_temp(self, modelfile_content: str) -> Tuple[str, bool]:
-        """Write Modelfile content to a temporary file and return its path and whether it was created.
-        
-        Returns:
-            Tuple[str, bool]: (path to modelfile, whether it was newly created)
-        """
-        # First check if a Modelfile already exists in the model directory
+        """Write Modelfile content to a temporary file and return its path and whether it was created."""
+        # Create temporary file in the same directory as the model
         model_dir = os.path.dirname(modelfile_content.split("FROM ")[1].strip())
-        existing_modelfile = os.path.join(model_dir, "Modelfile")
+        temp_modelfile = os.path.join(model_dir, "Modelfile")
         
-        if os.path.exists(existing_modelfile):
-            self._log_debug("using_existing_modelfile", {"path": existing_modelfile})
-            return existing_modelfile, False
-            
-        # If no existing Modelfile, create a temporary one
-        tf = tempfile.NamedTemporaryFile("w", delete=False, prefix="Modelfile_")
         try:
-            tf.write(modelfile_content)
-            tf.close()
-            return tf.name, True
+            with open(temp_modelfile, "w") as f:
+                f.write(modelfile_content)
+            return temp_modelfile, True
         except Exception as e:
-            if tf:
-                tf.close()
-                try:
-                    os.unlink(tf.name)
-                except:
-                    pass
+            self._log_error("Failed to write Modelfile", {
+                "path": temp_modelfile,
+                "error": str(e)
+            })
             raise Exception(f"Failed to write Modelfile: {str(e)}")
 
     async def wait_for_model(self, model_name: str, max_retries: int = 30, delay: float = 2.0) -> bool:
@@ -225,33 +246,6 @@ class ModelLoader:
                 "normalized": model_name
             })
             
-            if not name.endswith(".gguf"):
-                try:
-                    payload = {"name": model_name}
-                    url = self.client.base_url.join("/api/pull")
-                    self._log_debug("pull_start", {"url": str(url), "payload": payload})
-                    
-                    response = await self.client.post("/api/pull", json=payload, timeout=120.0)
-                    body = await response.aread()
-                    self._log_debug("pull_response", {
-                        "status_code": response.status_code,
-                        "body": body.decode() if isinstance(body, bytes) else body
-                    })
-                    
-                    response.raise_for_status()
-                    return {"status": "success"}
-                except httpx.HTTPStatusError as e:
-                    raw = await e.response.aread()
-                    self._log_error("Pull failed", {
-                        "stage": "pull",
-                        "status_code": e.response.status_code,
-                        "response": raw.decode() if isinstance(raw, bytes) else raw
-                    })
-                    raise self.ModelError("Model not found in remote repository", "pull", e.response.status_code)
-                except Exception as e:
-                    self._log_error("Pull failed", {"stage": "pull", "error": str(e)})
-                    raise self.ModelError(str(e), "pull")
-
             model_path = self.resolve_model_path(name)
             self._log_debug("path_resolved", {"path": model_path})
             
@@ -267,77 +261,92 @@ class ModelLoader:
             
             for attempt in range(max_retries):
                 try:
-                    payload = {
-                        "name": model_name,
-                        "from": model_path,
-                        "stream": False
-                    }
-                    
-                    url = self.client.base_url.join("/api/create")
-                    self._log_debug("create_start", {
-                        "attempt": attempt + 1,
-                        "url": str(url),
-                        "payload": payload,
-                        "ollama_version": version_num,
-                        "request_headers": dict(self.client.headers),
-                        "model_path_exists": os.path.exists(model_path),
-                        "model_path_readable": os.access(model_path, os.R_OK) if os.path.exists(model_path) else False,
-                        "model_path_size": os.path.getsize(model_path) if os.path.exists(model_path) else 0,
-                        "model_path_permissions": oct(os.stat(model_path).st_mode)[-3:] if os.path.exists(model_path) else None,
-                        "model_path_owner": os.stat(model_path).st_uid if os.path.exists(model_path) else None,
-                        "model_path_group": os.stat(model_path).st_gid if os.path.exists(model_path) else None
-                    })
-                    
-                    # Log the exact request we're about to make
-                    print(f"\n[DEBUG] Sending request to {url}")
-                    print(f"[DEBUG] Headers: {dict(self.client.headers)}")
-                    print(f"[DEBUG] Payload: {json.dumps(payload, indent=2)}")
-                    print(f"[DEBUG] Model path: {model_path}")
-                    print(f"[DEBUG] Model exists: {os.path.exists(model_path)}")
-                    print(f"[DEBUG] Model readable: {os.access(model_path, os.R_OK) if os.path.exists(model_path) else False}")
-                    print(f"[DEBUG] Model size: {os.path.getsize(model_path) if os.path.exists(model_path) else 0} bytes")
-                    print(f"[DEBUG] Model permissions: {oct(os.stat(model_path).st_mode)[-3:] if os.path.exists(model_path) else None}")
-                    print(f"[DEBUG] Model owner: {os.stat(model_path).st_uid if os.path.exists(model_path) else None}")
-                    print(f"[DEBUG] Model group: {os.stat(model_path).st_gid if os.path.exists(model_path) else None}\n")
-                    
-                    # Use regular request instead of streaming
-                    response = await self.client.post("/api/create", json=payload, timeout=120.0)
-                    raw_response = await response.aread()
-                    response_text = raw_response.decode(errors="ignore")
-                    
-                    if response.status_code >= 400:
-                        self._log_error("Create failed", {
-                            "stage": "create",
-                            "attempt": attempt + 1,
-                            "status_code": response.status_code,
-                            "response": response_text
-                        })
-                        raise self.ModelError(f"Model creation failed: {response_text}", "create", response.status_code)
+                    # Create Modelfile content
+                    modelfile_content = self.create_modelfile(model_path, use_new_schema)
+                    modelfile_path, is_temp = self.write_modelfile_to_temp(modelfile_content)
                     
                     try:
-                        result = json.loads(response_text)
-                        if "error" in result:
-                            error_message = result["error"]
-                            self._log_error("Ollama error", {
+                        payload = {
+                            "name": model_name,
+                            "path": model_path,
+                            "stream": False
+                        }
+                        
+                        url = self.client.base_url.join("/api/create")
+                        self._log_debug("create_start", {
+                            "attempt": attempt + 1,
+                            "url": str(url),
+                            "payload": payload,
+                            "ollama_version": version_num,
+                            "request_headers": dict(self.client.headers),
+                            "model_path_exists": os.path.exists(model_path),
+                            "model_path_readable": os.access(model_path, os.R_OK) if os.path.exists(model_path) else False,
+                            "model_path_size": os.path.getsize(model_path) if os.path.exists(model_path) else 0,
+                            "model_path_permissions": oct(os.stat(model_path).st_mode)[-3:] if os.path.exists(model_path) else None,
+                            "model_path_owner": os.stat(model_path).st_uid if os.path.exists(model_path) else None,
+                            "model_path_group": os.stat(model_path).st_gid if os.path.exists(model_path) else None
+                        })
+                        
+                        # Log the exact request we're about to make
+                        print(f"\n[DEBUG] Sending request to {url}")
+                        print(f"[DEBUG] Headers: {dict(self.client.headers)}")
+                        print(f"[DEBUG] Payload: {json.dumps(payload, indent=2)}")
+                        print(f"[DEBUG] Model path: {model_path}")
+                        print(f"[DEBUG] Model exists: {os.path.exists(model_path)}")
+                        print(f"[DEBUG] Model readable: {os.access(model_path, os.R_OK) if os.path.exists(model_path) else False}")
+                        print(f"[DEBUG] Model size: {os.path.getsize(model_path) if os.path.exists(model_path) else 0} bytes")
+                        print(f"[DEBUG] Model permissions: {oct(os.stat(model_path).st_mode)[-3:] if os.path.exists(model_path) else None}")
+                        print(f"[DEBUG] Model owner: {os.stat(model_path).st_uid if os.path.exists(model_path) else None}")
+                        print(f"[DEBUG] Model group: {os.stat(model_path).st_gid if os.path.exists(model_path) else None}\n")
+                        
+                        # Use regular request instead of streaming
+                        response = await self.client.post("/api/create", json=payload, timeout=120.0)
+                        raw_response = await response.aread()
+                        response_text = raw_response.decode(errors="ignore")
+                        
+                        if response.status_code >= 400:
+                            self._log_error("Create failed", {
                                 "stage": "create",
                                 "attempt": attempt + 1,
-                                "error": error_message
+                                "status_code": response.status_code,
+                                "response": response_text
                             })
-                            raise self.ModelError(error_message, "create")
+                            raise self.ModelError(f"Model creation failed: {response_text}", "create", response.status_code)
                         
-                        if result.get("status") == "success":
-                            self._log_debug("create_success", {"attempt": attempt + 1})
-                            if not await self.wait_for_model(model_name):
-                                raise self.ModelError("Model failed to load within timeout", "create")
-                            return {"status": "success"}
-                    except json.JSONDecodeError as e:
-                        self._log_error("Invalid response", {
-                            "stage": "create",
-                            "attempt": attempt + 1,
-                            "error": str(e),
-                            "response": response_text
-                        })
-                        raise self.ModelError(f"Invalid response from Ollama: {str(e)}", "create")
+                        try:
+                            result = json.loads(response_text)
+                            if "error" in result:
+                                error_message = result["error"]
+                                self._log_error("Ollama error", {
+                                    "stage": "create",
+                                    "attempt": attempt + 1,
+                                    "error": error_message
+                                })
+                                raise self.ModelError(error_message, "create")
+                                
+                            if result.get("status") == "success":
+                                self._log_debug("create_success", {"attempt": attempt + 1})
+                                if not await self.wait_for_model(model_name):
+                                    raise self.ModelError("Model failed to load within timeout", "create")
+                                return {"status": "success"}
+                        except json.JSONDecodeError as e:
+                            self._log_error("Invalid response", {
+                                "stage": "create",
+                                "attempt": attempt + 1,
+                                "error": str(e),
+                                "response": response_text
+                            })
+                            raise self.ModelError(f"Invalid response from Ollama: {str(e)}", "create")
+                    finally:
+                        # Clean up temporary Modelfile if we created one
+                        if is_temp and os.path.exists(modelfile_path):
+                            try:
+                                os.unlink(modelfile_path)
+                            except Exception as e:
+                                self._log_error("Failed to clean up Modelfile", {
+                                    "path": modelfile_path,
+                                    "error": str(e)
+                                })
                 except self.ModelError:
                     raise
                 except Exception as e:
