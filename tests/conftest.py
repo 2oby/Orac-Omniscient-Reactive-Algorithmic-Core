@@ -1,19 +1,50 @@
 """Configure pytest for the test suite."""
 
 import pytest
+import logging
+import os
+from typing import Generator, Dict, Any
 
 # Configure pytest-asyncio
 pytest_plugins = ("pytest_asyncio",)
 
 def pytest_configure(config):
-    config.addinivalue_line(
-        "asyncio_mode",
-        "auto"
+    """Configure pytest with asyncio settings."""
+    config.option.asyncio_mode = "auto"
+    config.option.asyncio_default_fixture_loop_scope = "function"
+
+@pytest.fixture(autouse=True)
+def setup_logging():
+    """Set up logging for all tests."""
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    config.addinivalue_line(
-        "asyncio_default_fixture_loop_scope",
-        "function"
-    )
+
+@pytest.fixture
+def capture_logs(request) -> Generator[Dict[str, Any], None, None]:
+    """Capture logs during test execution."""
+    logs = {"debug": [], "error": []}
+    
+    class LogCapture:
+        def __init__(self, logs):
+            self.logs = logs
+            
+        def debug(self, msg, *args, **kwargs):
+            self.logs["debug"].append(msg)
+            
+        def error(self, msg, *args, **kwargs):
+            self.logs["error"].append(msg)
+    
+    capture = LogCapture(logs)
+    yield logs
+    
+    # Log test results if test failed
+    if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
+        logging.error("Test failed. Captured logs:")
+        for level, messages in logs.items():
+            for msg in messages:
+                logging.error(f"{level.upper()}: {msg}")
 
 def pytest_exception_interact(call, report):
     """Disable traceback in test output."""
