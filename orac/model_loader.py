@@ -104,27 +104,32 @@ class ModelLoader:
         Sanitize model name to be compatible with Ollama 0.6.7+ requirements.
         - Remove .gguf extension
         - Convert to lowercase
-        - Replace underscores with hyphens
+        - Replace dots and underscores with hyphens
         - Remove any other special characters
+        - Normalize multiple hyphens
+        - Remove leading/trailing hyphens
         """
-        # Remove .gguf extension if present
-        base = name.replace(".gguf", "")
+        # Remove .gguf extension and convert to lowercase
+        base_name = name.removesuffix(".gguf").lower()
         
-        # Convert to lowercase
-        base = base.lower()
-        
-        # Replace underscores with hyphens
-        base = base.replace("_", "-")
+        # Replace dots and underscores with hyphens
+        base_name = re.sub(r'[._]+', '-', base_name)
         
         # Remove any other special characters except alphanumeric and hyphens
-        base = ''.join(c for c in base if c.isalnum() or c == '-')
+        base_name = re.sub(r'[^a-z0-9-]', '', base_name)
+        
+        # Normalize multiple hyphens to single hyphen
+        base_name = re.sub(r'-{2,}', '-', base_name)
+        
+        # Remove leading/trailing hyphens
+        base_name = base_name.strip('-')
         
         # Handle tag specification (e.g., "model:tag")
-        if ":" in base:
-            model, tag = base.split(":", 1)
+        if ":" in base_name:
+            model, tag = base_name.split(":", 1)
             return f"{model}:{tag}"
         
-        return base
+        return base_name
 
     def normalize_model_name(self, name: str) -> str:
         """Convert model name to valid Ollama tag format."""
