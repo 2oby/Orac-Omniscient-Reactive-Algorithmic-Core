@@ -295,58 +295,44 @@ class ModelLoader:
                     print(f"[DEBUG] Model owner: {os.stat(model_path).st_uid if os.path.exists(model_path) else None}")
                     print(f"[DEBUG] Model group: {os.stat(model_path).st_gid if os.path.exists(model_path) else None}\n")
                     
-                    async with self.client.stream("POST", "/api/create", json=payload, timeout=120.0) as response:
-                        if response.status_code >= 400:
-                            raw = (await response.aread()).decode(errors="ignore")
-                            self._log_error("Create failed", {
+                    # Use regular request instead of streaming
+                    response = await self.client.post("/api/create", json=payload, timeout=120.0)
+                    raw_response = await response.aread()
+                    response_text = raw_response.decode(errors="ignore")
+                    
+                    if response.status_code >= 400:
+                        self._log_error("Create failed", {
+                            "stage": "create",
+                            "attempt": attempt + 1,
+                            "status_code": response.status_code,
+                            "response": response_text
+                        })
+                        raise self.ModelError(f"Model creation failed: {response_text}", "create", response.status_code)
+                    
+                    try:
+                        result = json.loads(response_text)
+                        if "error" in result:
+                            error_message = result["error"]
+                            self._log_error("Ollama error", {
                                 "stage": "create",
                                 "attempt": attempt + 1,
-                                "status_code": response.status_code,
-                                "response": raw
+                                "error": error_message
                             })
-                            raise self.ModelError("Model creation failed", "create", response.status_code)
-                        
-                        create_complete = False
-                        error_message = None
-                        
-                        async for line in response.aiter_lines():
-                            if not line:
-                                continue
-                            try:
-                                chunk = json.loads(line)
-                                self._log_debug("create_chunk", {
-                                    "attempt": attempt + 1,
-                                    "chunk": chunk
-                                })
-                                
-                                if "error" in chunk:
-                                    error_message = chunk["error"]
-                                    self._log_error("Ollama error", {
-                                        "stage": "create",
-                                        "attempt": attempt + 1,
-                                        "error": error_message
-                                    })
-                                    break
-                                if chunk.get("status") == "success":
-                                    create_complete = True
-                                    break
-                            except json.JSONDecodeError as e:
-                                self._log_error("Invalid response", {
-                                    "stage": "create",
-                                    "attempt": attempt + 1,
-                                    "error": str(e)
-                                })
-                                continue
-                        
-                        if error_message:
                             raise self.ModelError(error_message, "create")
                         
-                        if create_complete:
+                        if result.get("status") == "success":
                             self._log_debug("create_success", {"attempt": attempt + 1})
                             if not await self.wait_for_model(model_name):
                                 raise self.ModelError("Model failed to load within timeout", "create")
                             return {"status": "success"}
-                        
+                    except json.JSONDecodeError as e:
+                        self._log_error("Invalid response", {
+                            "stage": "create",
+                            "attempt": attempt + 1,
+                            "error": str(e),
+                            "response": response_text
+                        })
+                        raise self.ModelError(f"Invalid response from Ollama: {str(e)}", "create")
                 except self.ModelError:
                     raise
                 except Exception as e:
