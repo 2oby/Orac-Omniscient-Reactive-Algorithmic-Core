@@ -22,6 +22,11 @@ import subprocess
 from typing import Optional, Tuple, List, Dict
 import httpx
 
+# Constants
+MODEL_LOAD_TIMEOUT = 600.0  # 10 minutes timeout for model loading
+MODEL_LOAD_RETRY_DELAY = 5.0  # 5 seconds between retries
+MAX_MODEL_LOAD_RETRIES = 3  # Maximum number of retries for model loading
+
 class ModelLoader:
     def __init__(self, client: httpx.AsyncClient):
         self.client = client
@@ -220,33 +225,51 @@ class ModelLoader:
             raise Exception(f"Failed to write Modelfile: {str(e)}")
 
     async def wait_for_model(self, model_name: str, max_retries: int = 60, delay: float = 5.0) -> bool:
-        """Wait for a model to be ready."""
+        """Wait for a model to be ready with detailed status checking."""
         for i in range(max_retries):
             try:
                 self._log_debug("checking_model_status", {
                     "attempt": i + 1,
-                    "model_name": model_name
+                    "model_name": model_name,
+                    "elapsed_time": time.time() - self._start_time if hasattr(self, '_start_time') else None
                 })
                 
+                # Check model status via show endpoint
                 response = await self.client.post("/api/show", json={"name": model_name})
                 if response.status_code == 200:
-                    self._log_debug("model_ready", {
-                        "attempt": i + 1,
-                        "model_name": model_name
+                    model_info = response.json()
+                    self._log_debug("model_status", {
+                        "status": "ready",
+                        "model_info": model_info,
+                        "attempt": i + 1
                     })
                     return True
                 
+                # Check model presence in tags
                 response = await self.client.get("/api/tags")
                 if response.status_code == 200:
                     models = response.json().get("models", [])
-                    if any(model.get("name") == model_name for model in models):
+                    model = next((m for m in models if m.get("name") == model_name), None)
+                    if model:
                         self._log_debug("model_found_in_tags", {
-                            "attempt": i + 1,
-                            "model_name": model_name
+                            "status": "found",
+                            "model_details": model,
+                            "attempt": i + 1
                         })
                         return True
+                    
+                # Log current state
+                self._log_debug("model_not_ready", {
+                    "attempt": i + 1,
+                    "model_name": model_name,
+                    "show_status": response.status_code if response else None,
+                    "tags_status": response.status_code if response else None
+                })
             except Exception as e:
-                self._log_error(f"Error checking model status: {str(e)}")
+                self._log_error("Error checking model status", {
+                    "error": str(e),
+                    "attempt": i + 1
+                })
             
             if i < max_retries - 1:
                 self._log_debug("waiting_for_model", {
@@ -271,7 +294,7 @@ class ModelLoader:
             self.status_code = status_code
             super().__init__(f"{stage}: {message}")
 
-    async def load_model(self, name: str, max_retries: int = 3) -> dict:
+    async def load_model(self, name: str, max_retries: int = MAX_MODEL_LOAD_RETRIES) -> dict:
         """Load a model into Ollama."""
         try:
             start_time = time.time()
@@ -323,9 +346,14 @@ class ModelLoader:
                     try:
                         ps_output = subprocess.run(["ps", "aux"], capture_output=True, text=True)
                         top_output = subprocess.run(["top", "-bn1"], capture_output=True, text=True)
+                        # Add memory monitoring
+                        free_output = subprocess.run(["free", "-h"], capture_output=True, text=True)
+                        vmstat_output = subprocess.run(["vmstat", "1", "1"], capture_output=True, text=True)
                         self._log_debug("system_state_before_load", {
                             "ps_output": ps_output.stdout,
                             "top_output": top_output.stdout,
+                            "memory_info": free_output.stdout,
+                            "vm_stats": vmstat_output.stdout,
                             "elapsed_time": time.time() - start_time
                         })
                     except Exception as e:
@@ -362,7 +390,7 @@ class ModelLoader:
                         })
                         
                         # Use regular request instead of streaming with increased timeout
-                        response = await self.client.post("/api/create", json=payload, timeout=300.0)
+                        response = await self.client.post("/api/create", json=payload, timeout=MODEL_LOAD_TIMEOUT)
                         raw_response = await response.aread()
                         response_text = raw_response.decode(errors="ignore")
                         
@@ -374,14 +402,20 @@ class ModelLoader:
                         })
                         
                         if response.status_code >= 400:
+                            try:
+                                error_data = json.loads(response_text)
+                                error_message = error_data.get("error", response_text)
+                            except json.JSONDecodeError:
+                                error_message = response_text
+                                
                             self._log_error("Create failed", {
                                 "stage": "create",
                                 "attempt": attempt + 1,
                                 "status_code": response.status_code,
-                                "response": response_text,
+                                "response": error_message,
                                 "elapsed_time": time.time() - start_time
                             })
-                            raise self.ModelError(f"Model creation failed: {response_text}", "create", response.status_code)
+                            raise self.ModelError(error_message, "create", response.status_code)
                         
                         try:
                             result = json.loads(response_text)
@@ -434,7 +468,7 @@ class ModelLoader:
                     })
                     if attempt == max_retries - 1:
                         raise self.ModelError(f"Failed after {max_retries} attempts", "create")
-                    await asyncio.sleep(2 ** attempt)
+                    await asyncio.sleep(MODEL_LOAD_RETRY_DELAY * (2 ** attempt))  # Exponential backoff
             
             raise self.ModelError(f"Failed after {max_retries} attempts", "create")
         except self.ModelError:
@@ -444,4 +478,27 @@ class ModelLoader:
                 "error": str(e),
                 "elapsed_time": time.time() - start_time
             })
-            raise self.ModelError(str(e), "unknown") 
+            raise self.ModelError(str(e), "unknown")
+
+    async def cleanup(self):
+        """Clean up any temporary resources."""
+        try:
+            # Clean up any temporary Modelfiles
+            model_dir = os.path.dirname(self.resolve_model_path("dummy.gguf"))
+            temp_modelfile = os.path.join(model_dir, "Modelfile")
+            if os.path.exists(temp_modelfile):
+                try:
+                    os.unlink(temp_modelfile)
+                    self._log_debug("cleanup", {
+                        "action": "removed_temp_modelfile",
+                        "path": temp_modelfile
+                    })
+                except Exception as e:
+                    self._log_error("Failed to clean up Modelfile", {
+                        "path": temp_modelfile,
+                        "error": str(e)
+                    })
+        except Exception as e:
+            self._log_error("Cleanup failed", {
+                "error": str(e)
+            }) 

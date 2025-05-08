@@ -59,7 +59,7 @@ async def test_load_model_not_found():
     client = OllamaClient()
     with pytest.raises(Exception) as exc_info:
         await client.load_model("nonexistent-model")
-    assert "Model not found" in str(exc_info.value)
+    assert "Model file not found" in str(exc_info.value)
 
 @respx.mock
 @pytest.mark.asyncio

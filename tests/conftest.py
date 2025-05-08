@@ -2,9 +2,18 @@
 
 import pytest
 
-# Configure pytest-asyncio to use function scope for event loops
+# Configure pytest-asyncio
+pytest_plugins = ("pytest_asyncio",)
+
 def pytest_configure(config):
-    config.option.asyncio_default_fixture_loop_scope = "function" 
+    config.addinivalue_line(
+        "asyncio_mode",
+        "auto"
+    )
+    config.addinivalue_line(
+        "asyncio_default_fixture_loop_scope",
+        "function"
+    )
 
 def pytest_exception_interact(call, report):
     """Disable traceback in test output."""
@@ -16,7 +25,8 @@ def pytest_exception_interact(call, report):
 def capture_logs(request):
     """Fixture to capture and format logs for failed tests."""
     yield
-    if request.node.report.failed:
+    # Only try to capture logs if the test failed
+    if hasattr(request.node, 'rep_call') and request.node.rep_call.failed:
         # Get the client from the test function
         client = request.function.__globals__.get('client')
         if client and hasattr(client, 'model_loader'):
