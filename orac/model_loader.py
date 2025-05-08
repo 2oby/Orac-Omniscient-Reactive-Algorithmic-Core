@@ -257,7 +257,6 @@ class ModelLoader:
                     self._log_error("Pull failed", {
                         "stage": "pull",
                         "error": str(e),
-                        "traceback": traceback.format_exc(),
                         "timestamp": asyncio.get_event_loop().time()
                     })
                     raise Exception(f"Failed to pull model: {str(e)}")
@@ -319,7 +318,8 @@ class ModelLoader:
                                     "response": raw,
                                     "timestamp": asyncio.get_event_loop().time()
                                 })
-                                raise Exception(f"HTTP {response.status_code}: {raw}")
+                                # Raise a clean exception without the full response
+                                raise Exception(f"Model creation failed: {response.status_code}")
                             
                             create_complete = False
                             error_message = None
@@ -380,7 +380,8 @@ class ModelLoader:
                             "timestamp": asyncio.get_event_loop().time()
                         })
                         if attempt == max_retries - 1:
-                            raise Exception(f"Failed to load model after {max_retries} attempts: {str(e)}")
+                            # Raise a clean exception without the full traceback
+                            raise Exception(f"Failed to load model after {max_retries} attempts")
                         await asyncio.sleep(2 ** attempt)
                 
                 raise Exception(f"Failed to load model after {max_retries} attempts")
