@@ -5,3 +5,5 @@ httpx
 pytest
 respx
 pytest-asyncio
+transformers
+torch

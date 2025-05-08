@@ -1,0 +1,33 @@
+File structure:
+
+toby@ubuntu:~/ORAC/orac$ ls -al
+total 52
+drwxrwxr-x 2 toby toby  4096 May  8 16:41 .
+drwxrwxr-x 8 toby toby  4096 May  8 16:23 ..
+-rw-rw-r-- 1 toby toby   558 May  4 14:48 api.py
+-rw-rw-r-- 1 toby toby    73 May  4 15:42 __init__.py
+-rw-rw-r-- 1 toby toby 22259 May  8 16:41 model_loader.py
+-rw-rw-r-- 1 toby toby  1798 May  5 20:18 models.py
+-rw-rw-r-- 1 toby toby  7000 May  8 10:06 ollama_client.py
+toby@ubuntu:~/ORAC/orac$ cd ..
+toby@ubuntu:~/ORAC$ ls -al
+total 88
+drwxrwxr-x  8 toby toby 4096 May  8 16:23 .
+drwxr-x--- 28 toby toby 4096 May  5 23:08 ..
+drwxrwxr-x  3 toby toby 4096 May  4 15:42 archive
+-rw-rw-r--  1 toby toby  168 May  4 15:42 docker-compose
+-rw-rw-r--  1 toby toby  614 May  4 17:16 docker-compose.yml
+-rw-rw-r--  1 toby toby 1081 May  4 15:45 Dockerfile
+-rw-rw-r--  1 toby toby 6148 May  8 16:23 .DS_Store
+drwxrwxr-x  8 toby toby 4096 May  8 16:41 .git
+-rw-rw-r--  1 toby toby  649 May  4 15:42 .gitignore
+-rw-rw-r--  1 toby toby 5847 May  4 14:43 instructions.md
+drwxr-xr-x  3 root root 4096 May  4 14:54 models
+drwxrwxr-x  2 toby toby 4096 May  8 16:41 orac
+-rw-rw-r--  1 toby toby  365 May  4 15:42 pyproject.toml
+-rw-rw-r--  1 toby toby  704 May  4 14:10 README.md
+-rw-rw-r--  1 toby toby   69 May  4 15:42 requirements.txt
+drwxrwxr-x  2 toby toby 4096 May  4 16:28 scripts
+-rw-rw-r--  1 toby toby  268 May  4 15:45 setup.py
+drwxrwxr-x  2 toby toby 4096 May  8 16:41 tests
+-rw-rw-r--  1 toby toby 6357 May  4 15:42 ToDo.txt
