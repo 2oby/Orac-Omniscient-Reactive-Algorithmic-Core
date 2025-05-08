@@ -267,8 +267,21 @@ class ModelLoader:
                         "attempt": attempt + 1,
                         "url": str(url),
                         "payload": payload,
-                        "ollama_version": version_num
+                        "ollama_version": version_num,
+                        "request_headers": dict(self.client.headers),
+                        "model_path_exists": os.path.exists(model_path),
+                        "model_path_readable": os.access(model_path, os.R_OK) if os.path.exists(model_path) else False,
+                        "model_path_size": os.path.getsize(model_path) if os.path.exists(model_path) else 0
                     })
+                    
+                    # Log the exact request we're about to make
+                    print(f"\n[DEBUG] Sending request to {url}")
+                    print(f"[DEBUG] Headers: {dict(self.client.headers)}")
+                    print(f"[DEBUG] Payload: {json.dumps(payload, indent=2)}")
+                    print(f"[DEBUG] Model path: {model_path}")
+                    print(f"[DEBUG] Model exists: {os.path.exists(model_path)}")
+                    print(f"[DEBUG] Model readable: {os.access(model_path, os.R_OK) if os.path.exists(model_path) else False}")
+                    print(f"[DEBUG] Model size: {os.path.getsize(model_path) if os.path.exists(model_path) else 0} bytes\n")
                     
                     async with self.client.stream("POST", "/api/create", json=payload, timeout=120.0) as response:
                         if response.status_code >= 400:
