@@ -142,11 +142,36 @@ class ModelLoader:
 
     def resolve_model_path(self, name: str) -> str:
         """Resolve the full path to a model file."""
-        model_base_path = os.getenv("OLLAMA_MODEL_PATH", "/models/gguf")
+        # Try environment variable first
+        model_base_path = os.getenv("OLLAMA_MODEL_PATH")
+        if not model_base_path:
+            # Fallback to default paths
+            default_paths = [
+                "/models/gguf",  # Docker default
+                os.path.expanduser("~/models/gguf"),  # User home
+                os.path.join(os.getcwd(), "models", "gguf")  # Current directory
+            ]
+            
+            for path in default_paths:
+                if os.path.exists(path):
+                    model_base_path = path
+                    break
+            
+            if not model_base_path:
+                model_base_path = default_paths[0]  # Use Docker default if no path exists
+        
         # Ensure the .gguf extension is present
         if not name.endswith(".gguf"):
             name = f"{name}.gguf"
-        return os.path.join(model_base_path, name)
+        
+        model_path = os.path.join(model_base_path, name)
+        self._log_debug("model_path_resolved", {
+            "base_path": model_base_path,
+            "model_name": name,
+            "full_path": model_path,
+            "exists": os.path.exists(model_path)
+        })
+        return model_path
 
     def validate_model_file(self, path: str) -> None:
         """Validate that model file exists and is readable."""
@@ -192,24 +217,48 @@ class ModelLoader:
             })
             raise Exception(f"Failed to write Modelfile: {str(e)}")
 
-    async def wait_for_model(self, model_name: str, max_retries: int = 30, delay: float = 2.0) -> bool:
+    async def wait_for_model(self, model_name: str, max_retries: int = 60, delay: float = 5.0) -> bool:
         """Wait for a model to be ready."""
         for i in range(max_retries):
             try:
+                self._log_debug("checking_model_status", {
+                    "attempt": i + 1,
+                    "model_name": model_name
+                })
+                
                 response = await self.client.post("/api/show", json={"name": model_name})
                 if response.status_code == 200:
+                    self._log_debug("model_ready", {
+                        "attempt": i + 1,
+                        "model_name": model_name
+                    })
                     return True
                 
                 response = await self.client.get("/api/tags")
                 if response.status_code == 200:
                     models = response.json().get("models", [])
                     if any(model.get("name") == model_name for model in models):
+                        self._log_debug("model_found_in_tags", {
+                            "attempt": i + 1,
+                            "model_name": model_name
+                        })
                         return True
             except Exception as e:
                 self._log_error(f"Error checking model status: {str(e)}")
             
             if i < max_retries - 1:
+                self._log_debug("waiting_for_model", {
+                    "attempt": i + 1,
+                    "delay": delay,
+                    "model_name": model_name
+                })
                 await asyncio.sleep(delay)
+        
+        self._log_error("Model load timeout", {
+            "model_name": model_name,
+            "max_retries": max_retries,
+            "total_time": max_retries * delay
+        })
         return False
 
     class ModelError(Exception):

@@ -16,7 +16,7 @@ def pytest_exception_interact(call, report):
 def capture_logs(request):
     """Fixture to capture and format logs for failed tests."""
     yield
-    if request.node.rep_call.failed:
+    if request.node.report.failed:
         # Get the client from the test function
         client = request.function.__globals__.get('client')
         if client and hasattr(client, 'model_loader'):
