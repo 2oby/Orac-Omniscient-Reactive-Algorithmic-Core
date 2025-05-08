@@ -155,6 +155,9 @@ class ModelLoader:
     def resolve_model_path(self, name: str) -> str:
         """Resolve the full path to a model file."""
         model_base_path = os.getenv("OLLAMA_MODEL_PATH", "/models/gguf")
+        # Ensure the .gguf extension is present
+        if not name.endswith(".gguf"):
+            name = f"{name}.gguf"
         return os.path.join(model_base_path, name)
 
     def validate_model_file(self, path: str) -> None:
