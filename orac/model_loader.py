@@ -102,10 +102,22 @@ class ModelLoader:
     def _sanitize_tag(self, name: str) -> str:
         """
         Sanitize model name to be compatible with Ollama 0.6.7+ requirements.
-        Keep original case and special characters, only remove .gguf extension.
+        - Remove .gguf extension
+        - Convert to lowercase
+        - Replace underscores with hyphens
+        - Remove any other special characters
         """
         # Remove .gguf extension if present
         base = name.replace(".gguf", "")
+        
+        # Convert to lowercase
+        base = base.lower()
+        
+        # Replace underscores with hyphens
+        base = base.replace("_", "-")
+        
+        # Remove any other special characters except alphanumeric and hyphens
+        base = ''.join(c for c in base if c.isalnum() or c == '-')
         
         # Handle tag specification (e.g., "model:tag")
         if ":" in base:
