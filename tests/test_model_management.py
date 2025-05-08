@@ -29,7 +29,7 @@ async def test_real_model_loading_and_prompting():
             print(log)
             
         # Re-raise the exception with a clean message
-        raise Exception(f"Model loading failed: {str(e)}")
+        pytest.fail(f"Model loading failed: {str(e)}", pytrace=False)
 
 @respx.mock
 @pytest.mark.asyncio

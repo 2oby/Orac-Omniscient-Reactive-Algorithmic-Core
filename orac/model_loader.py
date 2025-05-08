@@ -258,7 +258,7 @@ class ModelLoader:
                 try:
                     payload = {
                         "name": model_name,
-                        "path": model_path,
+                        "from": model_path,
                         "stream": False
                     }
                     
@@ -266,7 +266,8 @@ class ModelLoader:
                     self._log_debug("create_start", {
                         "attempt": attempt + 1,
                         "url": str(url),
-                        "payload": payload
+                        "payload": payload,
+                        "ollama_version": version_num
                     })
                     
                     async with self.client.stream("POST", "/api/create", json=payload, timeout=120.0) as response:

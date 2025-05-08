@@ -72,6 +72,14 @@ class OllamaClient:
         self.client = httpx.AsyncClient(base_url=self.base_url)
         self.model_loader = ModelLoader(self.client)
 
+    def get_debug_logs(self) -> List[Dict]:
+        """Get debug logs from the model loader."""
+        return self.model_loader.get_debug_logs()
+
+    def get_error_logs(self) -> List[str]:
+        """Get error logs from the model loader."""
+        return self.model_loader.get_error_logs()
+
     async def get_version(self) -> str:
         """Get Ollama version."""
         try:
@@ -92,8 +100,11 @@ class OllamaClient:
         try:
             result = await self.model_loader.load_model(name, max_retries)
             return ModelLoadResponse(status=result["status"])
+        except ModelLoader.ModelError as e:
+            # Preserve the ModelError with its stage and status code
+            raise
         except Exception as e:
-            raise Exception(str(e))
+            raise Exception(f"Failed to load model: {str(e)}")
 
     async def unload_model(self, name: str) -> ModelUnloadResponse:
         """Unload a model by name."""
