@@ -36,20 +36,28 @@ async def test_real_model_loading_and_prompting():
 @pytest.mark.asyncio
 async def test_load_model_success():
     # Mock successful model loading
-    respx.post("http://orac-ollama:11434/api/pull").mock(
+    respx.post("http://orac-ollama:11434/api/create").mock(
         return_value=Response(200, json={"status": "success"})
+    )
+    # Mock version check
+    respx.get("http://orac-ollama:11434/api/version").mock(
+        return_value=Response(200, json={"version": "0.6.7"})
     )
     
     client = OllamaClient()
     response = await client.load_model("Qwen3-0.6B-Q4_K_M")
-    assert response.status == "success"
+    assert response["status"] == "success"
 
 @respx.mock
 @pytest.mark.asyncio
 async def test_load_model_not_found():
     # Mock model not found error
-    respx.post("http://orac-ollama:11434/api/pull").mock(
+    respx.post("http://orac-ollama:11434/api/create").mock(
         return_value=Response(404, json={"error": "Model not found"})
+    )
+    # Mock version check
+    respx.get("http://orac-ollama:11434/api/version").mock(
+        return_value=Response(200, json={"version": "0.6.7"})
     )
     
     client = OllamaClient()

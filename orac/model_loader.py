@@ -47,11 +47,6 @@ class ModelLoader:
                     safe_context[key] = value
             log_entry.update(safe_context)
         self._error_logs.append(json.dumps(log_entry))
-        # Print the error immediately
-        print(f"\n[ERROR] {message}")
-        if context:
-            for key, value in safe_context.items():
-                print(f"  {key}: {value}")
 
     def _log_debug(self, stage: str, data: Dict):
         """Add debug information with stage and data."""
@@ -61,10 +56,6 @@ class ModelLoader:
             "data": data
         }
         self._debug_logs.append(log_entry)
-        # Print the log entry immediately
-        print(f"\n[DEBUG] {stage}:")
-        for key, value in data.items():
-            print(f"  {key}: {value}")
 
     def get_error_logs(self) -> List[str]:
         """Get collected error logs."""
@@ -78,10 +69,8 @@ class ModelLoader:
         """Get Ollama version and determine if new schema should be used."""
         try:
             url = self.client.base_url.join("/api/version")
-            print(f"[DEBUG] VERSION → {url}")
             response = await self.client.get("/api/version")
             body = await response.aread()
-            print(f"[DEBUG] VERSION ← {response.status_code}, body={body!r}")
             response.raise_for_status()
             version = response.json().get("version", "0.0.0")
             
@@ -93,7 +82,6 @@ class ModelLoader:
                 return version_num, version_num >= 0.6
         except httpx.HTTPStatusError as e:
             raw = await e.response.aread()
-            print(f"[ERROR] VERSION failed {e.response.status_code}: {raw!r}")
             self._log_error(f"Failed to get Ollama version: {str(e)}")
         except Exception as e:
             self._log_error(f"Failed to get Ollama version: {str(e)}")
@@ -289,18 +277,6 @@ class ModelLoader:
                             "model_path_owner": os.stat(model_path).st_uid if os.path.exists(model_path) else None,
                             "model_path_group": os.stat(model_path).st_gid if os.path.exists(model_path) else None
                         })
-                        
-                        # Log the exact request we're about to make
-                        print(f"\n[DEBUG] Sending request to {url}")
-                        print(f"[DEBUG] Headers: {dict(self.client.headers)}")
-                        print(f"[DEBUG] Payload: {json.dumps(payload, indent=2)}")
-                        print(f"[DEBUG] Model path: {model_path}")
-                        print(f"[DEBUG] Model exists: {os.path.exists(model_path)}")
-                        print(f"[DEBUG] Model readable: {os.access(model_path, os.R_OK) if os.path.exists(model_path) else False}")
-                        print(f"[DEBUG] Model size: {os.path.getsize(model_path) if os.path.exists(model_path) else 0} bytes")
-                        print(f"[DEBUG] Model permissions: {oct(os.stat(model_path).st_mode)[-3:] if os.path.exists(model_path) else None}")
-                        print(f"[DEBUG] Model owner: {os.stat(model_path).st_uid if os.path.exists(model_path) else None}")
-                        print(f"[DEBUG] Model group: {os.stat(model_path).st_gid if os.path.exists(model_path) else None}\n")
                         
                         # Use regular request instead of streaming
                         response = await self.client.post("/api/create", json=payload, timeout=120.0)
