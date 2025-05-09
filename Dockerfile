@@ -28,7 +28,10 @@ COPY . /app/
 # Create log directory
 RUN mkdir -p /app/logs && chmod 777 /app/logs
 
+# Create startup script
+RUN echo '#!/bin/sh\npython3 -m orac.cli status\nwhile true; do sleep 1; done' > /app/start.sh && \
+    chmod +x /app/start.sh
+
 # Set the entrypoint
-ENTRYPOINT ["python3", "-m", "orac.cli"]
-CMD ["status"]
+ENTRYPOINT ["/app/start.sh"]
     

@@ -4,6 +4,7 @@ services:
   ollama:
     image: dustynv/ollama:r36.4.3
     container_name: orac-ollama
+    command: sh -c "ollama serve & tail -f /data/logs/ollama.log"
     ports:
       - "11434:11434"
     volumes:
