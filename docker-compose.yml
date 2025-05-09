@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   ollama:
-    image: ollama/ollama:0.6.6
+    image: dustynv/ollama:r36.4.3
     container_name: orac-ollama
     command: sh -c "mkdir -p /data/logs && ollama serve > /data/logs/ollama.log 2>&1 & sleep 5 && touch /data/logs/ollama.log && tail -f /data/logs/ollama.log"
     ports:
