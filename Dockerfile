@@ -30,4 +30,5 @@ RUN mkdir -p /app/logs && chmod 777 /app/logs
 
 # Set the entrypoint
 ENTRYPOINT ["python3", "-m", "orac.cli"]
+CMD ["status"]
     
