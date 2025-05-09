@@ -75,31 +75,35 @@ class ModelLoader:
 
     def normalize_model_name(self, name: str) -> str:
         """Convert model name to valid Ollama tag format."""
-        # Remove .gguf extension and convert to lowercase
-        base_name = name.removesuffix(".gguf").lower()
+        # Hard code the model name for now
+        return "Qwen3-0.6B-Q4_K_M"
         
-        # Replace dots and underscores with hyphens
-        base_name = re.sub(r'[._]+', '-', base_name)
-        
-        # Remove any other special characters except alphanumeric and hyphens
-        base_name = re.sub(r'[^a-z0-9-]', '', base_name)
-        
-        # Normalize multiple hyphens to single hyphen
-        base_name = re.sub(r'-{2,}', '-', base_name)
-        
-        # Remove leading/trailing hyphens
-        base_name = base_name.strip('-')
-        
-        # Ensure it starts with a letter
-        if not base_name or not base_name[0].isalpha():
-            base_name = 'm-' + base_name
-        
-        # Truncate to max length if needed (64 chars for Ollama)
-        if len(base_name) > 64:
-            base_name = base_name[:64].rstrip('-')
-        
-        logger.debug(f"Normalized model name from '{name}' to '{base_name}'")
-        return base_name
+        # Original normalization code commented out for reference
+        # # Remove .gguf extension and convert to lowercase
+        # base_name = name.removesuffix(".gguf").lower()
+        # 
+        # # Replace dots and underscores with hyphens
+        # base_name = re.sub(r'[._]+', '-', base_name)
+        # 
+        # # Remove any other special characters except alphanumeric and hyphens
+        # base_name = re.sub(r'[^a-z0-9-]', '', base_name)
+        # 
+        # # Normalize multiple hyphens to single hyphen
+        # base_name = re.sub(r'-{2,}', '-', base_name)
+        # 
+        # # Remove leading/trailing hyphens
+        # base_name = base_name.strip('-')
+        # 
+        # # Ensure it starts with a letter
+        # if not base_name or not base_name[0].isalpha():
+        #     base_name = 'm-' + base_name
+        # 
+        # # Truncate to max length if needed (64 chars for Ollama)
+        # if len(base_name) > 64:
+        #     base_name = base_name[:64].rstrip('-')
+        # 
+        # logger.debug(f"Normalized model name from '{name}' to '{base_name}'")
+        # return base_name
 
     def resolve_model_path(self, name: str) -> str:
         """Resolve the full path to a model file."""
