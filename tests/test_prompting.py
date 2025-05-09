@@ -2,7 +2,7 @@ import pytest
 import respx
 from httpx import Response
 from orac.ollama_client import OllamaClient
-from orac.models import PromptRequest, PromptResponse
+from orac.models import GenerationRequest, GenerationResponse
 
 @pytest.fixture
 def ollama_client():
