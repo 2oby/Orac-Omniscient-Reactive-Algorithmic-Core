@@ -7,7 +7,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ./models/gguf:/models/gguf:ro
+      - ./models/gguf:/models/gguf
       - ./logs:/logs
     environment:
       - OLLAMA_MODELS=/models/gguf
