@@ -25,6 +25,11 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy application code
 COPY . /app/
 
+# Install the package in development mode
+# TODO: For production deployment, replace with: RUN pip3 install .
+# The -e flag creates an editable install which is only needed during development
+RUN pip3 install -e .
+
 # Create log directory
 RUN mkdir -p /app/logs && chmod 777 /app/logs
 
