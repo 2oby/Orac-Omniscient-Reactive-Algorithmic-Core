@@ -94,7 +94,6 @@ ssh "$REMOTE_ALIAS" "\
     fi; \
     
     echo '${BLUE}🐳 Building & starting containers...${NC}'; \
-    \$DOCKER_CMD build --no-cache -t orac:latest .; \
     \$DOCKER_CMD up --build -d; \
     
     echo '${BLUE}🔍 Checking container logs...${NC}'; \
