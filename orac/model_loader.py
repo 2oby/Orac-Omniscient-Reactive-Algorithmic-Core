@@ -262,6 +262,8 @@ class ModelLoader:
         try:
             # Check if model is already loaded
             normalized_name = self.normalize_model_name(name)
+            logger.debug(f"Normalized model name: {normalized_name}")
+            
             try:
                 response = await self.client.post("/api/show", json={"name": normalized_name})
                 if response.status_code == 200:
@@ -276,6 +278,14 @@ class ModelLoader:
             
             # Resolve model path
             model_path = self.resolve_model_path(name)
+            logger.info(f"Resolved model path: {model_path}")
+            
+            # Log file details
+            try:
+                file_size = os.path.getsize(model_path) / (1024 * 1024)  # Convert to MB
+                logger.info(f"Model file size: {file_size:.2f} MB")
+            except Exception as e:
+                logger.warning(f"Could not get model file size: {str(e)}")
             
             # Validate model file
             try:
@@ -286,11 +296,23 @@ class ModelLoader:
             
             # Create and write modelfile
             modelfile_content = self.create_modelfile(model_path, use_new_schema)
+            logger.debug(f"Generated modelfile content:\n{modelfile_content}")
+            
             try:
                 modelfile_path, is_temp_file = self.write_modelfile(modelfile_content, model_path)
+                logger.info(f"Modelfile written to: {modelfile_path} (temporary: {is_temp_file})")
             except Exception as e:
                 logger.error(f"Failed to create Modelfile: {str(e)}")
                 raise ModelError(str(e), "modelfile_creation")
+            
+            # Log initial memory usage
+            try:
+                import psutil
+                process = psutil.Process(os.getpid())
+                initial_memory = process.memory_info().rss / (1024 * 1024)
+                logger.info(f"Initial memory usage: {initial_memory:.2f} MB")
+            except Exception as e:
+                logger.debug(f"Could not log initial memory usage: {str(e)}")
             
             # Prepare load parameters with Jetson optimizations
             for attempt in range(max_retries):
@@ -308,11 +330,29 @@ class ModelLoader:
                     logger.debug(f"Create request payload: {json.dumps(payload)}")
                     
                     # Send the create request
-                    response = await self.client.post(
-                        "/api/create", 
-                        json=payload,
-                        timeout=MODEL_LOAD_TIMEOUT
-                    )
+                    try:
+                        response = await self.client.post(
+                            "/api/create", 
+                            json=payload,
+                            timeout=MODEL_LOAD_TIMEOUT
+                        )
+                        logger.debug(f"API response status: {response.status_code}")
+                        logger.debug(f"API response headers: {dict(response.headers)}")
+                        
+                        # Log response body if available
+                        try:
+                            response_text = await response.text()
+                            logger.debug(f"API response body: {response_text}")
+                        except Exception as e:
+                            logger.warning(f"Could not read response body: {str(e)}")
+                            
+                    except Exception as e:
+                        logger.error(f"API request failed: {str(e)}", exc_info=True)
+                        if attempt < max_retries - 1:
+                            logger.info(f"Retrying in {MODEL_LOAD_RETRY_DELAY} seconds")
+                            await asyncio.sleep(MODEL_LOAD_RETRY_DELAY)
+                            continue
+                        raise ModelError(f"API request failed: {str(e)}", "api_request")
                     
                     # Handle the response
                     if response.status_code >= 400:
@@ -329,7 +369,13 @@ class ModelLoader:
                         )
                     
                     # Parse response
-                    response_json = response.json()
+                    try:
+                        response_json = response.json()
+                        logger.debug(f"Parsed response JSON: {json.dumps(response_json)}")
+                    except Exception as e:
+                        logger.error(f"Failed to parse response JSON: {str(e)}")
+                        response_json = {}
+                    
                     if "error" in response_json:
                         error_message = response_json["error"]
                         logger.error(f"Ollama error: {error_message}")
@@ -344,6 +390,15 @@ class ModelLoader:
                     if await self.wait_for_model(normalized_name):
                         elapsed_time = time.time() - start_time
                         logger.info(f"Model {normalized_name} successfully loaded in {elapsed_time:.2f} seconds")
+                        
+                        # Log final memory usage
+                        try:
+                            final_memory = process.memory_info().rss / (1024 * 1024)
+                            memory_diff = final_memory - initial_memory
+                            logger.info(f"Final memory usage: {final_memory:.2f} MB (change: {memory_diff:+.2f} MB)")
+                        except Exception as e:
+                            logger.debug(f"Could not log final memory usage: {str(e)}")
+                            
                         return {"status": "success", "elapsed_seconds": elapsed_time}
                     
                     if attempt < max_retries - 1:
@@ -355,7 +410,7 @@ class ModelLoader:
                 except ModelError:
                     raise
                 except Exception as e:
-                    logger.error(f"Load attempt {attempt+1} failed: {str(e)}")
+                    logger.error(f"Load attempt {attempt+1} failed: {str(e)}", exc_info=True)
                     if attempt < max_retries - 1:
                         logger.info(f"Retrying in {MODEL_LOAD_RETRY_DELAY} seconds")
                         await asyncio.sleep(MODEL_LOAD_RETRY_DELAY)
