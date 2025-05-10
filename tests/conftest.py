@@ -7,9 +7,7 @@ import logging
 import os
 import shutil
 from typing import Generator, Dict, Any
-import httpx
 from pathlib import Path
-from orac.model_loader import ModelLoader
 from orac.llama_cpp_client import LlamaCppClient
 
 # Test log directory - use absolute path in project root
@@ -36,13 +34,8 @@ def setup_test_logging():
 @pytest.fixture
 def llama_cpp_client() -> Generator[LlamaCppClient, None, None]:
     """Create a LlamaCppClient instance for testing."""
-    with httpx.Client(base_url="http://localhost:8000") as client:
-        yield LlamaCppClient(client)
-
-@pytest.fixture
-def model_loader(llama_cpp_client: LlamaCppClient) -> Generator[ModelLoader, None, None]:
-    """Create a ModelLoader instance for testing."""
-    yield ModelLoader(llama_cpp_client.client)
+    client = LlamaCppClient()
+    yield client
 
 @pytest.fixture(autouse=True)
 def capture_logs(request):
@@ -66,9 +59,9 @@ def capture_logs(request):
         request.node.rep_call.logs = records
         
         # Print logs from file for failed tests
-        log_file = Path(TEST_LOG_DIR) / "model_loader.log"
+        log_file = Path(TEST_LOG_DIR) / "orac.log"
         if log_file.exists():
-            print("\n=== Model Loader Logs ===")
+            print("\n=== ORAC Logs ===")
             with open(log_file) as f:
                 print(f.read())
 
