@@ -130,8 +130,7 @@ class LlamaCppClient:
                 "--top-p", str(top_p),
                 "--top-k", str(top_k),
                 "--ctx-size", "2048",
-                "--n-predict", str(max_tokens or 512),
-                "--log-disable"
+                "--n-predict", str(max_tokens or 512)
             ]
             
             logger.info(f"Running llama-cli command: {' '.join(cmd)}")
@@ -146,21 +145,22 @@ class LlamaCppClient:
             
             stdout, stderr = await process.communicate()
             
-            if process.returncode != 0:
-                error = stderr.decode('utf-8', errors='replace')
-                logger.error(f"llama-cli error: {error}")
-                raise Exception(f"llama-cli error: {error}")
+            # Log both stdout and stderr for debugging
+            stdout_str = stdout.decode('utf-8', errors='replace')
+            stderr_str = stderr.decode('utf-8', errors='replace')
+            logger.info(f"Raw llama-cli stdout: {stdout_str!r}")
+            logger.info(f"Raw llama-cli stderr: {stderr_str!r}")
             
-            # Log raw output for debugging
-            output = stdout.decode('utf-8', errors='replace')
-            logger.info(f"Raw llama-cli output: {output!r}")
+            if process.returncode != 0:
+                logger.error(f"llama-cli error: {stderr_str}")
+                raise Exception(f"llama-cli error: {stderr_str}")
             
             # Try to get the response text
-            if prompt in output:
-                response_text = output.split(prompt, 1)[1].strip()
+            if prompt in stdout_str:
+                response_text = stdout_str.split(prompt, 1)[1].strip()
                 logger.info(f"Extracted response after prompt: {response_text!r}")
             else:
-                response_text = output.strip()
+                response_text = stdout_str.strip()
                 logger.info(f"Using full output as response: {response_text!r}")
             
             elapsed_ms = (asyncio.get_event_loop().time() - start_time) * 1000
