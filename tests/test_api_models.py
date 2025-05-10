@@ -42,7 +42,13 @@ def test_generate_endpoint():
     if not models:
         pytest.skip("No models available for testing")
     
-    model = models[0]["name"]
+    # Use the specific model we want to test
+    model = "Qwen3-0.6B-Q4_K_M.gguf"
+    
+    # Verify the model exists
+    if not any(m["name"] == model for m in models):
+        pytest.skip(f"Required model {model} not found")
+    
     prompt = "Write a haiku about artificial intelligence."
     
     resp = client.post("/v1/generate", json={

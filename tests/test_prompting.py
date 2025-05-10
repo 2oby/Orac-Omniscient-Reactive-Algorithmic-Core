@@ -18,8 +18,12 @@ async def test_generate_text(llama_cpp_client):
     if not models:
         pytest.skip("No models available for testing")
     
-    # Use the first available model
-    model = models[0]["name"]
+    # Use the specific model we want to test
+    model = "Qwen3-0.6B-Q4_K_M.gguf"
+    
+    # Verify the model exists
+    if not any(m["name"] == model for m in models):
+        pytest.skip(f"Required model {model} not found")
     
     # Test generation
     prompt = "Write a haiku about artificial intelligence."

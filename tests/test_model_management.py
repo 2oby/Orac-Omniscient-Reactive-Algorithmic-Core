@@ -1,9 +1,15 @@
 """
-Tests for model management functionality.
+Tests for model interaction using llama.cpp CLI.
+
+These tests verify that we can:
+1. List available models
+2. Generate text using llama-cli
+3. Handle errors appropriately
 """
 
 import pytest
 import os
+from pathlib import Path
 from orac.llama_cpp_client import LlamaCppClient
 
 @pytest.fixture
@@ -24,15 +30,19 @@ async def test_list_models(llama_cpp_client):
         assert model["backend"] == "llama_cpp"
 
 @pytest.mark.asyncio
-async def test_real_model_loading_and_prompting(llama_cpp_client):
-    """Test loading and prompting with a real model."""
+async def test_generate_with_real_model(llama_cpp_client):
+    """Test text generation with a real model using llama-cli."""
     # Skip if no models are available
     models = await llama_cpp_client.list_models()
     if not models:
         pytest.skip("No models available for testing")
     
-    # Use the first available model
-    model = models[0]["name"]
+    # Use the specific model we want to test
+    model = "Qwen3-0.6B-Q4_K_M.gguf"
+    
+    # Verify the model exists
+    if not any(m["name"] == model for m in models):
+        pytest.skip(f"Required model {model} not found")
     
     # Test generation
     prompt = "Write a haiku about artificial intelligence."
@@ -49,46 +59,15 @@ async def test_real_model_loading_and_prompting(llama_cpp_client):
         raise
 
 @pytest.mark.asyncio
-async def test_load_model_success():
-    test_model_path = Path("/app/models/test-model.gguf")
-    
-    with patch("pathlib.Path.exists", return_value=True), \
-         patch("pathlib.Path.stat") as mock_stat, \
-         patch("orac.llama_cpp_client.LlamaCppClient._load_model") as mock_load:
-        
-        mock_stat.return_value.st_size = 1000000
-        mock_stat.return_value.st_mtime = 1234567890.0
-        mock_load.return_value = {"status": "success"}
-        
-        client = LlamaCppClient()
-        response = await client.load_model("test-model")
-        assert response["status"] == "success"
+async def test_generate_with_nonexistent_model(llama_cpp_client):
+    """Test that generating with a nonexistent model raises an error."""
+    with pytest.raises(FileNotFoundError) as exc_info:
+        await llama_cpp_client.generate("nonexistent-model.gguf", "test prompt")
+    assert "Model not found" in str(exc_info.value)
 
 @pytest.mark.asyncio
-async def test_load_model_not_found():
-    test_model_path = Path("/app/models/nonexistent-model.gguf")
-    
-    with patch("pathlib.Path.exists", return_value=False):
-        client = LlamaCppClient()
-        with pytest.raises(Exception) as exc_info:
-            await client.load_model("nonexistent-model")
-        assert "Model file not found" in str(exc_info.value)
-
-@pytest.mark.asyncio
-async def test_unload_model_success():
-    with patch("orac.llama_cpp_client.LlamaCppClient._unload_model") as mock_unload:
-        mock_unload.return_value = {"status": "success"}
-        
-        client = LlamaCppClient()
-        response = await client.unload_model("test-model")
-        assert response["status"] == "success"
-
-@pytest.mark.asyncio
-async def test_unload_model_not_loaded():
-    with patch("orac.llama_cpp_client.LlamaCppClient._unload_model") as mock_unload:
-        mock_unload.side_effect = Exception("Model not loaded")
-        
-        client = LlamaCppClient()
-        with pytest.raises(Exception) as exc_info:
-            await client.unload_model("test-model")
-        assert "Model not loaded" in str(exc_info.value) 
+async def test_generate_with_empty_prompt(llama_cpp_client):
+    """Test that generating with an empty prompt raises an error."""
+    with pytest.raises(ValueError) as exc_info:
+        await llama_cpp_client.generate("test-model.gguf", "")
+    assert "Prompt cannot be empty" in str(exc_info.value) 
