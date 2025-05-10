@@ -1,19 +1,35 @@
 """
 ORAC - Omniscient Reactive Algorithmic Core
--------------------------------------------
 
-A lightweight, Jetson-optimized wrapper around Ollama that provides:
-- Efficient model loading and management
-- Text generation with memory optimizations
-- Comprehensive logging
-- CLI tools for testing and management
-
-Designed specifically for NVIDIA Jetson platforms, with optimizations for 
-the Orin Nano's memory constraints and ARM64 architecture.
+A lightweight, Jetson-optimized wrapper around llama.cpp that provides:
+- Direct model loading and inference via llama.cpp
+- Support for GGUF models
+- Optimized for NVIDIA Jetson platforms
+- Comprehensive logging and monitoring
+- REST API for model management
+- Command-line interface
 """
 
-__version__ = "0.2.0-mvp"
-__author__ = "2oby"
+__version__ = "0.2.0"
+
+# Package metadata
+__author__ = "Toby"
+__email__ = "toby@example.com"
+__license__ = "MIT"
+
+# Package requirements
+__requires__ = {
+    "python": ">=3.8",
+    "fastapi": ">=0.68.0",
+    "uvicorn": ">=0.15.0",
+    "pydantic": ">=1.8.0",
+    "httpx": ">=0.24.0",
+    "python-dotenv": ">=0.19.0",
+    "loguru": ">=0.5.3",
+    "pytest": ">=7.0.0",
+    "pytest-asyncio": ">=0.18.0",
+    "pytest-cov": ">=3.0.0",
+}
 
 # Initialize logging first
 from orac.logger import get_logger
@@ -30,8 +46,7 @@ from orac.models import (
 # This version information is for compatibility checking
 version_info = {
     "version": __version__,
-    "requires_python": ">=3.8",
-    "requires_ollama": ">=0.1.14"
+    "requires_python": ">=3.8"
 }
 
 # Log startup information

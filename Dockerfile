@@ -1,12 +1,11 @@
 # syntax=docker/dockerfile:1
 
-# --- Stage 1: Base image with Ollama and CUDA 12.6 ---
-FROM dustynv/ollama:r36.4.3 AS base
+# --- Stage 1: Base image with CUDA 12.6 ---
+FROM nvidia/cuda:12.6.0-runtime-ubuntu22.04 AS base
 
 # Set environment variables for GPU optimization
 ENV CUDA_VISIBLE_DEVICES=0
-ENV OLLAMA_HOST=0.0.0.0
-ENV OLLAMA_MODELS=/models/gguf
+ENV LD_LIBRARY_PATH="/app/third_party/llama_cpp/lib:${LD_LIBRARY_PATH}"
 
 # Install Python and dependencies
 RUN --mount=type=cache,target=/var/cache/apt \
@@ -24,6 +23,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # Copy application code
 COPY . /app/
+
+# Make llama.cpp binaries executable
+RUN chmod +x /app/third_party/llama_cpp/bin/*
 
 # Install the package in development mode
 # TODO: For production deployment, replace with: RUN pip3 install .

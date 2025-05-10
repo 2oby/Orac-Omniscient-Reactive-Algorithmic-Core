@@ -1,4 +1,6 @@
-"""Configure pytest for the test suite."""
+"""
+Test configuration and fixtures for ORAC tests.
+"""
 
 import pytest
 import logging
@@ -7,8 +9,8 @@ import shutil
 from typing import Generator, Dict, Any
 import httpx
 from pathlib import Path
-from orac.ollama_client import OllamaClient
 from orac.model_loader import ModelLoader
+from orac.llama_cpp_client import LlamaCppClient
 
 # Test log directory - use absolute path in project root
 TEST_LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "test_logs")
@@ -32,15 +34,15 @@ def setup_test_logging():
         shutil.rmtree(log_dir)
 
 @pytest.fixture
-def ollama_client() -> Generator[OllamaClient, None, None]:
-    """Create an OllamaClient instance for testing."""
-    with httpx.Client(base_url="http://localhost:11434") as client:
-        yield OllamaClient(client)
+def llama_cpp_client() -> Generator[LlamaCppClient, None, None]:
+    """Create a LlamaCppClient instance for testing."""
+    with httpx.Client(base_url="http://localhost:8000") as client:
+        yield LlamaCppClient(client)
 
 @pytest.fixture
-def model_loader(ollama_client: OllamaClient) -> Generator[ModelLoader, None, None]:
+def model_loader(llama_cpp_client: LlamaCppClient) -> Generator[ModelLoader, None, None]:
     """Create a ModelLoader instance for testing."""
-    yield ModelLoader(ollama_client.client)
+    yield ModelLoader(llama_cpp_client.client)
 
 @pytest.fixture(autouse=True)
 def capture_logs(request):

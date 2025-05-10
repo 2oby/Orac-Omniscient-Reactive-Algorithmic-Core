@@ -1,33 +1,44 @@
 """
 orac.models
 -----------
-Pydantic models for the Ollama client API that define the data structures for:
-- Model information and metadata
-- API request/response payloads
-- Model loading and unloading operations
-- Prompt requests and responses
+Data models for ORAC.
 
-These models ensure type safety and validation for all interactions with the Ollama API,
-providing clear interfaces for model management and inference operations.
+Defines Pydantic models for request/response validation and type safety.
+These models are used for llama.cpp-based model management and inference.
 """
 
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
-
 class ModelInfo(BaseModel):
-    """Information about an Ollama model."""
-    name: str
-    modified_at: Optional[str] = Field(None, description="ISO 8601 timestamp")
-    size: Optional[int] = Field(None, description="Size in bytes")
-    digest: Optional[str] = Field(None, description="Model digest")
-    details: Optional[Dict[str, Any]] = Field(None, description="Additional model details")
-
+    """Information about a model."""
+    name: str = Field(..., description="Model name")
+    size: int = Field(..., description="Model size in bytes")
+    modified: float = Field(..., description="Last modification timestamp")
+    backend: str = Field("llama_cpp", description="Backend used for inference")
 
 class ModelListResponse(BaseModel):
-    """Response containing a list of models."""
+    """Response for model listing endpoint."""
     models: List[ModelInfo] = Field(..., description="List of available models")
 
+class PromptRequest(BaseModel):
+    """Request for text generation."""
+    model: str = Field(..., description="Model name to use")
+    prompt: str = Field(..., description="Text prompt")
+    stream: bool = Field(False, description="Whether to stream the response")
+    temperature: float = Field(0.7, description="Sampling temperature")
+    top_p: float = Field(0.7, description="Top-p sampling parameter")
+    top_k: int = Field(40, description="Top-k sampling parameter")
+    max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
+
+class PromptResponse(BaseModel):
+    """Response from text generation."""
+    response: str = Field(..., description="Generated text")
+    elapsed_ms: float = Field(..., description="Generation time in milliseconds")
+    model: str = Field(..., description="Model used for generation")
+    prompt: str = Field(..., description="Original prompt")
+    finish_reason: Optional[str] = Field(None, description="Reason for generation completion")
+    usage: Optional[Dict[str, int]] = Field(None, description="Token usage statistics")
 
 class ModelLoadRequest(BaseModel):
     """Request to load a model."""
@@ -69,19 +80,6 @@ class GenerationResponse(BaseModel):
     elapsed_ms: float = Field(..., description="Time taken to generate in milliseconds")
     error: Optional[str] = Field(None, description="Error message if generation failed")
     model: Optional[str] = Field(None, description="Model used for generation")
-
-
-class ModelPullRequest(BaseModel):
-    """Request to pull a model from Ollama library."""
-    name: str = Field(..., description="Name of the model to pull")
-
-
-class ModelPullResponse(BaseModel):
-    """Response from a model pull operation."""
-    status: str = Field(..., description="Status of the pull operation")
-    message: Optional[str] = Field(None, description="Additional information")
-    error: Optional[str] = Field(None, description="Error message if pull failed")
-    elapsed_seconds: Optional[float] = Field(None, description="Time taken to pull in seconds")
 
 
 class ModelShowResponse(BaseModel):

@@ -145,7 +145,7 @@ cd ~/ORAC
 # Create a minimal Modelfile if it doesn't exist
 if [[ ! -f ~/ORAC/models/gguf/Modelfile ]]; then
     echo -e "${YELLOW}   Creating dummy Modelfile in models/gguf directory${NC}"
-    echo -e "FROM dummy.gguf\n\nPARAMETER temperature 0.7\nPARAMETER num_ctx 2048" > ~/ORAC/models/gguf/Modelfile
+    echo -e "# Model configuration for llama.cpp\nPARAMETER temperature 0.7\nPARAMETER num_ctx 2048" > ~/ORAC/models/gguf/Modelfile
 fi
 
 # Check if Python environment needs updating
@@ -165,17 +165,21 @@ if [[ ! -f ~/ORAC/.env ]]; then
     echo -e "${YELLOW}   Creating .env file${NC}"
     cat > ~/ORAC/.env << EOF
 # ORAC environment configuration
-OLLAMA_HOST=orac-ollama
-OLLAMA_PORT=11434
-OLLAMA_MODEL_PATH=/models/gguf
 LOG_LEVEL=INFO
 LOG_DIR=/logs
 
 # Jetson optimizations
 GPU_LAYERS=24
 CPU_THREADS=6
+
+# llama.cpp configuration
+MODEL_PATH=/app/models
 EOF
 fi
+
+# Add llama.cpp environment variables
+export LD_LIBRARY_PATH="/app/third_party/llama_cpp/lib:${LD_LIBRARY_PATH}"
+export CUDA_VISIBLE_DEVICES=0
 
 # Build the Docker images
 echo -e "${YELLOW}👉 Building Docker images...${NC}"
@@ -197,6 +201,5 @@ echo
 echo -e "${YELLOW}To test a model, run:${NC}"
 echo -e "${BLUE}docker compose exec orac python -m orac.cli status${NC}"
 echo -e "${BLUE}docker compose exec orac python -m orac.cli list${NC}"
-echo -e "${BLUE}docker compose exec orac python -m orac.cli pull tinyllama${NC}"
 echo -e "${BLUE}docker compose exec orac python -m orac.cli load tinyllama${NC}"
 echo -e "${BLUE}docker compose exec orac python -m orac.cli test tinyllama${NC}"

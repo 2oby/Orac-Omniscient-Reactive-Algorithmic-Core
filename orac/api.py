@@ -3,19 +3,17 @@ orac.api
 --------
 API interface for ORAC.
 
-This is a placeholder module for future API development. Currently provides
-a minimal API with a single endpoint for listing models.
+Provides a FastAPI-based REST API for interacting with llama.cpp models.
 """
 
 from typing import List, Dict, Any
 
-import httpx
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from orac.logger import get_logger
-from orac.ollama_client import OllamaClient
-from orac.models import ModelListResponse, ModelInfo, ModelLoadResponse, GenerationResponse
+from orac.llama_cpp_client import LlamaCppClient
+from orac.models import ModelListResponse, ModelInfo, PromptRequest, PromptResponse
 
 # Get a logger for this module
 logger = get_logger(__name__)
@@ -23,7 +21,7 @@ logger = get_logger(__name__)
 # Create FastAPI application
 app = FastAPI(
     title="ORAC API",
-    description="Ollama client API optimized for NVIDIA Jetson platforms",
+    description="llama.cpp API optimized for NVIDIA Jetson platforms",
     version="0.2.0-mvp"
 )
 
@@ -38,59 +36,42 @@ app.add_middleware(
 
 # Client dependency
 async def get_client():
-    """Dependency for getting the Ollama client."""
-    client = OllamaClient()
+    """Dependency for getting the llama.cpp client."""
+    client = LlamaCppClient()
     try:
         yield client
     finally:
-        await client.close()
+        pass  # No cleanup needed for llama.cpp client
 
-
-@app.get("/", tags=["General"])
-async def root():
-    """API root endpoint."""
-    return {
-        "name": "ORAC API",
-        "description": "Ollama client API optimized for NVIDIA Jetson platforms",
-        "version": "0.2.0-mvp"
-    }
-
-
-@app.get("/v1/models", response_model=ModelListResponse, tags=["Models"])
-async def list_models(client: OllamaClient = Depends(get_client)):
-    """List all available models."""
+@app.get("/v1/models", response_model=ModelListResponse)
+async def list_models(client: LlamaCppClient = Depends(get_client)):
+    """List available models."""
     try:
-        logger.info("API request: List models")
-        models_list = await client.list_models()
-        
-        # Convert to ModelInfo objects
-        model_infos = []
-        for model in models_list:
-            model_infos.append(
-                ModelInfo(
-                    name=model.get("name", ""),
-                    modified_at=model.get("modified_at", None),
-                    size=model.get("size", None),
-                    digest=model.get("digest", None),
-                    details=model
-                )
-            )
-        
-        logger.info(f"Returning {len(model_infos)} models")
-        return ModelListResponse(models=model_infos)
+        models = await client.list_models()
+        return {"models": [ModelInfo(**m) for m in models]}
     except Exception as e:
         logger.error(f"Error listing models: {str(e)}")
-        raise HTTPException(status_code=502, detail=f"Error communicating with Ollama: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/v1/generate", response_model=PromptResponse)
+async def generate(request: PromptRequest, client: LlamaCppClient = Depends(get_client)):
+    """Generate text from a model."""
+    try:
+        response = await client.generate(request.model, request.prompt, request.stream)
+        return response
+    except Exception as e:
+        logger.error(f"Error generating text: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/healthz", tags=["Health"])
-async def healthcheck(client: OllamaClient = Depends(get_client)):
+async def healthcheck(client: LlamaCppClient = Depends(get_client)):
     """Health check endpoint."""
     try:
-        version = await client.get_version()
+        # Try to list models as a basic health check
+        models = await client.list_models()
         return {
-            "status": "healthy" if version != "unknown" else "degraded",
-            "ollama_version": version
+            "status": "healthy",
+            "models_count": len(models)
         }
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")

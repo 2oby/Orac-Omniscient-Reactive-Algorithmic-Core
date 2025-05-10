@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Improved deploy_and_test.sh script with Jetson-specific optimizations
+# Improved deploy_and_test.sh script with llama.cpp integration
 # Usage: ./scripts/deploy_and_test.sh [commit_message] [branch] [service_name]
 
 # Default parameters
@@ -84,6 +84,26 @@ ssh "$REMOTE_ALIAS" "\
         jetson_release 2>/dev/null || echo 'jetson_release not available'; \
     fi; \
     
+    echo '${BLUE}🔍 Checking llama.cpp binaries...${NC}'; \
+    if [ -d 'third_party/llama_cpp/bin' ]; then \
+        echo 'Checking llama.cpp binaries:'; \
+        ls -l third_party/llama_cpp/bin/; \
+        echo 'Checking library path:'; \
+        ls -l third_party/llama_cpp/lib/; \
+    else \
+        echo '${RED}❌ llama.cpp binaries not found${NC}'; \
+        exit 1; \
+    fi; \
+    
+    echo '${BLUE}🔍 Checking model directory...${NC}'; \
+    if [ -d 'models/gguf' ]; then \
+        echo 'Available models:'; \
+        ls -lh models/gguf/*.gguf 2>/dev/null || echo 'No GGUF models found'; \
+    else \
+        echo '${RED}❌ models/gguf directory not found${NC}'; \
+        exit 1; \
+    fi; \
+    
     echo '${BLUE}🐳 Detecting Docker command...${NC}'; \
     if command -v docker compose &> /dev/null; then \
         DOCKER_CMD='docker compose'; \
@@ -115,14 +135,14 @@ ssh "$REMOTE_ALIAS" "\
 echo -e "${GREEN}🎉 Deployment + remote tests inside '$SERVICE_NAME' succeeded!${NC}"
 
 # Ask if we want to run a model test
-read -p "Do you want to test loading and generating with a model? (y/n) " -n 1 -r
+read -p "Do you want to test generating with a model? (y/n) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo -e "${YELLOW}👉 Running model test on $REMOTE_ALIAS...${NC}"
     
     # Ask for the model name
-    read -p "Enter model name to test (default: tinyllama): " MODEL_NAME
-    MODEL_NAME=${MODEL_NAME:-"tinyllama"}
+    read -p "Enter model name to test (default: Qwen3-0.6B-Q4_K_M.gguf): " MODEL_NAME
+    MODEL_NAME=${MODEL_NAME:-"Qwen3-0.6B-Q4_K_M.gguf"}
     
     ssh "$REMOTE_ALIAS" "\
         set -euo pipefail; \
@@ -133,14 +153,20 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
             DOCKER_CMD='docker-compose'; \
         fi; \
         
-        echo '${BLUE}🧪 Testing model loading for $MODEL_NAME...${NC}'; \
-        \$DOCKER_CMD exec -T $SERVICE_NAME python -m orac.cli load $MODEL_NAME; \
+        echo '${BLUE}🔍 Checking model file...${NC}'; \
+        \$DOCKER_CMD exec -T $SERVICE_NAME ls -l /models/gguf/$MODEL_NAME; \
         
         echo '${BLUE}🧪 Testing generation with $MODEL_NAME...${NC}'; \
-        \$DOCKER_CMD exec -T $SERVICE_NAME python -m orac.cli generate $MODEL_NAME 'Write a haiku about AI running on a Jetson Nano'; \
+        \$DOCKER_CMD exec -T $SERVICE_NAME python -m orac.cli generate --model $MODEL_NAME --prompt 'Write a haiku about AI running on a Jetson Orin'; \
         
-        echo '${BLUE}📊 Checking resource usage after model test...${NC}'; \
-        echo 'Container stats:'; \
+        echo '${BLUE}📊 Checking GPU memory after generation...${NC}'; \
+        if command -v nvidia-smi &> /dev/null; then \
+            nvidia-smi; \
+        else \
+            echo 'GPU memory info not available'; \
+        fi; \
+        
+        echo '${BLUE}📊 Checking container stats...${NC}'; \
         \$DOCKER_CMD stats --no-stream; \
     "
 fi
