@@ -13,7 +13,7 @@ import sys
 from orac.cli import (
     setup_client, check_status, list_models, 
     load_model, unload_model, generate_text, test_model,
-    run_command, parse_args
+    main
 )
 
 
@@ -153,3 +153,55 @@ async def test_unload_model(mock_llama_client):
         result = await unload_model("test-model")
         assert result["status"] == "error"
         assert "Connection error" in result["message"]
+
+@pytest.mark.asyncio
+async def test_main_status_command(mock_llama_client):
+    """Test the main function with status command."""
+    with patch("orac.cli.setup_client", return_value=mock_llama_client), \
+         patch("sys.argv", ["orac", "status"]), \
+         patch("sys.exit") as mock_exit:
+        
+        # Test successful status
+        mock_llama_client.get_version.return_value = "0.1.0"
+        await main()
+        mock_exit.assert_called_once_with(0)
+        
+        # Test failed status
+        mock_llama_client.get_version.side_effect = Exception("Connection error")
+        await main()
+        mock_exit.assert_called_with(1)
+
+@pytest.mark.asyncio
+async def test_main_list_command(mock_llama_client):
+    """Test the main function with list command."""
+    with patch("orac.cli.setup_client", return_value=mock_llama_client), \
+         patch("sys.argv", ["orac", "list"]), \
+         patch("builtins.print") as mock_print:
+        
+        await main()
+        mock_print.assert_called()
+
+@pytest.mark.asyncio
+async def test_main_load_command(mock_llama_client):
+    """Test the main function with load command."""
+    with patch("orac.cli.setup_client", return_value=mock_llama_client), \
+         patch("sys.argv", ["orac", "load", "--model", "test-model"]), \
+         patch("builtins.print") as mock_print:
+        
+        mock_llama_client.load_model.return_value = {"status": "success"}
+        await main()
+        mock_print.assert_called()
+
+@pytest.mark.asyncio
+async def test_main_generate_command(mock_llama_client):
+    """Test the main function with generate command."""
+    with patch("orac.cli.setup_client", return_value=mock_llama_client), \
+         patch("sys.argv", ["orac", "generate", "--model", "test-model", "--prompt", "test prompt"]), \
+         patch("builtins.print") as mock_print:
+        
+        mock_llama_client.generate.return_value = MagicMock(
+            response="test response",
+            elapsed_ms=100
+        )
+        await main()
+        mock_print.assert_called()
