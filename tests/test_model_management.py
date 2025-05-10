@@ -1,50 +1,52 @@
+"""
+Tests for model management functionality.
+"""
+
 import pytest
-import respx
-from httpx import Response
-from pathlib import Path
-from unittest.mock import patch, AsyncMock
+import os
 from orac.llama_cpp_client import LlamaCppClient
-from orac.models import ModelLoadRequest, ModelLoadResponse, ModelUnloadResponse
 
 @pytest.fixture
-async def llama_client():
+def llama_cpp_client():
+    """Create a LlamaCppClient instance for testing."""
     return LlamaCppClient()
 
 @pytest.mark.asyncio
-async def test_real_model_loading_and_prompting():
-    # Mock model file existence
-    test_model_path = Path("/app/models/test-model.gguf")
+async def test_list_models(llama_cpp_client):
+    """Test listing available models."""
+    models = await llama_cpp_client.list_models()
+    assert isinstance(models, list)
+    for model in models:
+        assert "name" in model
+        assert "size" in model
+        assert "modified" in model
+        assert "backend" in model
+        assert model["backend"] == "llama_cpp"
+
+@pytest.mark.asyncio
+async def test_real_model_loading_and_prompting(llama_cpp_client):
+    """Test loading and prompting with a real model."""
+    # Skip if no models are available
+    models = await llama_cpp_client.list_models()
+    if not models:
+        pytest.skip("No models available for testing")
     
-    with patch("pathlib.Path.exists", return_value=True), \
-         patch("pathlib.Path.stat") as mock_stat, \
-         patch("orac.llama_cpp_client.LlamaCppClient._load_model") as mock_load, \
-         patch("orac.llama_cpp_client.LlamaCppClient._generate") as mock_generate, \
-         patch("orac.llama_cpp_client.LlamaCppClient._unload_model") as mock_unload:
-        
-        mock_stat.return_value.st_size = 1000000
-        mock_stat.return_value.st_mtime = 1234567890.0
-        
-        mock_load.return_value = {"status": "success"}
-        mock_generate.return_value = {
-            "response": "Test response",
-            "elapsed_ms": 100.0
-        }
-        mock_unload.return_value = {"status": "success"}
-        
-        client = LlamaCppClient()
-        
-        # Test loading
-        response = await client.load_model("test-model")
-        assert response["status"] == "success"
-        
-        # Test prompting
-        prompt_response = await client.generate("test-model", "Test prompt")
-        assert prompt_response["response"] == "Test response"
-        assert prompt_response["elapsed_ms"] > 0
-        
-        # Test unloading
-        unload_response = await client.unload_model("test-model")
-        assert unload_response["status"] == "success"
+    # Use the first available model
+    model = models[0]["name"]
+    
+    # Test generation
+    prompt = "Write a haiku about artificial intelligence."
+    try:
+        response = await llama_cpp_client.generate(model, prompt)
+        assert response.response
+        assert len(response.response) > 0
+        assert response.elapsed_ms > 0
+        assert response.model == model
+        assert response.prompt == prompt
+    except Exception as e:
+        if "libgomp.so.1" in str(e):
+            pytest.skip("libgomp.so.1 not available")
+        raise
 
 @pytest.mark.asyncio
 async def test_load_model_success():

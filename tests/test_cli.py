@@ -12,8 +12,7 @@ import sys
 
 from orac.cli import (
     setup_client, check_status, list_models, 
-    load_model, unload_model, generate_text, test_model,
-    main
+    generate_text, test_model, main
 )
 
 
@@ -22,7 +21,6 @@ from orac.cli import (
 def mock_llama_client():
     """Create a mock LlamaCppClient for testing."""
     client = AsyncMock()
-    client.get_version.return_value = "0.1.0"
     client.list_models.return_value = [
         {"name": "model1", "size": 1000000},
         {"name": "model2", "size": 2000000}
@@ -66,18 +64,17 @@ async def test_setup_client():
 async def test_check_status(mock_llama_client):
     """Test checking llama.cpp status."""
     with patch("orac.cli.setup_client", return_value=mock_llama_client):
-        # Test with llama.cpp running
-        mock_llama_client.get_version.return_value = "0.1.0"
+        # Test with models available
         status = await check_status()
         assert status is True
         
-        # Test with llama.cpp not running
-        mock_llama_client.get_version.return_value = "unknown"
+        # Test with no models
+        mock_llama_client.list_models.return_value = []
         status = await check_status()
-        assert status is False
+        assert status is True  # Still true because we can list models
         
         # Test with exception
-        mock_llama_client.get_version.side_effect = Exception("Connection error")
+        mock_llama_client.list_models.side_effect = Exception("Connection error")
         status = await check_status()
         assert status is False
 
@@ -103,58 +100,6 @@ async def test_list_models(mock_llama_client):
 
 
 @pytest.mark.asyncio
-async def test_load_model(mock_llama_client):
-    """Test loading a model."""
-    with patch("orac.cli.setup_client", return_value=mock_llama_client):
-        # Test successful load
-        mock_llama_client.load_model.return_value = {
-            "status": "success",
-            "elapsed_seconds": 10.5
-        }
-        result = await load_model("test-model")
-        assert result["status"] == "success"
-        mock_llama_client.load_model.assert_called_once_with("test-model")
-        
-        # Test failed load
-        mock_llama_client.load_model.return_value = {
-            "status": "error",
-            "message": "Model file not found"
-        }
-        result = await load_model("test-model")
-        assert result["status"] == "error"
-        
-        # Test with exception
-        mock_llama_client.load_model.side_effect = Exception("Connection error")
-        result = await load_model("test-model")
-        assert result["status"] == "error"
-        assert "Connection error" in result["message"]
-
-
-@pytest.mark.asyncio
-async def test_unload_model(mock_llama_client):
-    """Test unloading a model."""
-    with patch("orac.cli.setup_client", return_value=mock_llama_client):
-        # Test successful unload
-        mock_llama_client.unload_model.return_value = {"status": "success"}
-        result = await unload_model("test-model")
-        assert result["status"] == "success"
-        mock_llama_client.unload_model.assert_called_once_with("test-model")
-        
-        # Test failed unload
-        mock_llama_client.unload_model.return_value = {
-            "status": "error",
-            "message": "Model not found"
-        }
-        result = await unload_model("test-model")
-        assert result["status"] == "error"
-        
-        # Test with exception
-        mock_llama_client.unload_model.side_effect = Exception("Connection error")
-        result = await unload_model("test-model")
-        assert result["status"] == "error"
-        assert "Connection error" in result["message"]
-
-@pytest.mark.asyncio
 async def test_main_status_command(mock_llama_client):
     """Test the main function with status command."""
     with patch("orac.cli.setup_client", return_value=mock_llama_client), \
@@ -162,14 +107,14 @@ async def test_main_status_command(mock_llama_client):
          patch("sys.exit") as mock_exit:
         
         # Test successful status
-        mock_llama_client.get_version.return_value = "0.1.0"
         await main()
         mock_exit.assert_called_once_with(0)
         
         # Test failed status
-        mock_llama_client.get_version.side_effect = Exception("Connection error")
+        mock_llama_client.list_models.side_effect = Exception("Connection error")
         await main()
         mock_exit.assert_called_with(1)
+
 
 @pytest.mark.asyncio
 async def test_main_list_command(mock_llama_client):
@@ -181,16 +126,6 @@ async def test_main_list_command(mock_llama_client):
         await main()
         mock_print.assert_called()
 
-@pytest.mark.asyncio
-async def test_main_load_command(mock_llama_client):
-    """Test the main function with load command."""
-    with patch("orac.cli.setup_client", return_value=mock_llama_client), \
-         patch("sys.argv", ["orac", "load", "--model", "test-model"]), \
-         patch("builtins.print") as mock_print:
-        
-        mock_llama_client.load_model.return_value = {"status": "success"}
-        await main()
-        mock_print.assert_called()
 
 @pytest.mark.asyncio
 async def test_main_generate_command(mock_llama_client):
