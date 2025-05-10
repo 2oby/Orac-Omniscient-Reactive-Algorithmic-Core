@@ -134,6 +134,8 @@ class LlamaCppClient:
                 "--log-disable"
             ]
             
+            logger.info(f"Running llama-cli command: {' '.join(cmd)}")
+            
             # Execute the command and capture output
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -146,11 +148,20 @@ class LlamaCppClient:
             
             if process.returncode != 0:
                 error = stderr.decode('utf-8', errors='replace')
+                logger.error(f"llama-cli error: {error}")
                 raise Exception(f"llama-cli error: {error}")
             
-            # Extract the generated text (everything after the prompt)
+            # Log raw output for debugging
             output = stdout.decode('utf-8', errors='replace')
-            response_text = output.split(prompt, 1)[1].strip() if prompt in output else output.strip()
+            logger.info(f"Raw llama-cli output: {output!r}")
+            
+            # Try to get the response text
+            if prompt in output:
+                response_text = output.split(prompt, 1)[1].strip()
+                logger.info(f"Extracted response after prompt: {response_text!r}")
+            else:
+                response_text = output.strip()
+                logger.info(f"Using full output as response: {response_text!r}")
             
             elapsed_ms = (asyncio.get_event_loop().time() - start_time) * 1000
             
