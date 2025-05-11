@@ -99,27 +99,15 @@ async def generate_text(model_name: str, prompt: str, stream: bool = False) -> D
 async def test_model(model_name: str) -> Dict[str, Any]:
     """Test a model with a simple prompt."""
     try:
-        # Load the model
-        load_result = await load_model(model_name)
-        if load_result["status"] != "success":
-            return load_result
-        
         # Generate test text
         test_prompt = "Write a haiku about AI running on a Jetson Orin"
         gen_result = await generate_text(model_name, test_prompt)
         if gen_result["status"] != "success":
             return gen_result
         
-        # Unload the model
-        unload_result = await unload_model(model_name)
-        if unload_result["status"] != "success":
-            return unload_result
-        
         return {
             "status": "success",
-            "load_time": load_result.get("elapsed_seconds", 0),
             "generation_time": gen_result.get("elapsed_ms", 0) / 1000,
-            "unload_time": unload_result.get("elapsed_seconds", 0),
             "response": gen_result["response"]
         }
     except Exception as e:

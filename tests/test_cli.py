@@ -9,6 +9,7 @@ import asyncio
 from unittest.mock import patch, MagicMock, AsyncMock
 import argparse
 import sys
+from typing import Dict, Any
 
 from orac.cli import (
     setup_client, check_status, list_models, 
@@ -37,6 +38,12 @@ def mock_args():
     args.prompt = None
     args.stream = False
     return args
+
+
+@pytest.fixture
+def model_name():
+    """Return the name of the model to test with."""
+    return "Qwen3-0.6B-Q4_K_M.gguf"
 
 
 # Tests for the CLI functions
@@ -140,3 +147,23 @@ async def test_main_generate_command(mock_llama_client):
         )
         await main()
         mock_print.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_model(model_name: str) -> Dict[str, Any]:
+    """Test a model with a simple prompt."""
+    try:
+        # Generate test text
+        test_prompt = "Write a haiku about AI running on a Jetson Orin"
+        gen_result = await generate_text(model_name, test_prompt)
+        if gen_result["status"] != "success":
+            return gen_result
+        
+        return {
+            "status": "success",
+            "generation_time": gen_result.get("elapsed_ms", 0) / 1000,
+            "response": gen_result["response"]
+        }
+    except Exception as e:
+        logger.error(f"Error testing model: {str(e)}")
+        return {"status": "error", "message": str(e)}
