@@ -122,6 +122,23 @@ class LlamaCppClient:
             if not os.path.exists(model_path):
                 raise FileNotFoundError(f"Model not found: {model_path}")
             
+            # Add detailed model file debugging
+            model_stats = os.stat(model_path)
+            logger.info(f"Model file details for {model_path}:")
+            logger.info(f"  Size: {model_stats.st_size} bytes")
+            logger.info(f"  Permissions: {oct(model_stats.st_mode)}")
+            logger.info(f"  Owner: {model_stats.st_uid}")
+            logger.info(f"  Group: {model_stats.st_gid}")
+            
+            # Add llama-cli binary debugging
+            llama_cli_stats = os.stat(LLAMA_CLI)
+            logger.info(f"llama-cli binary details:")
+            logger.info(f"  Path: {LLAMA_CLI}")
+            logger.info(f"  Size: {llama_cli_stats.st_size} bytes")
+            logger.info(f"  Permissions: {oct(llama_cli_stats.st_mode)}")
+            logger.info(f"  Owner: {llama_cli_stats.st_uid}")
+            logger.info(f"  Group: {llama_cli_stats.st_gid}")
+            
             cmd = [
                 LLAMA_CLI,
                 "-m", model_path,
@@ -130,7 +147,8 @@ class LlamaCppClient:
                 "--top-p", str(top_p),
                 "--top-k", str(top_k),
                 "--ctx-size", "2048",
-                "--n-predict", str(max_tokens or 512)
+                "--n-predict", str(max_tokens or 512),
+                "--verbose"  # Add verbose flag
             ]
             
             logger.info(f"Running llama-cli command: {' '.join(cmd)}")
