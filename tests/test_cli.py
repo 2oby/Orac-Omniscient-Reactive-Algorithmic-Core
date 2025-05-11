@@ -10,12 +10,14 @@ from unittest.mock import patch, MagicMock, AsyncMock
 import argparse
 import sys
 from typing import Dict, Any
+import logging
 
 from orac.cli import (
     setup_client, check_status, list_models, 
-    generate_text, test_model, main
+    generate_text, test_model, main, close_client
 )
 
+logger = logging.getLogger(__name__)
 
 # Fixtures
 @pytest.fixture
@@ -50,21 +52,31 @@ def model_name():
 @pytest.mark.asyncio
 async def test_setup_client():
     """Test setting up the client."""
-    with patch("orac.cli.LlamaCppClient") as mock_client_class:
-        mock_client = AsyncMock()
-        mock_client_class.return_value = mock_client
-        
-        # Call the function
+    # Create a mock client
+    mock_client = AsyncMock()
+    
+    # Mock the LlamaCppClient class to return our mock client
+    with patch("orac.cli.LlamaCppClient", return_value=mock_client) as mock_client_class:
+        # First call should create a new client
         client = await setup_client()
-        
-        # Check results
         assert client == mock_client
         mock_client_class.assert_called_once()
         
-        # Call again to test singleton behavior
+        # Reset the mock to verify it's not called again
+        mock_client_class.reset_mock()
+        
+        # Second call should return the same client (singleton pattern)
         client2 = await setup_client()
         assert client2 == client
-        assert mock_client_class.call_count == 1
+        assert mock_client_class.call_count == 0  # Should not create a new instance
+        
+        # Clear the global client to test singleton reset
+        await close_client()
+        
+        # Next call should create a new client again
+        client3 = await setup_client()
+        assert client3 == mock_client
+        mock_client_class.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -155,14 +167,22 @@ async def test_model(model_name: str) -> Dict[str, Any]:
     try:
         # Generate test text
         test_prompt = "Write a haiku about AI running on a Jetson Orin"
+        logger.info(f"Testing model {model_name} with prompt: {test_prompt}")
+        
         gen_result = await generate_text(model_name, test_prompt)
         if gen_result["status"] != "success":
+            logger.error(f"Generation failed: {gen_result}")
             return gen_result
+        
+        response = gen_result["response"]
+        generation_time = gen_result.get("elapsed_ms", 0) / 1000
+        
+        logger.info(f"Model response ({generation_time:.2f}s):\n{response}")
         
         return {
             "status": "success",
-            "generation_time": gen_result.get("elapsed_ms", 0) / 1000,
-            "response": gen_result["response"]
+            "generation_time": generation_time,
+            "response": response
         }
     except Exception as e:
         logger.error(f"Error testing model: {str(e)}")
