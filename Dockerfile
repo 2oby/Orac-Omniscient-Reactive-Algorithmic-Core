@@ -36,10 +36,9 @@ RUN pip3 install -e .
 # Create log directory
 RUN mkdir -p /app/logs && chmod 777 /app/logs
 
-# Create startup script
-RUN echo '#!/bin/sh\npython3 -m orac.cli status\nwhile true; do sleep 1; done' > /app/start.sh && \
-    chmod +x /app/start.sh
+# Make start script executable
+RUN chmod +x /app/scripts/start.sh
 
 # Set the entrypoint
-ENTRYPOINT ["/app/start.sh"]
+ENTRYPOINT ["/app/scripts/start.sh"]
     
