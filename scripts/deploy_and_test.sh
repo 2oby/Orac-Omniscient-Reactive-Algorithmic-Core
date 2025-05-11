@@ -154,7 +154,7 @@ ssh "$REMOTE_ALIAS" "\
     \$DOCKER_CMD exec -T $SERVICE_NAME ls -l /models/gguf/$MODEL_NAME; \
     
     echo '${BLUE}🧪 Testing generation with $MODEL_NAME...${NC}'; \
-    \$DOCKER_CMD exec -T $SERVICE_NAME python3 -m orac.cli generate --model $MODEL_NAME --prompt 'Write a haiku about AI running on a Jetson Orin'; \
+    \$DOCKER_CMD exec -T $SERVICE_NAME python3 -m orac.cli generate --model $MODEL_NAME --prompt 'Write a haiku about AI running on a Jetson Orin' --verbose=false; \
     
     echo '${BLUE}📊 Checking GPU memory after generation...${NC}'; \
     if command -v nvidia-smi &> /dev/null; then \

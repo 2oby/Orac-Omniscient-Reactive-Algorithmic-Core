@@ -92,7 +92,8 @@ class LlamaCppClient:
         temperature: float = 0.7,
         top_p: float = 0.7,
         top_k: int = 40,
-        max_tokens: Optional[int] = None
+        max_tokens: Optional[int] = None,
+        verbose: bool = False
     ) -> PromptResponse:
         """
         Generate a response from the model.
@@ -105,6 +106,7 @@ class LlamaCppClient:
             top_p: Top-p sampling parameter
             top_k: Top-k sampling parameter
             max_tokens: Maximum tokens to generate
+            verbose: Whether to run in verbose mode
             
         Returns:
             PromptResponse with generated text and metadata
@@ -147,9 +149,12 @@ class LlamaCppClient:
                 "--top-p", str(top_p),
                 "--top-k", str(top_k),
                 "--ctx-size", "2048",
-                "--n-predict", str(max_tokens or 512),
-                "--verbose"  # Keep verbose for debugging
+                "--n-predict", str(max_tokens or 512)
             ]
+            
+            # Only add verbose flag if requested
+            if verbose:
+                cmd.append("--verbose")
             
             logger.info(f"Running llama-cli command: {' '.join(cmd)}")
             

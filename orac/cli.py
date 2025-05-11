@@ -82,7 +82,7 @@ async def unload_model(model_name: str) -> Dict[str, Any]:
         logger.error(f"Error unloading model: {str(e)}")
         return {"status": "error", "message": str(e)}
 
-async def generate_text(model_name: str, prompt: str, stream: bool = False) -> Dict[str, Any]:
+async def generate_text(model_name: str, prompt: str, stream: bool = False, verbose: bool = False) -> Dict[str, Any]:
     """Generate text from a model."""
     client = await setup_client()
     try:
@@ -121,6 +121,7 @@ async def main():
     parser.add_argument("--model", help="Model name for generation")
     parser.add_argument("--prompt", help="Prompt for generation")
     parser.add_argument("--stream", action="store_true", help="Stream the generation output")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose output for generation")
     args = parser.parse_args()
 
     try:
@@ -156,7 +157,7 @@ async def main():
             if not args.model or not args.prompt:
                 print("Error: --model and --prompt are required for generation")
                 sys.exit(1)
-            result = await generate_text(args.model, args.prompt, args.stream)
+            result = await generate_text(args.model, args.prompt, args.stream, verbose=args.verbose)
             if result["status"] == "success":
                 print("\nGenerated response:")
                 print(result["response"])
