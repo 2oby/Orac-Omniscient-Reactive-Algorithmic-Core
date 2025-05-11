@@ -6,8 +6,10 @@ Simple web interface for ORAC.
 Provides a minimal HTML interface for interacting with the ORAC API.
 """
 
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+import httpx
 from orac.logger import get_logger
 
 # Get logger for this module
@@ -20,9 +22,48 @@ app = FastAPI(
     version="0.1.0"
 )
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Default system prompt
 DEFAULT_SYSTEM_PROMPT = """You are a helpful AI assistant running on a Jetson Orin Nano.
 You aim to be concise, accurate, and helpful in your responses."""
+
+# Create HTTP client for proxying requests
+http_client = httpx.AsyncClient(base_url="http://127.0.0.1:8000")
+
+@app.get("/api/{path:path}")
+async def proxy_get(request: Request, path: str):
+    """Proxy GET requests to the API server."""
+    try:
+        response = await http_client.get(f"/api/{path}")
+        return JSONResponse(
+            content=response.json(),
+            status_code=response.status_code
+        )
+    except Exception as e:
+        logger.error(f"Error proxying GET request: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/{path:path}")
+async def proxy_post(request: Request, path: str):
+    """Proxy POST requests to the API server."""
+    try:
+        body = await request.json()
+        response = await http_client.post(f"/api/{path}", json=body)
+        return JSONResponse(
+            content=response.json(),
+            status_code=response.status_code
+        )
+    except Exception as e:
+        logger.error(f"Error proxying POST request: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/", response_class=HTMLResponse)
 async def web_interface(request: Request):
@@ -93,7 +134,7 @@ async def web_interface(request: Request):
             // Load available models
             async function loadModels() {
                 try {
-                    const response = await fetch('http://orac:8000/api/v1/models');
+                    const response = await fetch('/api/v1/models');
                     const data = await response.json();
                     const select = document.getElementById('model');
                     select.innerHTML = data.models.map(m => 
@@ -129,7 +170,7 @@ async def web_interface(request: Request):
                 
                 try {
                     const startTime = performance.now();
-                    const response = await fetch('http://orac:8000/api/v1/generate', {
+                    const response = await fetch('/api/v1/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({

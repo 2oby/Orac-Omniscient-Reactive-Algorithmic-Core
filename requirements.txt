@@ -5,5 +5,5 @@ psutil>=5.9.0
 fastapi>=0.100.0
 respx>=0.20.0
 uvicorn>=0.27.0
-httpx>=0.26.0  # For async HTTP client (testing)
+httpx>=0.26.0  # For async HTTP client (proxy)
 python-multipart>=0.0.9  # For form data handling
