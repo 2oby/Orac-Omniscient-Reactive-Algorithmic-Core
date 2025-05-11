@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Default parameters
 COMMIT_MSG=${1:-"Update ORAC MVP"}
-DEPLOY_BRANCH=${2:-"mvp"}
+DEPLOY_BRANCH=${2:-"mvp"}   # Default to 'mvp' branch if not specified
 SERVICE_NAME=${3:-"orac"}   # Docker Compose service to exec into
 REMOTE_ALIAS="orin"
 SSH_ORIGIN="git@github.com:2oby/Orac-Omniscient-Reactive-Algorithmic-Core.git"
@@ -20,6 +20,17 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}🚀 ORAC Deployment Script for Jetson${NC}"
 echo -e "${BLUE}===============================${NC}"
+echo -e "${YELLOW}Deploying branch: $DEPLOY_BRANCH${NC}"
+echo -e "${YELLOW}Usage: ./scripts/deploy_and_test.sh [commit_message] [branch] [service_name]${NC}"
+echo -e "${YELLOW}Example: ./scripts/deploy_and_test.sh \"Update API\" MVP_API${NC}"
+echo -e "${BLUE}===============================${NC}"
+
+# Check if we're on the correct branch
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+if [ "$current_branch" != "$DEPLOY_BRANCH" ]; then
+    echo -e "${YELLOW}⚠️  Warning: You are on branch '$current_branch' but deploying to '$DEPLOY_BRANCH'${NC}"
+    echo -e "${YELLOW}   This is normal if you're deploying from a different branch${NC}"
+fi
 
 # Check if we're connected to the Jetson
 echo -e "${YELLOW}👉 Checking connection to $REMOTE_ALIAS...${NC}"
