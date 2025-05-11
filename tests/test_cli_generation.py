@@ -1,16 +1,18 @@
 import subprocess
 import pytest
+import asyncio
 from orac.llama_cpp_client import LlamaCppClient
 
-def test_cli_generation():
+@pytest.mark.asyncio
+async def test_cli_generation():
     """Test model generation through the CLI with proper assertions"""
     # Initialize client to check model availability
     client = LlamaCppClient()
-    models = client.list_models()
+    models = await client.list_models()
     assert len(models) > 0, "No models found"
     
     model_name = "Qwen3-0.6B-Q4_K_M.gguf"
-    assert model_name in models, f"Model {model_name} not found"
+    assert any(model["name"] == model_name for model in models), f"Model {model_name} not found"
     
     # Test generation through CLI
     prompt = "Write a haiku about AI running on a Jetson Orin"
