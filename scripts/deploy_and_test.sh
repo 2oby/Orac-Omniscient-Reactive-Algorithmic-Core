@@ -122,10 +122,10 @@ ssh "$REMOTE_ALIAS" "\
     
     echo '${BLUE}🧪 Running pytest inside container \"$SERVICE_NAME\"...${NC}'; \
     echo '${YELLOW}Running core tests...${NC}'; \
-    \$DOCKER_CMD exec -T $SERVICE_NAME pytest -v tests/test_prompting.py::test_generate_text --log-cli-level=INFO; \
+    \$DOCKER_CMD exec -T $SERVICE_NAME pytest -v tests/test_prompting.py::test_generate_text --log-cli-level=INFO --capture=no; \
     
     echo '${BLUE}🧪 Testing CLI functionality...${NC}'; \
-    \$DOCKER_CMD exec -T $SERVICE_NAME python -m orac.cli status; \
+    \$DOCKER_CMD exec -T $SERVICE_NAME python3 -m orac.cli status; \
     
     echo '${BLUE}📊 Checking resource usage after tests...${NC}'; \
     echo 'Container stats:'; \
@@ -157,7 +157,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         \$DOCKER_CMD exec -T $SERVICE_NAME ls -l /models/gguf/$MODEL_NAME; \
         
         echo '${BLUE}🧪 Testing generation with $MODEL_NAME...${NC}'; \
-        \$DOCKER_CMD exec -T $SERVICE_NAME python -m orac.cli generate --model $MODEL_NAME --prompt 'Write a haiku about AI running on a Jetson Orin'; \
+        \$DOCKER_CMD exec -T $SERVICE_NAME python3 -m orac.cli generate --model $MODEL_NAME --prompt 'Write a haiku about AI running on a Jetson Orin'; \
         
         echo '${BLUE}📊 Checking GPU memory after generation...${NC}'; \
         if command -v nvidia-smi &> /dev/null; then \
