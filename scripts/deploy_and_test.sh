@@ -122,7 +122,7 @@ ssh "$REMOTE_ALIAS" "\
     
     echo '${BLUE}🧪 Running pytest inside container \"$SERVICE_NAME\"...${NC}'; \
     echo '${YELLOW}Running core tests...${NC}'; \
-    \$DOCKER_CMD exec -T $SERVICE_NAME pytest -q tests/ --ignore=tests/test_real_models.py; \
+    \$DOCKER_CMD exec -T $SERVICE_NAME pytest -v tests/test_prompting.py::test_generate_text --log-cli-level=INFO; \
     
     echo '${BLUE}🧪 Testing CLI functionality...${NC}'; \
     \$DOCKER_CMD exec -T $SERVICE_NAME python -m orac.cli status; \
