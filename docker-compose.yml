@@ -21,7 +21,11 @@ services:
           devices:
             - driver: nvidia
               capabilities: [gpu]
-    command: uvicorn orac.api.main:app --host 0.0.0.0 --port 8000 --workers 4
+    # Run both servers using a shell script
+    command: >
+      sh -c "uvicorn orac.api.main:app --host 0.0.0.0 --port 8000 --workers 4 &
+             uvicorn orac.web:app --host 0.0.0.0 --port 80 &
+             wait"
     restart: unless-stopped
     networks:
       - orac_net
