@@ -93,7 +93,7 @@ async def web_interface(request: Request):
             // Load available models
             async function loadModels() {
                 try {
-                    const response = await fetch('/api/v1/models');
+                    const response = await fetch('http://localhost:8000/api/v1/models');
                     const data = await response.json();
                     const select = document.getElementById('model');
                     select.innerHTML = data.models.map(m => 
@@ -121,7 +121,7 @@ async def web_interface(request: Request):
                 }
 
                 // Combine prompts
-                const fullPrompt = f"{systemPrompt}\n\nUser: {userPrompt}\n\nAssistant:";
+                const fullPrompt = `${systemPrompt}\n\nUser: ${userPrompt}\n\nAssistant:`;
                 
                 generateBtn.disabled = true;
                 responseDiv.textContent = 'Generating...';
@@ -129,7 +129,7 @@ async def web_interface(request: Request):
                 
                 try {
                     const startTime = performance.now();
-                    const response = await fetch('/api/v1/generate', {
+                    const response = await fetch('http://localhost:8000/api/v1/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
