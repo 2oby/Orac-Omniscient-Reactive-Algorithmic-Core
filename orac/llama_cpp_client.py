@@ -148,7 +148,9 @@ class LlamaCppClient:
                 "--top-k", str(top_k),
                 "--ctx-size", "2048",
                 "--n-predict", str(max_tokens or 512),
-                "--verbose"  # Add verbose flag
+                "--no-interactive",  # Disable interactive mode
+                "--no-chat",  # Disable chat mode
+                "--verbose"  # Keep verbose for debugging
             ]
             
             logger.info(f"Running llama-cli command: {' '.join(cmd)}")
@@ -173,13 +175,23 @@ class LlamaCppClient:
                 logger.error(f"llama-cli error: {stderr_str}")
                 raise Exception(f"llama-cli error: {stderr_str}")
             
-            # Try to get the response text
-            if prompt in stdout_str:
-                response_text = stdout_str.split(prompt, 1)[1].strip()
-                logger.info(f"Extracted response after prompt: {response_text!r}")
-            else:
-                response_text = stdout_str.strip()
-                logger.info(f"Using full output as response: {response_text!r}")
+            # Extract the response - it should be everything after the prompt
+            # The model might add some special tokens, so we need to clean those up
+            response_text = stdout_str.strip()
+            
+            # Remove any special tokens or chat template artifacts
+            response_text = response_text.replace('<|im_start|>', '').replace('<|im_end|>', '')
+            response_text = response_text.replace('assistant', '').replace('user', '')
+            response_text = response_text.replace('<think>', '').replace('</think>', '')
+            
+            # Clean up any extra whitespace
+            response_text = ' '.join(response_text.split())
+            
+            logger.info(f"Cleaned response: {response_text!r}")
+            
+            if not response_text:
+                logger.warning("Empty response from model")
+                response_text = "No response generated"
             
             elapsed_ms = (asyncio.get_event_loop().time() - start_time) * 1000
             
