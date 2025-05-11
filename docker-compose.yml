@@ -10,6 +10,7 @@ services:
       - ./logs:/app/logs
     ports:
       - "8000:8000"  # API port
+      - "80:80"      # Web interface port
     environment:
       - LOG_LEVEL=INFO
       - LOG_DIR=/app/logs

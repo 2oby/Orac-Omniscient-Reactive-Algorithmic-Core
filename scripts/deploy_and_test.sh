@@ -137,6 +137,27 @@ ssh "$REMOTE_ALIAS" "\
 
 echo -e "${GREEN}🎉 All deployment and test operations completed successfully!${NC}"
 
+# Start web interface
+echo -e "${YELLOW}👉 Starting web interface on $REMOTE_ALIAS...${NC}"
+ssh "$REMOTE_ALIAS" "\
+    set -euo pipefail; \
+    cd \$HOME/ORAC; \
+    if command -v docker compose &> /dev/null; then \
+        DOCKER_CMD='docker compose'; \
+    else \
+        DOCKER_CMD='docker-compose'; \
+    fi; \
+    
+    echo '${BLUE}🌐 Starting web interface...${NC}'; \
+    \$DOCKER_CMD exec -d $SERVICE_NAME python3 -m orac.web; \
+    
+    echo '${BLUE}🔍 Checking web interface logs...${NC}'; \
+    sleep 2; \
+    \$DOCKER_CMD logs $SERVICE_NAME | grep -i 'web' | tail -n 5; \
+"
+
+echo -e "${GREEN}🎉 Web interface started! Access it at http://$REMOTE_ALIAS:80${NC}"
+
 # Run model test directly
 echo -e "${YELLOW}👉 Running model test on $REMOTE_ALIAS...${NC}"
 MODEL_NAME="Qwen3-0.6B-Q4_K_M.gguf"
