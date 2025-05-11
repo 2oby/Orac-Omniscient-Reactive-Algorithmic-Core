@@ -1,4 +1,9 @@
-models/
+# Exclude only the root models directory containing LLM files
+/models/
+/models/gguf/
+
+# Keep our API models directory
+!orac/api/models/
 
 # macOS system files
 .DS_Store
