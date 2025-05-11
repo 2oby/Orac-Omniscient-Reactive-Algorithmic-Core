@@ -22,16 +22,18 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
     try:
         start_time = time.time()
         
-        # Validate model exists
-        if not client.model_exists(request.model):
+        # Validate model exists by checking available models
+        models = await client.list_models()
+        model_names = [m["name"] for m in models]
+        if request.model not in model_names:
             raise HTTPException(
                 status_code=404,
-                detail=f"Model {request.model} not found. Available models: {client.list_models()}"
+                detail=f"Model {request.model} not found. Available models: {model_names}"
             )
         
         # Generate text
         try:
-            response = client.generate(
+            response = await client.generate(
                 model=request.model,
                 prompt=request.prompt,
                 temperature=request.temperature,
@@ -40,8 +42,19 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
                 top_k=request.top_k
             )
             
-            if not isinstance(response, str):
-                raise ValueError("Model returned invalid response format")
+            # The generate method returns a PromptResponse object
+            return GenerationResponse(
+                generated_text=response.response,
+                model=request.model,
+                prompt=request.prompt,
+                parameters={
+                    "temperature": request.temperature,
+                    "max_tokens": request.max_tokens,
+                    "top_p": request.top_p,
+                    "top_k": request.top_k
+                },
+                elapsed_ms=response.elapsed_ms
+            )
                 
         except Exception as e:
             logger.error(f"Model generation failed: {str(e)}")
@@ -49,21 +62,6 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
                 status_code=500,
                 detail=f"Model generation failed: {str(e)}"
             )
-        
-        elapsed_ms = (time.time() - start_time) * 1000
-        
-        return GenerationResponse(
-            generated_text=response,
-            model=request.model,
-            prompt=request.prompt,
-            parameters={
-                "temperature": request.temperature,
-                "max_tokens": request.max_tokens,
-                "top_p": request.top_p,
-                "top_k": request.top_k
-            },
-            elapsed_ms=elapsed_ms
-        )
         
     except HTTPException:
         raise
