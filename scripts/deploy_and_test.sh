@@ -134,41 +134,34 @@ ssh "$REMOTE_ALIAS" "\
 
 echo -e "${GREEN}🎉 Deployment + remote tests inside '$SERVICE_NAME' succeeded!${NC}"
 
-# Ask if we want to run a model test
-read -p "Do you want to test generating with a model? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${YELLOW}👉 Running model test on $REMOTE_ALIAS...${NC}"
+# Run model test directly
+echo -e "${YELLOW}👉 Running model test on $REMOTE_ALIAS...${NC}"
+MODEL_NAME="Qwen3-0.6B-Q4_K_M.gguf"
+
+ssh "$REMOTE_ALIAS" "\
+    set -euo pipefail; \
+    cd \$HOME/ORAC; \
+    if command -v docker compose &> /dev/null; then \
+        DOCKER_CMD='docker compose'; \
+    else \
+        DOCKER_CMD='docker-compose'; \
+    fi; \
     
-    # Ask for the model name
-    read -p "Enter model name to test (default: Qwen3-0.6B-Q4_K_M.gguf): " MODEL_NAME
-    MODEL_NAME=${MODEL_NAME:-"Qwen3-0.6B-Q4_K_M.gguf"}
+    echo '${BLUE}🔍 Checking model file...${NC}'; \
+    \$DOCKER_CMD exec -T $SERVICE_NAME ls -l /models/gguf/$MODEL_NAME; \
     
-    ssh "$REMOTE_ALIAS" "\
-        set -euo pipefail; \
-        cd \$HOME/ORAC; \
-        if command -v docker compose &> /dev/null; then \
-            DOCKER_CMD='docker compose'; \
-        else \
-            DOCKER_CMD='docker-compose'; \
-        fi; \
-        
-        echo '${BLUE}🔍 Checking model file...${NC}'; \
-        \$DOCKER_CMD exec -T $SERVICE_NAME ls -l /models/gguf/$MODEL_NAME; \
-        
-        echo '${BLUE}🧪 Testing generation with $MODEL_NAME...${NC}'; \
-        \$DOCKER_CMD exec -T $SERVICE_NAME python3 -m orac.cli generate --model $MODEL_NAME --prompt 'Write a haiku about AI running on a Jetson Orin'; \
-        
-        echo '${BLUE}📊 Checking GPU memory after generation...${NC}'; \
-        if command -v nvidia-smi &> /dev/null; then \
-            nvidia-smi; \
-        else \
-            echo 'GPU memory info not available'; \
-        fi; \
-        
-        echo '${BLUE}📊 Checking container stats...${NC}'; \
-        \$DOCKER_CMD stats --no-stream; \
-    "
-fi
+    echo '${BLUE}🧪 Testing generation with $MODEL_NAME...${NC}'; \
+    \$DOCKER_CMD exec -T $SERVICE_NAME python3 -m orac.cli generate --model $MODEL_NAME --prompt 'Write a haiku about AI running on a Jetson Orin'; \
+    
+    echo '${BLUE}📊 Checking GPU memory after generation...${NC}'; \
+    if command -v nvidia-smi &> /dev/null; then \
+        nvidia-smi; \
+    else \
+        echo 'GPU memory info not available'; \
+    fi; \
+    
+    echo '${BLUE}📊 Checking container stats...${NC}'; \
+    \$DOCKER_CMD stats --no-stream; \
+"
 
 echo -e "${GREEN}🎉 All deployment and test operations completed successfully!${NC}"
