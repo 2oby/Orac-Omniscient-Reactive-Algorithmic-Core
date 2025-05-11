@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from orac.api.routes.generate import router as generate_router
 
 app = FastAPI(
     title="ORAC API",
@@ -15,6 +16,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers with version prefix
+app.include_router(generate_router, prefix="/api/v1")
 
 @app.get("/health")
 async def health_check():

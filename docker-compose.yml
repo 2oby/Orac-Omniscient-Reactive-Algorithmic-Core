@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   orac:
     build: .
@@ -6,19 +8,23 @@ services:
       - ./models/gguf:/models/gguf:ro
       - ./third_party/llama_cpp:/app/third_party/llama_cpp:ro
       - ./logs:/app/logs
+    ports:
+      - "8000:8000"  # API port
     environment:
       - LOG_LEVEL=INFO
       - LOG_DIR=/app/logs
+      - PYTHONUNBUFFERED=1
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               capabilities: [gpu]
+    command: uvicorn orac.api.main:app --host 0.0.0.0 --port 8000 --workers 4
     restart: unless-stopped
     networks:
-      - orac-network
+      - orac_net
 
 networks:
-  orac-network:
-    name: orac-network
+  orac_net:
+    driver: bridge
