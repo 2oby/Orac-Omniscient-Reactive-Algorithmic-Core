@@ -148,8 +148,6 @@ class LlamaCppClient:
                 "--top-k", str(top_k),
                 "--ctx-size", "2048",
                 "--n-predict", str(max_tokens or 512),
-                "--no-interactive",  # Disable interactive mode
-                "--no-chat",  # Disable chat mode
                 "--verbose"  # Keep verbose for debugging
             ]
             
@@ -160,8 +158,12 @@ class LlamaCppClient:
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                stdin=asyncio.subprocess.PIPE,  # We need stdin to send EOF
                 env=self.env
             )
+            
+            # Send EOF to stdin to signal end of input
+            process.stdin.close()
             
             stdout, stderr = await process.communicate()
             
@@ -175,16 +177,25 @@ class LlamaCppClient:
                 logger.error(f"llama-cli error: {stderr_str}")
                 raise Exception(f"llama-cli error: {stderr_str}")
             
-            # Extract the response - it should be everything after the prompt
-            # The model might add some special tokens, so we need to clean those up
-            response_text = stdout_str.strip()
+            # Extract the response - in interactive mode, the response is between the prompt and the next prompt marker
+            # or between the prompt and the end of output
+            response_text = ""
+            if prompt in stdout_str:
+                # Get everything after the prompt
+                after_prompt = stdout_str.split(prompt, 1)[1]
+                # Look for the next prompt marker or end of output
+                if "<|im_start|>" in after_prompt:
+                    response_text = after_prompt.split("<|im_start|>", 1)[0]
+                else:
+                    response_text = after_prompt
+            else:
+                response_text = stdout_str
             
-            # Remove any special tokens or chat template artifacts
-            response_text = response_text.replace('<|im_start|>', '').replace('<|im_end|>', '')
-            response_text = response_text.replace('assistant', '').replace('user', '')
+            # Clean up the response
+            response_text = response_text.strip()
+            response_text = response_text.replace('<|im_end|>', '')
+            response_text = response_text.replace('assistant', '')
             response_text = response_text.replace('<think>', '').replace('</think>', '')
-            
-            # Clean up any extra whitespace
             response_text = ' '.join(response_text.split())
             
             logger.info(f"Cleaned response: {response_text!r}")
