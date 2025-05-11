@@ -122,17 +122,20 @@ ssh "$REMOTE_ALIAS" "\
     
     echo '${BLUE}🧪 Running pytest inside container \"$SERVICE_NAME\"...${NC}'; \
     echo '${YELLOW}Running core tests...${NC}'; \
-    \$DOCKER_CMD exec -T $SERVICE_NAME pytest -v tests/test_prompting.py::test_generate_text --log-cli-level=INFO --capture=no; \
-    
-    echo '${BLUE}🧪 Testing CLI functionality...${NC}'; \
-    \$DOCKER_CMD exec -T $SERVICE_NAME python3 -m orac.cli status; \
+    \$DOCKER_CMD exec -T $SERVICE_NAME pytest -v tests/test_cli_generation.py --log-cli-level=INFO --capture=no; \
     
     echo '${BLUE}📊 Checking resource usage after tests...${NC}'; \
-    echo 'Container stats:'; \
+    if command -v nvidia-smi &> /dev/null; then \
+        nvidia-smi; \
+    else \
+        echo 'GPU memory info not available'; \
+    fi; \
+    
+    echo '${BLUE}📊 Checking container stats...${NC}'; \
     \$DOCKER_CMD stats --no-stream; \
 "
 
-echo -e "${GREEN}🎉 Deployment + remote tests inside '$SERVICE_NAME' succeeded!${NC}"
+echo -e "${GREEN}🎉 All deployment and test operations completed successfully!${NC}"
 
 # Run model test directly
 echo -e "${YELLOW}👉 Running model test on $REMOTE_ALIAS...${NC}"
