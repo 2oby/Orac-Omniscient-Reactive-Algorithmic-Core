@@ -36,7 +36,7 @@ DEFAULT_SYSTEM_PROMPT = """You are a helpful AI assistant running on a Jetson Or
 You aim to be concise, accurate, and helpful in your responses."""
 
 # Create HTTP client for proxying requests
-http_client = httpx.AsyncClient(base_url="http://127.0.0.1:8000")
+http_client = httpx.AsyncClient(base_url="http://127.0.0.1:8000", timeout=90.0)
 
 @app.get("/api/{path:path}")
 async def proxy_get(request: Request, path: str):
@@ -161,9 +161,6 @@ async def web_interface(request: Request):
                     return;
                 }
 
-                // Combine prompts
-                const fullPrompt = `${systemPrompt}\n\nUser: ${userPrompt}\n\nAssistant:`;
-                
                 generateBtn.disabled = true;
                 responseDiv.textContent = 'Generating...';
                 statsDiv.textContent = '';
@@ -175,9 +172,11 @@ async def web_interface(request: Request):
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             model: model,
-                            prompt: fullPrompt,
-                            temperature: 0.7,
-                            max_tokens: 512
+                            prompt: userPrompt,
+                            temperature: 0.3,
+                            max_tokens: 200,
+                            top_p: 0.95,
+                            top_k: 100
                         })
                     });
                     
