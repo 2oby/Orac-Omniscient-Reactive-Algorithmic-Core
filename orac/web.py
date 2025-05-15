@@ -9,17 +9,13 @@ Provides both the HTML interface and API endpoints in a single server.
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional
 from orac.logger import get_logger
 from orac.favorites import add_favorite, remove_favorite, is_favorite
-from orac.llama_cpp_client import LlamaCppClient
-from orac.models import ModelListResponse, ModelInfo, ModelType
-from orac.model_config import get_model_config
+from orac.models import ModelListResponse, ModelInfo
 from orac.api.routes.models import router as models_router
 from orac.api.routes.generate import router as generate_router
+from orac.client import client
 from orac.middleware import PromptLoggingMiddleware
-import time
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -45,34 +41,11 @@ app.add_middleware(PromptLoggingMiddleware)
 app.include_router(models_router, prefix="/api/v1")
 app.include_router(generate_router, prefix="/api/v1")
 
-# Initialize the llama.cpp client
-client = LlamaCppClient()
-
-# Default system prompt
-DEFAULT_SYSTEM_PROMPT = """You are a helpful AI assistant running on a Jetson Orin Nano.
-You aim to be concise, accurate, and helpful in your responses."""
-
-class GenerateRequest(BaseModel):
-    """Request model for text generation."""
-    model: str
-    prompt: str
-    system_prompt: Optional[str] = DEFAULT_SYSTEM_PROMPT
-    temperature: float = 0.7
-    max_tokens: int = 200
-    top_p: float = 0.95
-    top_k: int = 40
-
-class GenerateResponse(BaseModel):
-    """Response model for text generation."""
-    generated_text: str
-    model: str
-    elapsed_ms: float
-
 @app.get("/api/v1/models", response_model=ModelListResponse)
 async def list_models() -> ModelListResponse:
     """List available models."""
     try:
-        models = await client.list_models()
+        models = client.list_models()
         # Add favorite status to each model
         models_with_favorites = [
             {**m, "is_favorite": is_favorite(m["name"])} 
@@ -108,52 +81,6 @@ async def unfavorite_model(model_name: str):
         return {"status": "info", "message": f"{model_name} was not in favorites"}
     except Exception as e:
         logger.error(f"Error removing favorite: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/v1/generate", response_model=GenerateResponse)
-async def generate_text(request: GenerateRequest) -> GenerateResponse:
-    """Generate text using the specified model."""
-    try:
-        logger.info(f"Generating text with model {request.model}")
-        start_time = time.time()
-        
-        # Get model config to check if it's a chat model
-        model_config = get_model_config(request.model)
-        if model_config and model_config.type == ModelType.CHAT:
-            # Use provided system prompt or fall back to model config
-            system_prompt = request.system_prompt or model_config.system_prompt
-            if system_prompt:
-                # Format prompt with system prompt for chat models
-                # Qwen models use a specific format
-                if "qwen" in request.model.lower():
-                    prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{request.prompt}<|im_end|>\n<|im_start|>assistant\n"
-                else:
-                    prompt = f"System: {system_prompt}\n\nUser: {request.prompt}\n\nAssistant:"
-            else:
-                prompt = request.prompt
-        else:
-            prompt = request.prompt
-        
-        # Generate text
-        response = await client.generate(
-            model=request.model,
-            prompt=prompt,
-            temperature=request.temperature,
-            max_tokens=request.max_tokens,
-            top_p=request.top_p,
-            top_k=request.top_k
-        )
-        
-        elapsed_ms = (time.time() - start_time) * 1000
-        logger.info(f"Generation completed in {elapsed_ms:.0f}ms")
-        
-        return GenerateResponse(
-            generated_text=response.response,
-            model=request.model,
-            elapsed_ms=elapsed_ms
-        )
-    except Exception as e:
-        logger.error(f"Error generating text: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/", response_class=HTMLResponse)
@@ -359,6 +286,38 @@ async def web_interface(request: Request):
                 background: #f1f8e9;
                 color: #689f38;
             }
+
+            .generation-controls {
+                display: flex;
+                align-items: flex-end;
+                gap: 15px;
+                margin: 20px 0;
+            }
+
+            .generation-controls .input-group {
+                flex: 1;
+                max-width: 200px;
+            }
+
+            .generation-controls button {
+                flex: 0 0 auto;
+                min-width: 120px;
+            }
+
+            .generation-controls input[type="number"] {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+
+            .generation-controls label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: bold;
+                color: #333;
+            }
         </style>
     </head>
     <body>
@@ -457,12 +416,14 @@ async def web_interface(request: Request):
                 <div class="system-prompt-info" id="systemPromptInfo"></div>
             </div>
 
-            <div class="input-group">
-                <label for="temperature">Temperature:</label>
-                <input type="number" id="temperature" value="0.7" min="0" max="1" step="0.1">
+            <div class="generation-controls">
+                <div class="input-group">
+                    <label for="generationTemperature">Temperature:</label>
+                    <input type="number" id="generationTemperature" value="0.7" min="0" max="2" step="0.1">
+                </div>
+                
+                <button onclick="generate()" id="generateBtn">Generate</button>
             </div>
-            
-            <button onclick="generate()" id="generateBtn">Generate</button>
             
             <div id="response" class="response"></div>
             
@@ -625,10 +586,10 @@ async def web_interface(request: Request):
                             model: model,
                             prompt: userPrompt,
                             system_prompt: systemPrompt,
-                            temperature: parseFloat(document.getElementById('temperature').value),
-                            max_tokens: 200,
+                            temperature: parseFloat(document.getElementById('generationTemperature').value),
+                            max_tokens: 512,
                             top_p: 0.95,
-                            top_k: 100
+                            stop: null
                         })
                     });
                     
@@ -636,23 +597,26 @@ async def web_interface(request: Request):
                     const endTime = performance.now();
                     
                     if (response.ok) {
-                        responseDiv.textContent = data.generated_text;
+                        // Update response text
+                        responseDiv.textContent = data.text;
                         
                         // Update system prompt UI based on response
-                        if (data.parameters?.system_prompt) {
-                            const source = data.parameters.system_prompt.source;
-                            updateSystemPromptUI(
-                                data.parameters.system_prompt.text,
-                                source === 'user_input' ? 'user' :
-                                source === 'model_config' ? 'model' :
-                                'default'
-                            );
-                        }
+                        updateSystemPromptUI(
+                            systemPrompt,
+                            data.prompt_state.source === 'user_input' ? 'user' :
+                            data.prompt_state.source === 'model_config' ? 'model' :
+                            'default'
+                        );
                         
-                        statsDiv.textContent = 
-                            `Generation time: ${data.elapsed_ms.toFixed(0)}ms\n` +
-                            `Total request time: ${(endTime - startTime).toFixed(0)}ms\n` +
-                            `Model: ${data.model}`;
+                        // Update stats with more detailed information
+                        const stats = [
+                            `Generation time: ${(data.timing.generation_time * 1000).toFixed(0)}ms`,
+                            `Total request time: ${(data.timing.total_time * 1000).toFixed(0)}ms`,
+                            `Model: ${data.model}`,
+                            `System prompt: ${data.prompt_state.source}`
+                        ].join('\n');
+                        
+                        statsDiv.textContent = stats;
                     } else {
                         responseDiv.innerHTML = `<span class="error">Error: ${data.detail || 'Unknown error'}</span>`;
                     }
@@ -703,10 +667,12 @@ async def web_interface(request: Request):
                         
                         // Show/hide system prompt based on model type
                         const systemPromptContainer = document.getElementById('systemPromptContainer');
-                        systemPromptContainer.style.display = config.type === 'chat' ? 'block' : 'none';
+                        const shouldShowSystemPrompt = config.type === 'chat' || 
+                            (config.capabilities && config.capabilities.includes('system_prompt'));
+                        systemPromptContainer.style.display = shouldShowSystemPrompt ? 'block' : 'none';
                         
                         // Store model config system prompt for reset functionality
-                        if (config.type === 'chat') {
+                        if (shouldShowSystemPrompt) {
                             window.modelConfigSystemPrompt = config.system_prompt;
                             updateSystemPromptUI(config.system_prompt, 'model');
                         }

@@ -7,8 +7,8 @@ Middleware components for ORAC.
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from orac.logger import get_logger
-import time
 import json
+import time
 
 logger = get_logger(__name__)
 
@@ -20,49 +20,48 @@ class PromptLoggingMiddleware(BaseHTTPMiddleware):
         if request.url.path == "/api/v1/generate" and request.method == "POST":
             start_time = time.time()
             
-            # Get request body
-            body = await request.body()
+            # Log request
             try:
-                request_data = json.loads(body)
+                body = await request.json()
                 logger.info(
                     "Generate request",
                     extra={
-                        "model": request_data.get("model"),
-                        "has_system_prompt": bool(request_data.get("system_prompt")),
-                        "system_prompt_length": len(request_data.get("system_prompt", "")),
-                        "user_prompt_length": len(request_data.get("prompt", "")),
-                        "temperature": request_data.get("temperature"),
-                        "max_tokens": request_data.get("max_tokens")
+                        "model": body.get("model"),
+                        "has_system_prompt": bool(body.get("system_prompt")),
+                        "prompt_length": len(body.get("prompt", "")),
+                        "system_prompt_length": len(body.get("system_prompt", "")),
+                        "generation_params": {
+                            k: v for k, v in body.items()
+                            if k in ["max_tokens", "temperature", "top_p", "stop"]
+                        }
                     }
                 )
-            except json.JSONDecodeError:
-                logger.warning("Failed to parse request body for logging")
+            except Exception as e:
+                logger.error(f"Failed to log request: {e}")
             
             # Process request
             response = await call_next(request)
             
-            # Log response if it's a generate endpoint
+            # Log response if successful
             if response.status_code == 200:
                 try:
-                    response_body = await response.body()
-                    response_data = json.loads(response_body)
+                    response_body = json.loads(response.body.decode())
+                    elapsed = time.time() - start_time
                     
-                    # Log system prompt source if available
-                    if "parameters" in response_data and "system_prompt" in response_data["parameters"]:
-                        prompt_info = response_data["parameters"]["system_prompt"]
-                        logger.info(
-                            "Generate response",
-                            extra={
-                                "model": response_data.get("model"),
-                                "system_prompt_source": prompt_info.get("source"),
-                                "elapsed_ms": response_data.get("elapsed_ms"),
-                                "total_time_ms": (time.time() - start_time) * 1000
-                            }
-                        )
-                except (json.JSONDecodeError, KeyError):
-                    logger.warning("Failed to parse response body for logging")
+                    logger.info(
+                        "Generate response",
+                        extra={
+                            "model": response_body.get("model"),
+                            "prompt_source": response_body.get("prompt_state", {}).get("source"),
+                            "generation_time": response_body.get("timing", {}).get("generation_time"),
+                            "total_time": elapsed,
+                            "response_length": len(response_body.get("text", ""))
+                        }
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to log response: {e}")
             
             return response
         
-        # For non-generate endpoints, just pass through
+        # Pass through for other endpoints
         return await call_next(request) 

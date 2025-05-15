@@ -4,107 +4,162 @@ orac.api.routes.generate
 API routes for text generation.
 """
 
-import time
-from fastapi import APIRouter, HTTPException
-from orac.api.models.schemas import GenerationRequest, GenerationResponse
-from orac.llama_cpp_client import LlamaCppClient
-from orac.model_config import get_model_config
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field, validator
+from typing import Optional, Dict, Any, List
+from orac.models import get_available_models, get_model_config
+from orac.client import client
 from orac.prompt_manager import prompt_manager
 from orac.logger import get_logger
-from orac.models.model_type import ModelType
+import time
 
-router = APIRouter(tags=["generation"])
 logger = get_logger(__name__)
+router = APIRouter()
 
-# Initialize the llama.cpp client
-client = LlamaCppClient()
+class GenerateRequest(BaseModel):
+    """Request model for text generation."""
+    prompt: str = Field(..., min_length=1, max_length=4096)
+    model: str
+    system_prompt: Optional[str] = Field(None, max_length=4096)
+    max_tokens: Optional[int] = Field(512, ge=1, le=4096)
+    temperature: Optional[float] = Field(0.7, ge=0.0, le=2.0)
+    top_p: Optional[float] = Field(0.9, ge=0.0, le=1.0)
+    stop: Optional[List[str]] = Field(None, max_items=10)
 
-@router.post(
-    "/generate",
-    response_model=GenerationResponse,
-    operation_id="generate_text",
-    summary="Generate text using the specified model",
-    description="Generate text using the specified model and parameters. Returns the generated text along with generation metadata."
-)
-async def generate_text(request: GenerationRequest) -> GenerationResponse:
+    @validator('prompt')
+    def validate_prompt(cls, v: str) -> str:
+        """Validate prompt format."""
+        if not v.strip():
+            raise ValueError("Prompt cannot be empty")
+        return v.strip()
+
+    @validator('system_prompt')
+    def validate_system_prompt(cls, v: Optional[str]) -> Optional[str]:
+        """Validate system prompt format."""
+        if v is not None and not v.strip():
+            raise ValueError("System prompt cannot be empty")
+        return v.strip() if v is not None else None
+
+class GenerateResponse(BaseModel):
+    """Response model for text generation."""
+    text: str
+    model: str
+    prompt_state: Dict[str, Any]
+    generation_params: Dict[str, Any]
+    timing: Dict[str, float]
+
+@router.post("/generate", response_model=GenerateResponse)
+async def generate_text(request: GenerateRequest) -> GenerateResponse:
     """Generate text using the specified model."""
+    start_time = time.time()
+    
     try:
-        start_time = time.time()
-        
-        # Validate model exists by checking available models
-        models = await client.list_models()
-        model_names = [m["name"] for m in models]
-        if request.model not in model_names:
+        # Validate model
+        available_models = get_available_models()
+        if not available_models:
             raise HTTPException(
-                status_code=404,
-                detail=f"Model {request.model} not found. Available models: {model_names}"
+                status_code=503,
+                detail="No models available. Please check model directory configuration."
+            )
+        
+        if request.model not in available_models:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Model {request.model} not available. Available models: {', '.join(available_models)}"
             )
         
         # Get model config
-        model_config = get_model_config(request.model)
+        try:
+            model_config = get_model_config(request.model)
+        except Exception as e:
+            logger.error(f"Failed to get model config for {request.model}: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to load model configuration: {str(e)}"
+            )
         
-        # Get appropriate system prompt using prompt manager
-        prompt_state = prompt_manager.get_system_prompt(
-            model_name=request.model,
-            user_prompt=request.system_prompt,
-            model_config=model_config
-        )
+        # Get system prompt using prompt manager
+        try:
+            prompt_state = await prompt_manager.get_system_prompt(
+                model_name=request.model,
+                user_prompt=request.system_prompt,
+                model_config=model_config
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(f"Failed to get system prompt: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to process system prompt"
+            )
         
-        # Format the final prompt
-        if model_config and model_config.type == ModelType.CHAT:
-            prompt = prompt_manager.format_prompt(
+        # Format final prompt
+        try:
+            final_prompt = prompt_manager.format_prompt(
                 system_prompt=prompt_state.prompt,
                 user_prompt=request.prompt,
                 model_name=request.model
             )
-        else:
-            prompt = request.prompt
+        except Exception as e:
+            logger.error(f"Failed to format prompt: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to format prompt"
+            )
+        
+        # Log prompt state
+        logger.info(f"Using system prompt from source: {prompt_state.source}")
+        logger.debug(f"Final prompt: {final_prompt}")
         
         # Generate text
         try:
+            generation_start = time.time()
             response = await client.generate(
+                prompt=final_prompt,
                 model=request.model,
-                prompt=prompt,
-                temperature=request.temperature,
                 max_tokens=request.max_tokens,
+                temperature=request.temperature,
                 top_p=request.top_p,
-                top_k=request.top_k
+                stop=request.stop
             )
+            generation_time = time.time() - generation_start
             
-            # Log prompt state for debugging
-            logger.debug(f"Prompt state: {prompt_state.dict()}")
+            # Log generation
+            logger.info(f"Generated {len(response)} tokens in {generation_time:.2f}s")
             
-            # Return response with prompt metadata
-            return GenerationResponse(
-                generated_text=response.response,
+            return GenerateResponse(
+                text=response,
                 model=request.model,
-                prompt=request.prompt,  # Return original prompt without system prompt
-                parameters={
-                    "temperature": request.temperature,
-                    "max_tokens": request.max_tokens,
-                    "top_p": request.top_p,
-                    "top_k": request.top_k,
-                    "system_prompt": {
-                        "text": prompt_state.prompt,
-                        "source": prompt_state.source,
-                        "metadata": prompt_state.metadata
-                    } if model_config and model_config.type == ModelType.CHAT else None
+                prompt_state={
+                    "source": prompt_state.source,
+                    "model_name": prompt_state.model_name,
+                    "metadata": prompt_state.metadata
                 },
-                elapsed_ms=response.elapsed_ms
+                generation_params={
+                    "max_tokens": request.max_tokens,
+                    "temperature": request.temperature,
+                    "top_p": request.top_p,
+                    "stop": request.stop
+                },
+                timing={
+                    "generation_time": generation_time,
+                    "total_time": time.time() - start_time
+                }
             )
-                
+            
         except Exception as e:
-            logger.error(f"Model generation failed: {str(e)}")
+            logger.error(f"Generation failed: {str(e)}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Model generation failed: {str(e)}"
+                detail=f"Text generation failed: {str(e)}"
             )
-        
+            
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error during text generation: {str(e)}")
+        logger.error(f"Unexpected error in generate endpoint: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error during text generation: {str(e)}"
+            detail="An unexpected error occurred"
         ) 
