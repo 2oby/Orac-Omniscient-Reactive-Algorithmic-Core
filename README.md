@@ -80,6 +80,28 @@ pytest
 flake8 orac tests
 ```
 
+## Environment Setup
+
+ORAC uses environment variables for configuration. Each machine (development, Jetson, etc.) should have its own `.env` file:
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Adjust the values in `.env` for your environment:
+   - For local development:
+     - `LOG_DIR=./logs`
+     - `ORAC_MODELS_PATH=./models/gguf`
+   - For Docker container:
+     - `LOG_DIR=/app/logs`
+     - `ORAC_MODELS_PATH=/models/gguf`
+   - For Jetson Orin:
+     - Adjust `GPU_LAYERS` and `CPU_THREADS` based on your hardware
+     - Use Docker container paths
+
+3. The `.env` file is git-ignored and should remain local to each machine.
+
 ## License
 
 MIT License

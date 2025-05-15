@@ -10,12 +10,12 @@ from typing import Generator, Dict, Any
 from pathlib import Path
 from orac.llama_cpp_client import LlamaCppClient
 
-# Test log directory - use absolute path in project root
+# Test log directory - use relative path in project root
 TEST_LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "test_logs")
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_test_logging():
-    """Set up test logging directory."""
+def setup_test_environment():
+    """Set up test environment variables."""
     # Set test log directory
     os.environ["ORAC_LOG_DIR"] = TEST_LOG_DIR
     
