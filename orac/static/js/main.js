@@ -21,10 +21,168 @@ let currentModel = null;
 let favorites = [];
 let modelConfigs = {};
 let defaultSettings = null;
+let currentSettings = null;  // Store current settings for cancel functionality
 
-// Toggle settings panel
+// Function to collapse settings panel
+function collapseSettingsPanel() {
+    settingsContent.classList.add('hidden');
+    settingsToggle.textContent = 'Model Settings';
+}
+
+// Function to expand settings panel
+function expandSettingsPanel() {
+    settingsContent.classList.remove('hidden');
+    settingsToggle.textContent = 'Hide Settings';
+}
+
+// Settings toggle button click handler
 settingsToggle.addEventListener('click', () => {
-    settingsContent.classList.toggle('active');
+    if (settingsContent.classList.contains('hidden')) {
+        // Store current settings before expanding
+        currentSettings = {
+            systemPrompt: systemPrompt.value,
+            temperature: temperature.value,
+            topP: topP.value,
+            topK: topK.value,
+            maxTokens: maxTokens.value
+        };
+        expandSettingsPanel();
+    } else {
+        collapseSettingsPanel();
+    }
+});
+
+// Cancel button click handler
+document.getElementById('cancelSettings').addEventListener('click', () => {
+    if (currentSettings) {
+        // Restore previous settings
+        systemPrompt.value = currentSettings.systemPrompt;
+        temperature.value = currentSettings.temperature;
+        topP.value = currentSettings.topP;
+        topK.value = currentSettings.topK;
+        maxTokens.value = currentSettings.maxTokens;
+    }
+    collapseSettingsPanel();
+});
+
+// Save settings button click handler
+document.getElementById('saveSettings').addEventListener('click', async () => {
+    const selectedModel = modelSelect.value;
+    if (!selectedModel) {
+        alert('Please select a model first');
+        return;
+    }
+
+    const settings = {
+        system_prompt: systemPrompt.value.trim(),
+        temperature: parseFloat(temperature.value),
+        top_p: parseFloat(topP.value),
+        top_k: parseInt(topK.value),
+        max_tokens: parseInt(maxTokens.value)
+    };
+
+    try {
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model_name: selectedModel,
+                settings: settings
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to save settings');
+        }
+
+        // Update current settings after successful save
+        currentSettings = {
+            systemPrompt: settings.system_prompt,
+            temperature: settings.temperature,
+            topP: settings.top_p,
+            topK: settings.top_k,
+            maxTokens: settings.max_tokens
+        };
+
+        // Show success message
+        const saveButton = document.getElementById('saveSettings');
+        const originalText = saveButton.textContent;
+        saveButton.textContent = 'Settings Saved!';
+        saveButton.disabled = true;
+        
+        // Collapse the panel after successful save
+        collapseSettingsPanel();
+
+        setTimeout(() => {
+            saveButton.textContent = originalText;
+            saveButton.disabled = false;
+        }, 2000);
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        alert('Failed to save settings. Please try again.');
+    }
+});
+
+// Reset settings button click handler
+document.getElementById('resetSettings').addEventListener('click', async () => {
+    const selectedModel = modelSelect.value;
+    if (!selectedModel) {
+        alert('Please select a model first');
+        return;
+    }
+
+    try {
+        // Get model configs to find default settings
+        const response = await fetch('/api/models/configs');
+        if (!response.ok) {
+            throw new Error('Failed to load model configs');
+        }
+        const configs = await response.json();
+        const modelConfig = configs[selectedModel];
+
+        // Get favorites for default settings
+        const favResponse = await fetch('/api/favorites');
+        if (!favResponse.ok) {
+            throw new Error('Failed to load favorites');
+        }
+        const favorites = await favResponse.json();
+        const defaultSettings = favorites.default_settings || {};
+
+        // Update UI with reset values
+        systemPrompt.value = modelConfig?.system_prompt || defaultSettings.system_prompt || '';
+        temperature.value = modelConfig?.recommended_settings?.temperature || defaultSettings.temperature || 0.7;
+        topP.value = modelConfig?.recommended_settings?.top_p || defaultSettings.top_p || 0.9;
+        topK.value = modelConfig?.recommended_settings?.top_k || defaultSettings.top_k || 40;
+        maxTokens.value = modelConfig?.recommended_settings?.max_tokens || defaultSettings.max_tokens || 2048;
+
+        // Update current settings
+        currentSettings = {
+            systemPrompt: systemPrompt.value,
+            temperature: temperature.value,
+            topP: topP.value,
+            topK: topK.value,
+            maxTokens: maxTokens.value
+        };
+
+        // Show success message
+        const resetButton = document.getElementById('resetSettings');
+        const originalText = resetButton.textContent;
+        resetButton.textContent = 'Settings Reset!';
+        resetButton.disabled = true;
+
+        // Collapse the panel after reset
+        collapseSettingsPanel();
+
+        setTimeout(() => {
+            resetButton.textContent = originalText;
+            resetButton.disabled = false;
+        }, 2000);
+    } catch (error) {
+        console.error('Error resetting settings:', error);
+        alert('Failed to reset settings. Please try again.');
+    }
 });
 
 // Load models and favorites
@@ -111,81 +269,6 @@ modelSelect.addEventListener('change', async () => {
     topP.value = settings.top_p || defaultSettings.top_p;
     topK.value = settings.top_k || defaultSettings.top_k;
     maxTokens.value = settings.max_tokens || defaultSettings.max_tokens;
-});
-
-// Reset settings to default
-resetSettings.addEventListener('click', () => {
-    if (!currentModel) return;
-    
-    const config = modelConfigs[currentModel] || {};
-    const settings = config.recommended_settings || defaultSettings;
-    
-    // Update UI with settings
-    systemPrompt.value = config.system_prompt || '';
-    systemPromptDisplay.textContent = config.system_prompt || '';
-    temperature.value = settings.temperature || defaultSettings.temperature;
-    topP.value = settings.top_p || defaultSettings.top_p;
-    topK.value = settings.top_k || defaultSettings.top_k;
-    maxTokens.value = settings.max_tokens || defaultSettings.max_tokens;
-
-    // Show feedback
-    const originalText = resetSettings.textContent;
-    resetSettings.textContent = 'Settings Reset!';
-    resetSettings.disabled = true;
-    setTimeout(() => {
-        resetSettings.textContent = originalText;
-        resetSettings.disabled = false;
-    }, 2000);
-});
-
-// Save settings
-saveSettings.addEventListener('click', async () => {
-    if (!currentModel) return;
-
-    const settings = {
-        system_prompt: systemPrompt.value.trim(),
-        recommended_settings: {
-            temperature: parseFloat(temperature.value) || defaultSettings.temperature,
-            top_p: parseFloat(topP.value) || defaultSettings.top_p,
-            top_k: parseInt(topK.value) || defaultSettings.top_k,
-            max_tokens: parseInt(maxTokens.value) || defaultSettings.max_tokens
-        }
-    };
-
-    try {
-        const response = await fetch('/v1/config/models', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                models: {
-                    [currentModel]: settings
-                }
-            })
-        });
-
-        if (response.ok) {
-            modelConfigs[currentModel] = settings;
-            systemPromptDisplay.textContent = settings.system_prompt;
-            
-            // Show feedback
-            const originalText = saveSettings.textContent;
-            saveSettings.textContent = 'Settings Saved!';
-            saveSettings.disabled = true;
-            setTimeout(() => {
-                saveSettings.textContent = originalText;
-                saveSettings.disabled = false;
-            }, 2000);
-        } else {
-            const error = await response.json();
-            console.error('Failed to save settings:', error);
-            alert('Failed to save settings: ' + (error.detail || 'Unknown error'));
-        }
-    } catch (error) {
-        console.error('Error saving settings:', error);
-        alert('Error saving settings: ' + error.message);
-    }
 });
 
 // Handle generate button click
