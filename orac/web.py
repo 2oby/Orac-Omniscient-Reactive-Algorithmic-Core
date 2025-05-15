@@ -104,50 +104,66 @@ async def web_interface(request: Request):
                 margin-top: 10px; 
             }
             .error { color: red; }
-            .model-list {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-                margin-bottom: 20px;
-            }
-            .model-item {
+            .model-selector {
                 display: flex;
                 align-items: center;
                 gap: 10px;
-                padding: 10px;
-                background: #f8f8f8;
-                border-radius: 4px;
-            }
-            .model-name {
-                flex-grow: 1;
+                margin-bottom: 20px;
             }
             .star-button {
                 background: none;
                 border: none;
                 cursor: pointer;
-                font-size: 1.5em;
-                padding: 0;
+                font-size: 24px;
                 color: #ccc;
+                transition: color 0.2s;
+                padding: 0;
+                display: inline-flex;
+                align-items: center;
             }
             .star-button.favorite {
-                color: #ffd700;
+                color: gold;
+            }
+            .star-button:hover {
+                color: gold;
+            }
+            .model-list {
+                margin-top: 20px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 10px;
+            }
+            .model-item {
+                padding: 8px;
+                border-bottom: 1px solid #eee;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .model-item:last-child {
+                border-bottom: none;
             }
             .model-size {
                 color: #666;
                 font-size: 0.9em;
+            }
+            .favorite-model {
+                background-color: #fff8e1;
             }
         </style>
     </head>
     <body>
         <h1>ORAC Web Interface</h1>
         <div class="container">
-            <div class="model-list" id="modelList">
-                <!-- Models will be populated here -->
+            <div class="model-selector">
+                <select id="modelSelect" onchange="updateStarButton()">
+                    <option value="">Select a model...</option>
+                </select>
+                <button id="starButton" class="star-button" onclick="toggleFavorite()" style="display: none;">★</button>
             </div>
             
-            <div class="form-group">
-                <label for="model">Selected Model:</label>
-                <select id="model"></select>
+            <div class="model-list" id="modelList">
+                <!-- Model list will be populated here -->
             </div>
             
             <div class="form-group">
@@ -171,77 +187,101 @@ async def web_interface(request: Request):
             async function loadModels() {
                 try {
                     const response = await fetch('/api/v1/models');
-                    const data = await response.json();
+                    const models = await response.json();
+                    
+                    // Clear existing options
+                    const select = document.getElementById('modelSelect');
+                    select.innerHTML = '<option value="">Select a model...</option>';
+                    
+                    // Clear model list
                     const modelList = document.getElementById('modelList');
-                    const select = document.getElementById('model');
-                    
-                    // Clear existing content
                     modelList.innerHTML = '';
-                    select.innerHTML = '';
                     
-                    // Add each model to both the list and select
-                    data.models.forEach(m => {
-                        // Add to select dropdown
+                    // Sort models: favorites first, then by name
+                    const sortedModels = models.sort((a, b) => {
+                        if (a.is_favorite && !b.is_favorite) return -1;
+                        if (!a.is_favorite && b.is_favorite) return 1;
+                        return a.name.localeCompare(b.name);
+                    });
+                    
+                    // Add models to dropdown and list
+                    sortedModels.forEach(model => {
+                        // Add to dropdown
                         const option = document.createElement('option');
-                        option.value = m.name;
-                        option.textContent = m.name;
+                        option.value = model.name;
+                        option.textContent = model.name;
                         select.appendChild(option);
                         
-                        // Add to model list
+                        // Add to list
                         const modelItem = document.createElement('div');
-                        modelItem.className = 'model-item';
-                        
-                        const starButton = document.createElement('button');
-                        starButton.className = `star-button ${m.is_favorite ? 'favorite' : ''}`;
-                        starButton.innerHTML = m.is_favorite ? '★' : '☆';
-                        starButton.onclick = () => toggleFavorite(m.name, starButton);
-                        
-                        const modelName = document.createElement('span');
-                        modelName.className = 'model-name';
-                        modelName.textContent = m.name;
-                        
-                        const modelSize = document.createElement('span');
-                        modelSize.className = 'model-size';
-                        modelSize.textContent = `${(m.size / (1024*1024)).toFixed(1)} MB`;
-                        
-                        modelItem.appendChild(starButton);
-                        modelItem.appendChild(modelName);
-                        modelItem.appendChild(modelSize);
+                        modelItem.className = `model-item ${model.is_favorite ? 'favorite-model' : ''}`;
+                        modelItem.innerHTML = `
+                            <span>${model.name}</span>
+                            <span class="model-size">${formatSize(model.size)}</span>
+                        `;
                         modelList.appendChild(modelItem);
                     });
-                } catch (e) {
-                    console.error('Error loading models:', e);
-                    document.getElementById('response').innerHTML = 
-                        `<span class="error">Error loading models: ${e.message}</span>`;
+                    
+                    // Update star button for currently selected model
+                    updateStarButton();
+                    
+                } catch (error) {
+                    console.error('Error loading models:', error);
+                    alert('Failed to load models. Please try again.');
                 }
             }
-
-            // Toggle favorite status
-            async function toggleFavorite(modelName, button) {
+            
+            function updateStarButton() {
+                const select = document.getElementById('modelSelect');
+                const starButton = document.getElementById('starButton');
+                const selectedModel = select.value;
+                
+                if (selectedModel) {
+                    starButton.style.display = 'inline-block';
+                    // Find the model in the list to check favorite status
+                    const modelItem = Array.from(document.querySelectorAll('.model-item'))
+                        .find(item => item.querySelector('span').textContent === selectedModel);
+                    if (modelItem) {
+                        starButton.className = `star-button ${modelItem.classList.contains('favorite-model') ? 'favorite' : ''}`;
+                    }
+                } else {
+                    starButton.style.display = 'none';
+                }
+            }
+            
+            async function toggleFavorite() {
+                const select = document.getElementById('modelSelect');
+                const modelName = select.value;
+                if (!modelName) return;
+                
+                const starButton = document.getElementById('starButton');
+                const isFavorite = starButton.classList.contains('favorite');
+                
                 try {
-                    const isFavorite = button.classList.contains('favorite');
                     const method = isFavorite ? 'DELETE' : 'POST';
-                    const response = await fetch(`/api/v1/models/${encodeURIComponent(modelName)}/favorite`, {
-                        method: method
+                    const response = await fetch(`/api/v1/models/${modelName}/favorite`, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
                     });
-                    const data = await response.json();
                     
                     if (response.ok) {
-                        button.classList.toggle('favorite');
-                        button.innerHTML = button.classList.contains('favorite') ? '★' : '☆';
-                        // Reload models to update the order
-                        loadModels();
+                        // Update star button and model list
+                        starButton.classList.toggle('favorite');
+                        await loadModels();  // Reload to update the list
                     } else {
-                        console.error('Error toggling favorite:', data.detail);
+                        throw new Error(`Failed to ${isFavorite ? 'remove' : 'add'} favorite`);
                     }
-                } catch (e) {
-                    console.error('Error toggling favorite:', e);
+                } catch (error) {
+                    console.error('Error toggling favorite:', error);
+                    alert(`Failed to ${isFavorite ? 'remove' : 'add'} favorite. Please try again.`);
                 }
             }
 
             // Generate text
             async function generate() {
-                const model = document.getElementById('model').value;
+                const model = document.getElementById('modelSelect').value;
                 const systemPrompt = document.getElementById('systemPrompt').value;
                 const userPrompt = document.getElementById('userPrompt').value;
                 const generateBtn = document.getElementById('generateBtn');
