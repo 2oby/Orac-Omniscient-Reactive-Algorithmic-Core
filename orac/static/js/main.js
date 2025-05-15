@@ -20,6 +20,7 @@ const copyResponse = document.getElementById('copyResponse');
 let currentModel = null;
 let favorites = [];
 let modelConfigs = {};
+let defaultSettings = null;
 
 // Toggle settings panel
 settingsToggle.addEventListener('click', () => {
@@ -41,6 +42,12 @@ async function loadModels() {
         const favData = await favResponse.json();
         console.log('Favorites loaded:', favData);
         favorites = favData.favorite_models || [];
+        defaultSettings = favData.default_settings || {
+            temperature: 0.7,
+            top_p: 0.7,
+            top_k: 40,
+            max_tokens: 512
+        };
 
         // Load model configs
         console.log('Loading model configs...');
@@ -95,14 +102,15 @@ modelSelect.addEventListener('change', async () => {
 
     currentModel = selectedModel;
     const config = modelConfigs[selectedModel] || {};
+    const settings = config.recommended_settings || defaultSettings;
     
-    // Update settings panel
+    // Update settings panel with model-specific settings or defaults
     systemPrompt.value = config.system_prompt || '';
     systemPromptDisplay.textContent = config.system_prompt || '';
-    temperature.value = config.recommended_settings?.temperature || 0.7;
-    topP.value = config.recommended_settings?.top_p || 0.7;
-    topK.value = config.recommended_settings?.top_k || 40;
-    maxTokens.value = config.recommended_settings?.max_tokens || 512;
+    temperature.value = settings.temperature || defaultSettings.temperature;
+    topP.value = settings.top_p || defaultSettings.top_p;
+    topK.value = settings.top_k || defaultSettings.top_k;
+    maxTokens.value = settings.max_tokens || defaultSettings.max_tokens;
 });
 
 // Reset settings to default
@@ -110,12 +118,24 @@ resetSettings.addEventListener('click', () => {
     if (!currentModel) return;
     
     const config = modelConfigs[currentModel] || {};
+    const settings = config.recommended_settings || defaultSettings;
+    
+    // Update UI with settings
     systemPrompt.value = config.system_prompt || '';
     systemPromptDisplay.textContent = config.system_prompt || '';
-    temperature.value = config.recommended_settings?.temperature || 0.7;
-    topP.value = config.recommended_settings?.top_p || 0.7;
-    topK.value = config.recommended_settings?.top_k || 40;
-    maxTokens.value = config.recommended_settings?.max_tokens || 512;
+    temperature.value = settings.temperature || defaultSettings.temperature;
+    topP.value = settings.top_p || defaultSettings.top_p;
+    topK.value = settings.top_k || defaultSettings.top_k;
+    maxTokens.value = settings.max_tokens || defaultSettings.max_tokens;
+
+    // Show feedback
+    const originalText = resetSettings.textContent;
+    resetSettings.textContent = 'Settings Reset!';
+    resetSettings.disabled = true;
+    setTimeout(() => {
+        resetSettings.textContent = originalText;
+        resetSettings.disabled = false;
+    }, 2000);
 });
 
 // Save settings
@@ -123,12 +143,12 @@ saveSettings.addEventListener('click', async () => {
     if (!currentModel) return;
 
     const settings = {
-        system_prompt: systemPrompt.value,
+        system_prompt: systemPrompt.value.trim(),
         recommended_settings: {
-            temperature: parseFloat(temperature.value),
-            top_p: parseFloat(topP.value),
-            top_k: parseInt(topK.value),
-            max_tokens: parseInt(maxTokens.value)
+            temperature: parseFloat(temperature.value) || defaultSettings.temperature,
+            top_p: parseFloat(topP.value) || defaultSettings.top_p,
+            top_k: parseInt(topK.value) || defaultSettings.top_k,
+            max_tokens: parseInt(maxTokens.value) || defaultSettings.max_tokens
         }
     };
 
@@ -148,11 +168,23 @@ saveSettings.addEventListener('click', async () => {
         if (response.ok) {
             modelConfigs[currentModel] = settings;
             systemPromptDisplay.textContent = settings.system_prompt;
+            
+            // Show feedback
+            const originalText = saveSettings.textContent;
+            saveSettings.textContent = 'Settings Saved!';
+            saveSettings.disabled = true;
+            setTimeout(() => {
+                saveSettings.textContent = originalText;
+                saveSettings.disabled = false;
+            }, 2000);
         } else {
-            console.error('Failed to save settings');
+            const error = await response.json();
+            console.error('Failed to save settings:', error);
+            alert('Failed to save settings: ' + (error.detail || 'Unknown error'));
         }
     } catch (error) {
         console.error('Error saving settings:', error);
+        alert('Error saving settings: ' + error.message);
     }
 });
 
