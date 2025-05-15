@@ -58,3 +58,7 @@ ENV/
 .vscode/
 *.swp
 *.swo
+
+# Data directory (exclude contents but keep directory)
+data/*
+!data/.gitkeep
