@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 LLAMA_CPP_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "third_party/llama_cpp")
 LLAMA_CLI = os.path.join(LLAMA_CPP_PATH, "bin/llama-cli")
 LLAMA_SERVER = os.path.join(LLAMA_CPP_PATH, "bin/llama-server")
-MODELS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models/gguf")
+MODELS_PATH = "/home/toby/ORAC/models/gguf"
 
 class LlamaCppClient:
     """Client for interacting with llama.cpp binaries."""
