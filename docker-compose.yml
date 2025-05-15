@@ -5,7 +5,7 @@ services:
     build: .
     container_name: orac
     volumes:
-      - ./models/gguf:/models/gguf:ro
+      - /mnt/external/models/gguf:/app/models/gguf:ro
       - ./third_party/llama_cpp:/app/third_party/llama_cpp:ro
       - ./logs:/app/logs
     ports:
@@ -15,6 +15,7 @@ services:
       - LOG_LEVEL=INFO
       - LOG_DIR=/app/logs
       - PYTHONUNBUFFERED=1
+      - MODEL_DIR=/app/models/gguf
     deploy:
       resources:
         reservations:

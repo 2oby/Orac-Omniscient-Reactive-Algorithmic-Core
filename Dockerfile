@@ -22,8 +22,12 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY . /app/
+# Copy only necessary application files
+COPY setup.py .
+COPY orac/ ./orac/
+COPY scripts/ ./scripts/
+COPY third_party/llama_cpp/bin/ ./third_party/llama_cpp/bin/
+COPY third_party/llama_cpp/lib/ ./third_party/llama_cpp/lib/
 
 # Make llama.cpp binaries executable
 RUN chmod +x /app/third_party/llama_cpp/bin/*

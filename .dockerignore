@@ -1,0 +1,41 @@
+# Exclude large model files
+models/gguf/
+*.gguf
+
+# Exclude system files
+.DS_Store
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Exclude logs and temporary files
+logs/
+*.log
+*.tmp
+*.temp
+
+# Exclude development files
+.git/
+.gitignore
+.env
+.venv/
+venv/
+ENV/
+
+# Exclude IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Exclude test files
+tests/
+test/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Exclude documentation
+docs/
+*.md
+LICENSE 
