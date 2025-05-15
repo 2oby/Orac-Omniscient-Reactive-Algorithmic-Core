@@ -110,9 +110,8 @@ async def generate_text(request: GenerateRequest) -> GenerateResponse:
         
         # Generate text
         generated_text = await client.generate(
-            model_name=request.model,
+            model=request.model,
             prompt=request.prompt,
-            system_prompt=request.system_prompt,
             temperature=request.temperature,
             max_tokens=request.max_tokens,
             top_p=request.top_p,
