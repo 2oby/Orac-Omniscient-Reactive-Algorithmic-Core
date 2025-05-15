@@ -7,6 +7,7 @@ Provides endpoints for:
 - Model management (list, load, unload)
 - Text generation
 - System status
+- Configuration management (favorites, model settings)
 """
 
 from fastapi import FastAPI, HTTPException
@@ -15,6 +16,7 @@ from typing import List, Dict, Any
 
 from orac.logger import get_logger
 from orac.llama_cpp_client import LlamaCppClient
+from orac.config import load_favorites, save_favorites, load_model_configs, save_model_configs
 from orac.models import (
     ModelInfo, ModelListResponse, ModelLoadRequest, ModelLoadResponse,
     ModelUnloadResponse, GenerationRequest, GenerationResponse
@@ -120,6 +122,44 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
         )
     except Exception as e:
         logger.error(f"Error generating text: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/v1/config/favorites", tags=["Configuration"])
+async def get_favorites() -> Dict[str, Any]:
+    """Get favorites configuration."""
+    try:
+        return load_favorites()
+    except Exception as e:
+        logger.error(f"Error getting favorites: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/v1/config/favorites", tags=["Configuration"])
+async def update_favorites(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Update favorites configuration."""
+    try:
+        save_favorites(config)
+        return {"status": "success", "message": "Favorites updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating favorites: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/v1/config/models", tags=["Configuration"])
+async def get_model_configs() -> Dict[str, Any]:
+    """Get model configurations."""
+    try:
+        return load_model_configs()
+    except Exception as e:
+        logger.error(f"Error getting model configs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/v1/config/models", tags=["Configuration"])
+async def update_model_configs(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Update model configurations."""
+    try:
+        save_model_configs(config)
+        return {"status": "success", "message": "Model configurations updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating model configs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.on_event("startup")

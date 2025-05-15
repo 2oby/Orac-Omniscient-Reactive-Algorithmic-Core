@@ -1,0 +1,178 @@
+:root {
+    --bg-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --border-color: #333;
+    --input-bg: #2d2d2d;
+    --button-bg: #404040;
+    --button-hover: #505050;
+    --accent-color: #4a9eff;
+    --error-color: #ff4a4a;
+    --success-color: #4aff4a;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+/* Model Selection */
+.model-selection {
+    margin-bottom: 1rem;
+}
+
+.model-dropdown {
+    width: 100%;
+    padding: 0.5rem;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+/* Settings Panel */
+.settings-panel {
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.settings-toggle {
+    width: 100%;
+    padding: 0.5rem;
+    background-color: var(--button-bg);
+    color: var(--text-color);
+    border: none;
+    cursor: pointer;
+    text-align: left;
+}
+
+.settings-toggle:hover {
+    background-color: var(--button-hover);
+}
+
+.settings-content {
+    padding: 1rem;
+    background-color: var(--input-bg);
+    display: none;
+}
+
+.settings-content.active {
+    display: block;
+}
+
+.settings-group {
+    margin-bottom: 1rem;
+}
+
+.settings-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.settings-group input,
+.settings-group textarea {
+    width: 100%;
+    padding: 0.5rem;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.settings-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+/* Prompt Interface */
+.prompt-interface {
+    margin-bottom: 1rem;
+}
+
+.system-prompt-display {
+    padding: 0.5rem;
+    background-color: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    color: #888;
+    font-style: italic;
+}
+
+#promptInput {
+    width: 100%;
+    padding: 0.5rem;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    resize: vertical;
+    margin-bottom: 0.5rem;
+}
+
+/* Response Area */
+.response-area {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 1rem;
+    background-color: var(--input-bg);
+    min-height: 100px;
+}
+
+#responseOutput {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+#generatingIndicator {
+    color: var(--accent-color);
+    font-style: italic;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Buttons */
+button {
+    padding: 0.5rem 1rem;
+    background-color: var(--button-bg);
+    color: var(--text-color);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+button:hover {
+    background-color: var(--button-hover);
+}
+
+#generateButton {
+    background-color: var(--accent-color);
+}
+
+#generateButton:hover {
+    background-color: #5aaeff;
+}
+
+#copyResponse {
+    margin-top: 1rem;
+} 
