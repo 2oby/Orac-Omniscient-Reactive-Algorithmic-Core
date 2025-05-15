@@ -40,7 +40,7 @@ RUN mkdir -p /app/logs && chmod 777 /app/logs
 RUN mkdir -p /app/data && chmod 777 /app/data
 
 # Create startup script
-RUN echo '#!/bin/sh\npython3 -m orac.cli status\nwhile true; do sleep 1; done' > /app/start.sh && \
+RUN echo '#!/bin/sh\nuvicorn orac.api:app --host 0.0.0.0 --port 8000' > /app/start.sh && \
     chmod +x /app/start.sh
 
 # Set the entrypoint

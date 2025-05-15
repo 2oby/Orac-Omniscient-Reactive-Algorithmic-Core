@@ -2,10 +2,13 @@ services:
   orac:
     build: .
     container_name: orac
+    ports:
+      - "8000:8000"
     volumes:
       - ./models/gguf:/models/gguf:ro
       - ./third_party/llama_cpp:/app/third_party/llama_cpp:ro
       - ./logs:/app/logs
+      - ./data:/app/data
     environment:
       - LOG_LEVEL=INFO
       - LOG_DIR=/app/logs
