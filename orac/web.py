@@ -440,6 +440,9 @@ async def web_interface(request: Request):
                         throw new Error('Invalid response format: missing models array');
                     }
                     
+                    // Store models data for later use
+                    window.modelsData = data.models;
+                    
                     // Clear existing options
                     const select = document.getElementById('modelSelect');
                     select.innerHTML = '<option value="">Select a model...</option>';
@@ -475,11 +478,10 @@ async def web_interface(request: Request):
                 
                 if (selectedModel) {
                     starButton.style.display = 'inline-block';
-                    // Find the model in the list to check favorite status
-                    const modelItem = Array.from(document.querySelectorAll('.model-item'))
-                        .find(item => item.querySelector('span').textContent === selectedModel);
-                    if (modelItem) {
-                        starButton.className = `star-button ${modelItem.classList.contains('favorite-model') ? 'favorite' : ''}`;
+                    // Find the model in the stored models data
+                    const modelData = window.modelsData.find(m => m.name === selectedModel);
+                    if (modelData) {
+                        starButton.className = `star-button ${modelData.is_favorite ? 'favorite' : ''}`;
                     }
                 } else {
                     starButton.style.display = 'none';
