@@ -65,6 +65,19 @@ async def proxy_post(request: Request, path: str):
         logger.error(f"Error proxying POST request: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/api/{path:path}")
+async def proxy_delete(request: Request, path: str):
+    """Proxy DELETE requests to the API server."""
+    try:
+        response = await http_client.delete(f"/api/{path}")
+        return JSONResponse(
+            content=response.json(),
+            status_code=response.status_code
+        )
+    except Exception as e:
+        logger.error(f"Error proxying DELETE request: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/", response_class=HTMLResponse)
 async def web_interface(request: Request):
     """Serve the web interface."""
@@ -280,8 +293,11 @@ async def web_interface(request: Request):
                 
                 try {
                     const method = isFavorite ? 'DELETE' : 'POST';
-                    const response = await fetch(`/api/v1/models/${modelName}/favorite`, {
-                        method: method
+                    const response = await fetch(`/api/v1/models/${encodeURIComponent(modelName)}/favorite`, {
+                        method: method,
+                        headers: {
+                            'Accept': 'application/json'
+                        }
                     });
                     
                     if (response.ok) {
