@@ -11,15 +11,34 @@ async def test_cli_generation():
     models = await client.list_models()
     assert len(models) > 0, "No models found in /app/models/gguf"
     
-    # Use the first available model
-    model_name = models[0]["name"]
-    print(f"\nUsing model: {model_name}")
+    # Find the smallest model by file size
+    ls_result = subprocess.run(
+        ["ls", "-l", "/app/models/gguf/*.gguf"],
+        capture_output=True,
+        text=True,
+        shell=True,
+        check=True
+    )
+    
+    # Parse ls output to find smallest file
+    files = []
+    for line in ls_result.stdout.split('\n'):
+        if line.strip() and '.gguf' in line:
+            parts = line.split()
+            if len(parts) >= 9:  # ls -l output has at least 9 fields
+                size = int(parts[4])
+                name = parts[-1].split('/')[-1]  # Get just the filename
+                files.append((size, name))
+    
+    assert files, "No .gguf files found in /app/models/gguf"
+    smallest_model = min(files, key=lambda x: x[0])[1]
+    print(f"\nFound {len(files)} models. Using smallest model: {smallest_model} ({smallest_model[0]/1024/1024:.1f}MB)")
     
     # Test generation through CLI
     prompt = "Write a haiku about AI running on a Jetson Orin"
     result = subprocess.run(
         ["python3", "-m", "orac.cli", "generate", 
-         "--model", model_name,
+         "--model", smallest_model,
          "--prompt", prompt],
         capture_output=True,
         text=True,
@@ -33,7 +52,7 @@ async def test_cli_generation():
     
     # Log the interaction for visibility
     print("\n=== Model Interaction ===")
-    print(f"Model: {model_name}")
+    print(f"Model: {smallest_model}")
     print(f"Prompt: {prompt}")
     print(f"Response:\n{result.stdout}")
     print("=======================\n") 
