@@ -5,6 +5,7 @@ class GenerationRequest(BaseModel):
     """Request model for text generation."""
     prompt: str = Field(..., description="The input prompt for generation")
     model: str = Field("Qwen3-0.6B-Q4_K_M.gguf", description="Model to use for generation")
+    system_prompt: Optional[str] = Field(None, description="System prompt to use for chat models")
     temperature: float = Field(0.7, ge=0.0, le=1.0, description="Sampling temperature")
     max_tokens: int = Field(512, ge=1, le=2048, description="Maximum number of tokens to generate")
     top_p: float = Field(0.7, ge=0.0, le=1.0, description="Top-p sampling parameter")

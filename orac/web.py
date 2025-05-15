@@ -112,10 +112,23 @@ async def generate_text(request: GenerateRequest) -> GenerateResponse:
         logger.info(f"Generating text with model {request.model}")
         start_time = time.time()
         
+        # Get model config to check if it's a chat model
+        model_config = get_model_config(request.model)
+        if model_config and model_config.type == ModelType.CHAT:
+            # Use provided system prompt or fall back to model config
+            system_prompt = request.system_prompt or model_config.system_prompt
+            if system_prompt:
+                # Format prompt with system prompt for chat models
+                prompt = f"System: {system_prompt}\n\nUser: {request.prompt}\n\nAssistant:"
+            else:
+                prompt = request.prompt
+        else:
+            prompt = request.prompt
+        
         # Generate text
         response = await client.generate(
             model=request.model,
-            prompt=request.prompt,
+            prompt=prompt,
             temperature=request.temperature,
             max_tokens=request.max_tokens,
             top_p=request.top_p,
@@ -378,14 +391,19 @@ async def web_interface(request: Request):
                 <!-- Model list will be populated here -->
             </div>
             
-            <div class="form-group">
-                <label for="systemPrompt">System Prompt:</label>
-                <textarea id="systemPrompt" rows="3"></textarea>
+            <div class="input-group">
+                <label for="promptInput">Prompt:</label>
+                <textarea id="promptInput" rows="4" placeholder="Enter your prompt here..."></textarea>
             </div>
-            
-            <div class="form-group">
-                <label for="userPrompt">User Prompt:</label>
-                <textarea id="userPrompt" rows="5"></textarea>
+
+            <div id="systemPromptContainer" class="input-group" style="display: none;">
+                <label for="systemPrompt">System Prompt:</label>
+                <textarea id="systemPrompt" rows="3" placeholder="Enter system prompt (optional)"></textarea>
+            </div>
+
+            <div class="input-group">
+                <label for="temperature">Temperature:</label>
+                <input type="number" id="temperature" value="0.7" min="0" max="1" step="0.1">
             </div>
             
             <button onclick="generate()" id="generateBtn">Generate</button>
@@ -541,7 +559,7 @@ async def web_interface(request: Request):
             async function generate() {
                 const model = document.getElementById('modelSelect').value;
                 const systemPrompt = document.getElementById('systemPrompt').value;
-                const userPrompt = document.getElementById('userPrompt').value;
+                const userPrompt = document.getElementById('promptInput').value;
                 const generateBtn = document.getElementById('generateBtn');
                 const responseDiv = document.getElementById('response');
                 const statsDiv = document.getElementById('stats');
