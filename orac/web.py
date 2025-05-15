@@ -392,10 +392,6 @@ async def web_interface(request: Request):
                 </form>
             </div>
             
-            <div class="model-list" id="modelList">
-                <!-- Model list will be populated here -->
-            </div>
-            
             <div class="input-group">
                 <label for="promptInput">Prompt:</label>
                 <textarea id="promptInput" rows="4" placeholder="Enter your prompt here..."></textarea>
@@ -448,10 +444,6 @@ async def web_interface(request: Request):
                     const select = document.getElementById('modelSelect');
                     select.innerHTML = '<option value="">Select a model...</option>';
                     
-                    // Clear model list
-                    const modelList = document.getElementById('modelList');
-                    modelList.innerHTML = '';
-                    
                     // Sort models: favorites first, then by name
                     const sortedModels = data.models.sort((a, b) => {
                         if (a.is_favorite && !b.is_favorite) return -1;
@@ -459,22 +451,12 @@ async def web_interface(request: Request):
                         return a.name.localeCompare(b.name);
                     });
                     
-                    // Add models to dropdown and list
+                    // Add models to dropdown only
                     sortedModels.forEach(model => {
-                        // Add to dropdown
                         const option = document.createElement('option');
                         option.value = model.name;
                         option.textContent = model.name;
                         select.appendChild(option);
-                        
-                        // Add to list
-                        const modelItem = document.createElement('div');
-                        modelItem.className = `model-item ${model.is_favorite ? 'favorite-model' : ''}`;
-                        modelItem.innerHTML = `
-                            <span>${model.name}</span>
-                            <span class="model-size">${formatSize(model.size)}</span>
-                        `;
-                        modelList.appendChild(modelItem);
                     });
                     
                     // Update star button for currently selected model
@@ -482,8 +464,7 @@ async def web_interface(request: Request):
                     
                 } catch (error) {
                     console.error('Error loading models:', error);
-                    const modelList = document.getElementById('modelList');
-                    modelList.innerHTML = `<div class="error">Failed to load models: ${error.message}</div>`;
+                    alert(`Failed to load models: ${error.message}`);
                 }
             }
             
