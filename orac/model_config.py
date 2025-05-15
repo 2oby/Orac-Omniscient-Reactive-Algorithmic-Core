@@ -9,7 +9,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, Optional, Any
 from orac.logger import get_logger
-from orac.models import ModelConfigs, ModelConfig, ModelSettings, ModelType
+from orac.models import ModelConfigs, ModelConfig, ModelSettings, ModelType, ModelCapability
 
 logger = get_logger(__name__)
 
@@ -68,7 +68,21 @@ def load_configs() -> ModelConfigs:
             with open(CONFIG_FILE, 'r') as f:
                 data = yaml.safe_load(f)
                 if data is not None:
-                    return ModelConfigs(**data)
+                    try:
+                        # Convert string values back to enums where needed
+                        if 'models' in data:
+                            for model_name, model_data in data['models'].items():
+                                if 'type' in model_data:
+                                    model_data['type'] = ModelType(model_data['type'])
+                                if 'capabilities' in model_data:
+                                    model_data['capabilities'] = {
+                                        ModelCapability(cap) for cap in model_data['capabilities']
+                                    }
+                        return ModelConfigs(**data)
+                    except Exception as e:
+                        logger.error(f"Error parsing model configs: {str(e)}")
+                        # If parsing fails, reinitialize the config file
+                        return initialize_config_file()
         
         # Initialize new config file with defaults if it doesn't exist
         return initialize_config_file()
@@ -80,8 +94,10 @@ def save_configs(configs: ModelConfigs) -> bool:
     """Save model configurations to YAML file."""
     try:
         ensure_config_dir()
+        # Convert to dict and ensure enums are serialized as strings
+        config_dict = configs.model_dump(mode='json')  # This will convert enums to strings
         with open(CONFIG_FILE, 'w') as f:
-            yaml.safe_dump(configs.model_dump(), f, default_flow_style=False)
+            yaml.safe_dump(config_dict, f, default_flow_style=False)
         return True
     except Exception as e:
         logger.error(f"Error saving model configs: {str(e)}")
