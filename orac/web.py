@@ -281,22 +281,22 @@ async def web_interface(request: Request):
                 try {
                     const method = isFavorite ? 'DELETE' : 'POST';
                     const response = await fetch(`/api/v1/models/${modelName}/favorite`, {
-                        method: method,
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
+                        method: method
                     });
                     
                     if (response.ok) {
+                        const data = await response.json();
+                        console.log('Favorite toggle response:', data);
                         // Update star button and model list
                         starButton.classList.toggle('favorite');
                         await loadModels();  // Reload to update the list
                     } else {
-                        throw new Error(`Failed to ${isFavorite ? 'remove' : 'add'} favorite`);
+                        const error = await response.json();
+                        throw new Error(error.detail || `Failed to ${isFavorite ? 'remove' : 'add'} favorite`);
                     }
                 } catch (error) {
                     console.error('Error toggling favorite:', error);
-                    alert(`Failed to ${isFavorite ? 'remove' : 'add'} favorite. Please try again.`);
+                    alert(`Failed to ${isFavorite ? 'remove' : 'add'} favorite: ${error.message}`);
                 }
             }
 
