@@ -120,7 +120,11 @@ async def generate_text(request: GenerateRequest) -> GenerateResponse:
             system_prompt = request.system_prompt or model_config.system_prompt
             if system_prompt:
                 # Format prompt with system prompt for chat models
-                prompt = f"System: {system_prompt}\n\nUser: {request.prompt}\n\nAssistant:"
+                # Qwen models use a specific format
+                if "qwen" in request.model.lower():
+                    prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{request.prompt}<|im_end|>\n<|im_start|>assistant\n"
+                else:
+                    prompt = f"System: {system_prompt}\n\nUser: {request.prompt}\n\nAssistant:"
             else:
                 prompt = request.prompt
         else:

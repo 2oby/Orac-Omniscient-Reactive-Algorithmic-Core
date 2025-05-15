@@ -33,7 +33,10 @@ def get_default_settings() -> ModelSettings:
 def create_model_config(model_name: str) -> ModelConfig:
     """Create a new model configuration with default settings."""
     # Determine model type based on name
-    model_type = ModelType.CHAT if "chat" in model_name.lower() else ModelType.COMPLETION
+    model_type = ModelType.CHAT if (
+        "chat" in model_name.lower() or 
+        "qwen" in model_name.lower()  # Qwen models are chat models
+    ) else ModelType.COMPLETION
     
     # Create default system prompt based on model type
     system_prompt = (
@@ -42,10 +45,19 @@ def create_model_config(model_name: str) -> ModelConfig:
         else None
     )
     
+    # Set default capabilities based on model type
+    capabilities = {
+        ModelCapability.SYSTEM_PROMPT,
+        ModelCapability.CHAT_HISTORY,
+        ModelCapability.INSTRUCTION_FOLLOWING
+    } if model_type == ModelType.CHAT else {
+        ModelCapability.TEXT_COMPLETION
+    }
+    
     return ModelConfig(
         type=model_type,
         system_prompt=system_prompt,
-        capabilities=[],  # Start with no capabilities, can be added later
+        capabilities=capabilities,
         settings=get_default_settings(),
         notes=f"Configuration for {model_name}"
     )

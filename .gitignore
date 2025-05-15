@@ -5,6 +5,12 @@
 # Keep our API models directory
 !orac/api/models/
 
+# Data directory - allow the directory but exclude model files
+/data/*.gguf
+/data/*.bin
+/data/*.pt
+/data/*.safetensors
+
 # macOS system files
 .DS_Store
 .AppleDouble
