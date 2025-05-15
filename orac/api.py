@@ -8,11 +8,16 @@ Provides endpoints for:
 - Text generation
 - System status
 - Configuration management (favorites, model settings)
+- Web interface
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
 from typing import List, Dict, Any
+import os
 
 from orac.logger import get_logger
 from orac.llama_cpp_client import LlamaCppClient
@@ -27,8 +32,8 @@ logger = get_logger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
-    title="ORAC API",
-    description="REST API for ORAC - Omniscient Reactive Algorithmic Core",
+    title="ORAC",
+    description="Omniscient Reactive Algorithmic Core - Web Interface and API",
     version="0.2.0"
 )
 
@@ -40,6 +45,20 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+# Set up static files and templates for web interface
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
+
+# Create directories if they don't exist
+os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(TEMPLATES_DIR, exist_ok=True)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Set up templates
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # Global client instance
 client = None
@@ -179,4 +198,13 @@ async def shutdown_event():
     if client is not None:
         # Add any cleanup needed
         client = None
-        logger.info("API server shutdown complete") 
+        logger.info("API server shutdown complete")
+
+# Web interface routes
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    """Serve the main web interface."""
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "title": "ORAC - Omniscient Reactive Algorithmic Core"}
+    ) 
