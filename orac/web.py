@@ -43,8 +43,13 @@ async def proxy_get(request: Request, path: str):
     """Proxy GET requests to the API server."""
     try:
         response = await http_client.get(f"/api/{path}")
+        if response.content:
+            return JSONResponse(
+                content=response.json(),
+                status_code=response.status_code
+            )
         return JSONResponse(
-            content=response.json(),
+            content={"status": "success"},
             status_code=response.status_code
         )
     except Exception as e:
@@ -57,8 +62,13 @@ async def proxy_post(request: Request, path: str):
     try:
         body = await request.json()
         response = await http_client.post(f"/api/{path}", json=body)
+        if response.content:
+            return JSONResponse(
+                content=response.json(),
+                status_code=response.status_code
+            )
         return JSONResponse(
-            content=response.json(),
+            content={"status": "success"},
             status_code=response.status_code
         )
     except Exception as e:
@@ -70,8 +80,13 @@ async def proxy_delete(request: Request, path: str):
     """Proxy DELETE requests to the API server."""
     try:
         response = await http_client.delete(f"/api/{path}")
+        if response.content:
+            return JSONResponse(
+                content=response.json(),
+                status_code=response.status_code
+            )
         return JSONResponse(
-            content=response.json(),
+            content={"status": "success"},
             status_code=response.status_code
         )
     except Exception as e:
