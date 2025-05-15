@@ -215,16 +215,159 @@ async def web_interface(request: Request):
             .favorite-model {
                 background-color: #fff8e1;
             }
+            .config-panel {
+                display: none;
+                margin-top: 20px;
+                padding: 15px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                background: #f9f9f9;
+            }
+            
+            .config-panel.active {
+                display: block;
+            }
+            
+            .config-form {
+                display: grid;
+                gap: 10px;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+            
+            .config-group {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .config-group label {
+                font-weight: bold;
+                color: #333;
+            }
+            
+            .config-group input,
+            .config-group select,
+            .config-group textarea {
+                padding: 8px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            
+            .config-group textarea {
+                min-height: 100px;
+                resize: vertical;
+            }
+            
+            .capability-tags {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5px;
+                margin-top: 5px;
+            }
+            
+            .capability-tag {
+                background: #e3f2fd;
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-size: 12px;
+                color: #1976d2;
+            }
+            
+            .config-actions {
+                display: flex;
+                gap: 10px;
+                margin-top: 15px;
+            }
+            
+            .config-actions button {
+                flex: 1;
+            }
+            
+            .config-actions button.secondary {
+                background: #757575;
+            }
+            
+            .config-actions button.danger {
+                background: #d32f2f;
+            }
         </style>
     </head>
     <body>
         <h1>ORAC Web Interface</h1>
         <div class="container">
             <div class="model-selector">
-                <select id="modelSelect" onchange="updateStarButton()">
+                <select id="modelSelect" onchange="updateStarButton(); loadModelConfig();">
                     <option value="">Select a model...</option>
                 </select>
                 <button id="starButton" class="star-button" onclick="toggleFavorite()" style="display:none">★</button>
+                <button id="configButton" class="button" onclick="toggleConfigPanel()" style="display:none">⚙️</button>
+            </div>
+            
+            <div class="config-panel" id="configPanel">
+                <h3>Model Configuration</h3>
+                <form id="configForm" class="config-form" onsubmit="saveModelConfig(event)">
+                    <div class="config-group">
+                        <label for="modelType">Model Type:</label>
+                        <select id="modelType" name="type" required>
+                            <option value="chat">Chat</option>
+                            <option value="completion">Completion</option>
+                        </select>
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="systemPrompt">System Prompt:</label>
+                        <textarea id="systemPrompt" name="system_prompt" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="config-group">
+                        <label>Capabilities:</label>
+                        <div class="capability-tags" id="capabilityTags">
+                            <!-- Capability tags will be added here -->
+                        </div>
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="temperature">Temperature:</label>
+                        <input type="number" id="temperature" name="settings.temperature" 
+                               min="0" max="2" step="0.1" required>
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="maxTokens">Max Tokens:</label>
+                        <input type="number" id="maxTokens" name="settings.max_tokens" 
+                               min="1" required>
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="topP">Top P:</label>
+                        <input type="number" id="topP" name="settings.top_p" 
+                               min="0" max="1" step="0.01" required>
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="repeatPenalty">Repeat Penalty:</label>
+                        <input type="number" id="repeatPenalty" name="settings.repeat_penalty" 
+                               min="0" step="0.1" required>
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="topK">Top K:</label>
+                        <input type="number" id="topK" name="settings.top_k" 
+                               min="1" required>
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="notes">Notes:</label>
+                        <textarea id="notes" name="notes" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="config-actions">
+                        <button type="submit">Save Configuration</button>
+                        <button type="button" class="secondary" onclick="resetConfig()">Reset</button>
+                        <button type="button" class="danger" onclick="deleteConfig()">Delete</button>
+                    </div>
+                </form>
             </div>
             
             <div class="model-list" id="modelList">
@@ -442,10 +585,165 @@ async def web_interface(request: Request):
                 }
             }
 
+            // Model configuration management
+            const capabilityOptions = [
+                'system_prompt', 'chat_history', 'instruction_following',
+                'creative_writing', 'complex_reasoning', 'text_completion'
+            ];
+            
+            function toggleConfigPanel() {
+                const panel = document.getElementById('configPanel');
+                panel.classList.toggle('active');
+            }
+            
+            function updateCapabilityTags(capabilities) {
+                const container = document.getElementById('capabilityTags');
+                container.innerHTML = '';
+                capabilities.forEach(cap => {
+                    const tag = document.createElement('span');
+                    tag.className = 'capability-tag';
+                    tag.textContent = cap;
+                    container.appendChild(tag);
+                });
+            }
+            
+            async function loadModelConfig() {
+                const modelName = document.getElementById('modelSelect').value;
+                if (!modelName) {
+                    document.getElementById('configPanel').classList.remove('active');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/api/v1/models/${encodeURIComponent(modelName)}/config`);
+                    if (response.ok) {
+                        const config = await response.json();
+                        populateConfigForm(config);
+                    } else if (response.status === 404) {
+                        // No config exists, show empty form
+                        resetConfig();
+                    } else {
+                        throw new Error('Failed to load configuration');
+                    }
+                } catch (error) {
+                    console.error('Error loading model config:', error);
+                    alert('Failed to load model configuration');
+                }
+            }
+            
+            function populateConfigForm(config) {
+                document.getElementById('modelType').value = config.type;
+                document.getElementById('systemPrompt').value = config.system_prompt || '';
+                document.getElementById('temperature').value = config.settings.temperature;
+                document.getElementById('maxTokens').value = config.settings.max_tokens;
+                document.getElementById('topP').value = config.settings.top_p;
+                document.getElementById('repeatPenalty').value = config.settings.repeat_penalty;
+                document.getElementById('topK').value = config.settings.top_k;
+                document.getElementById('notes').value = config.notes || '';
+                updateCapabilityTags(config.capabilities);
+            }
+            
+            function resetConfig() {
+                const modelName = document.getElementById('modelSelect').value;
+                if (!modelName) return;
+                
+                // Reset to default values
+                document.getElementById('modelType').value = 'chat';
+                document.getElementById('systemPrompt').value = 
+                    'You are a helpful AI assistant. Provide accurate and concise responses.';
+                document.getElementById('temperature').value = '0.7';
+                document.getElementById('maxTokens').value = '2048';
+                document.getElementById('topP').value = '0.95';
+                document.getElementById('repeatPenalty').value = '1.1';
+                document.getElementById('topK').value = '40';
+                document.getElementById('notes').value = '';
+                updateCapabilityTags(['system_prompt', 'chat_history', 'instruction_following']);
+            }
+            
+            async function saveModelConfig(event) {
+                event.preventDefault();
+                const modelName = document.getElementById('modelSelect').value;
+                if (!modelName) return;
+                
+                const formData = new FormData(event.target);
+                const config = {
+                    type: formData.get('type'),
+                    system_prompt: formData.get('system_prompt'),
+                    capabilities: Array.from(document.querySelectorAll('.capability-tag'))
+                        .map(tag => tag.textContent),
+                    settings: {
+                        temperature: parseFloat(formData.get('settings.temperature')),
+                        max_tokens: parseInt(formData.get('settings.max_tokens')),
+                        top_p: parseFloat(formData.get('settings.top_p')),
+                        repeat_penalty: parseFloat(formData.get('settings.repeat_penalty')),
+                        top_k: parseInt(formData.get('settings.top_k'))
+                    },
+                    notes: formData.get('notes')
+                };
+                
+                try {
+                    const response = await fetch(
+                        `/api/v1/models/${encodeURIComponent(modelName)}/config`,
+                        {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(config)
+                        }
+                    );
+                    
+                    if (response.ok) {
+                        alert('Configuration saved successfully');
+                    } else {
+                        throw new Error('Failed to save configuration');
+                    }
+                } catch (error) {
+                    console.error('Error saving model config:', error);
+                    alert('Failed to save model configuration');
+                }
+            }
+            
+            async function deleteConfig() {
+                const modelName = document.getElementById('modelSelect').value;
+                if (!modelName || !confirm('Are you sure you want to delete this configuration?')) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(
+                        `/api/v1/models/${encodeURIComponent(modelName)}/config`,
+                        { method: 'DELETE' }
+                    );
+                    
+                    if (response.ok) {
+                        alert('Configuration deleted successfully');
+                        resetConfig();
+                    } else {
+                        throw new Error('Failed to delete configuration');
+                    }
+                } catch (error) {
+                    console.error('Error deleting model config:', error);
+                    alert('Failed to delete model configuration');
+                }
+            }
+            
+            // Update model list to show config button
+            function updateModelList() {
+                const select = document.getElementById('modelSelect');
+                const configButton = document.getElementById('configButton');
+                configButton.style.display = select.value ? 'inline-block' : 'none';
+            }
+            
+            // Add config button visibility to existing model selection handlers
+            const originalUpdateStarButton = updateStarButton;
+            updateStarButton = function() {
+                originalUpdateStarButton();
+                updateModelList();
+            };
+
             // Load models when page loads
             loadModels();
         </script>
     </body>
     </html>
     """
-    return HTMLResponse(html) 
+    return HTMLResponse(content=html) 

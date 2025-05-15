@@ -56,6 +56,39 @@ else
     git push origin "$DEPLOY_BRANCH"
 fi
 
+# Check for local changes to configuration files
+if [ -f data/favorites.json ] || [ -f data/model_configs.yaml ]; then
+    echo '${BLUE}Checking for local configuration changes...${NC}'
+    
+    # Check favorites.json
+    if [ -f data/favorites.json ]; then
+        if ! git diff --quiet data/favorites.json 2>/dev/null; then
+            echo '${BLUE}Found local changes to favorites.json, committing...${NC}'
+            git add data/favorites.json
+            git commit -m 'chore: update model favorites from production' || true
+        else
+            echo '${BLUE}No local changes to favorites.json${NC}'
+        fi
+    else
+        echo '${BLUE}No favorites.json file found yet${NC}'
+    fi
+    
+    # Check model_configs.yaml
+    if [ -f data/model_configs.yaml ]; then
+        if ! git diff --quiet data/model_configs.yaml 2>/dev/null; then
+            echo '${BLUE}Found local changes to model_configs.yaml, committing...${NC}'
+            git add data/model_configs.yaml
+            git commit -m 'chore: update model configurations from production' || true
+        else
+            echo '${BLUE}No local changes to model_configs.yaml${NC}'
+        fi
+    else
+        echo '${BLUE}No model_configs.yaml file found yet${NC}'
+    fi
+else
+    echo '${BLUE}No configuration files found yet${NC}'
+fi
+
 # 2) Remote: commit local changes, pull, build & test in container
 echo -e "${YELLOW}👉 Running remote update & tests on $REMOTE_ALIAS...${NC}"
 ssh "$REMOTE_ALIAS" "\

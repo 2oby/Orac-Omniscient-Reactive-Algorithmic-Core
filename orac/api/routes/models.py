@@ -1,8 +1,16 @@
 from fastapi import APIRouter, HTTPException
-from orac.models import ModelListResponse, ModelInfo
+from orac.models import (
+    ModelListResponse, ModelInfo, ModelConfig, ModelConfigs,
+    ModelSettings, ModelType, ModelCapability
+)
 from orac.llama_cpp_client import LlamaCppClient
 from orac.logger import get_logger
 from orac.favorites import add_favorite, remove_favorite, is_favorite
+from orac.model_config import (
+    get_model_config, update_model_config, delete_model_config,
+    get_default_settings, update_default_settings, load_configs
+)
+from typing import Set
 
 router = APIRouter(tags=["models"])
 logger = get_logger(__name__)
@@ -66,4 +74,114 @@ async def unfavorite_model(model_name: str):
         return {"status": "info", "message": f"{model_name} was not in favorites"}
     except Exception as e:
         logger.error(f"Error removing favorite: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get(
+    "/models/configs",
+    response_model=ModelConfigs,
+    operation_id="get_model_configs",
+    summary="Get all model configurations",
+    description="Returns the complete model configuration including defaults and model-specific settings."
+)
+async def get_configs() -> ModelConfigs:
+    """Get all model configurations."""
+    try:
+        return load_configs()
+    except Exception as e:
+        logger.error(f"Error getting model configs: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get(
+    "/models/{model_name}/config",
+    response_model=ModelConfig,
+    operation_id="get_model_config",
+    summary="Get model configuration",
+    description="Returns the configuration for a specific model."
+)
+async def get_config(model_name: str) -> ModelConfig:
+    """Get configuration for a specific model."""
+    try:
+        config = get_model_config(model_name)
+        if config is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No configuration found for model {model_name}"
+            )
+        return config
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting model config: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put(
+    "/models/{model_name}/config",
+    response_model=ModelConfig,
+    operation_id="update_model_config",
+    summary="Update model configuration",
+    description="Updates the configuration for a specific model."
+)
+async def update_config(model_name: str, config: ModelConfig) -> ModelConfig:
+    """Update configuration for a specific model."""
+    try:
+        if update_model_config(model_name, config):
+            return config
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update configuration for model {model_name}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating model config: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete(
+    "/models/{model_name}/config",
+    operation_id="delete_model_config",
+    summary="Delete model configuration",
+    description="Deletes the configuration for a specific model."
+)
+async def delete_config(model_name: str):
+    """Delete configuration for a specific model."""
+    try:
+        if delete_model_config(model_name):
+            return {"status": "success", "message": f"Deleted configuration for {model_name}"}
+        return {"status": "info", "message": f"No configuration found for {model_name}"}
+    except Exception as e:
+        logger.error(f"Error deleting model config: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get(
+    "/models/configs/defaults",
+    response_model=ModelSettings,
+    operation_id="get_default_settings",
+    summary="Get default settings",
+    description="Returns the default settings for all models."
+)
+async def get_defaults() -> ModelSettings:
+    """Get default model settings."""
+    try:
+        return get_default_settings()
+    except Exception as e:
+        logger.error(f"Error getting default settings: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put(
+    "/models/configs/defaults",
+    response_model=ModelSettings,
+    operation_id="update_default_settings",
+    summary="Update default settings",
+    description="Updates the default settings for all models."
+)
+async def update_defaults(settings: ModelSettings) -> ModelSettings:
+    """Update default model settings."""
+    try:
+        if update_default_settings(settings):
+            return settings
+        raise HTTPException(status_code=500, detail="Failed to update default settings")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating default settings: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) 

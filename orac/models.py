@@ -7,8 +7,51 @@ Defines Pydantic models for request/response validation and type safety.
 These models are used for llama.cpp-based model management and inference.
 """
 
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Set
+from pydantic import BaseModel, Field, validator
+from enum import Enum
+
+class ModelType(str, Enum):
+    """Type of model (chat or completion)."""
+    CHAT = "chat"
+    COMPLETION = "completion"
+
+class ModelCapability(str, Enum):
+    """Capabilities a model may have."""
+    SYSTEM_PROMPT = "system_prompt"
+    CHAT_HISTORY = "chat_history"
+    INSTRUCTION_FOLLOWING = "instruction_following"
+    CREATIVE_WRITING = "creative_writing"
+    COMPLEX_REASONING = "complex_reasoning"
+    TEXT_COMPLETION = "text_completion"
+
+class ModelSettings(BaseModel):
+    """Model-specific settings."""
+    temperature: float = Field(0.7, ge=0.0, le=2.0, description="Sampling temperature")
+    max_tokens: int = Field(2048, gt=0, description="Maximum tokens to generate")
+    top_p: float = Field(0.95, ge=0.0, le=1.0, description="Top-p sampling parameter")
+    repeat_penalty: float = Field(1.1, ge=0.0, description="Repeat penalty")
+    top_k: int = Field(40, gt=0, description="Top-k sampling parameter")
+
+class ModelConfig(BaseModel):
+    """Configuration for a specific model."""
+    type: ModelType = Field(..., description="Type of model (chat or completion)")
+    system_prompt: Optional[str] = Field(None, description="Default system prompt for chat models")
+    capabilities: Set[ModelCapability] = Field(..., description="Model capabilities")
+    settings: ModelSettings = Field(default_factory=ModelSettings, description="Model-specific settings")
+    notes: Optional[str] = Field(None, description="Additional notes about the model")
+
+    @validator('system_prompt')
+    def validate_system_prompt(cls, v, values):
+        """Validate system prompt based on model type."""
+        if 'type' in values and values['type'] == ModelType.CHAT and v is None:
+            return "You are a helpful AI assistant. Provide accurate and concise responses."
+        return v
+
+class ModelConfigs(BaseModel):
+    """Container for all model configurations."""
+    defaults: ModelSettings = Field(default_factory=ModelSettings, description="Default settings for all models")
+    models: Dict[str, ModelConfig] = Field(..., description="Model-specific configurations")
 
 class ModelInfo(BaseModel):
     """Information about a model."""
@@ -17,6 +60,7 @@ class ModelInfo(BaseModel):
     modified: float = Field(..., description="Last modification timestamp")
     backend: str = Field("llama_cpp", description="Backend used for inference")
     is_favorite: bool = Field(False, description="Whether the model is favorited")
+    config: Optional[ModelConfig] = Field(None, description="Model configuration if available")
 
 class ModelListResponse(BaseModel):
     """Response for model listing endpoint."""
