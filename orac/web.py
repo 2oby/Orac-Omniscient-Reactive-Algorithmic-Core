@@ -9,10 +9,13 @@ Provides both the HTML interface and API endpoints in a single server.
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
 from orac.logger import get_logger
 from orac.favorites import add_favorite, remove_favorite, is_favorite
 from orac.llama_cpp_client import LlamaCppClient
 from orac.models import ModelListResponse, ModelInfo
+import time
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -39,6 +42,22 @@ client = LlamaCppClient()
 # Default system prompt
 DEFAULT_SYSTEM_PROMPT = """You are a helpful AI assistant running on a Jetson Orin Nano.
 You aim to be concise, accurate, and helpful in your responses."""
+
+class GenerateRequest(BaseModel):
+    """Request model for text generation."""
+    model: str
+    prompt: str
+    system_prompt: Optional[str] = DEFAULT_SYSTEM_PROMPT
+    temperature: float = 0.7
+    max_tokens: int = 200
+    top_p: float = 0.95
+    top_k: int = 40
+
+class GenerateResponse(BaseModel):
+    """Response model for text generation."""
+    generated_text: str
+    model: str
+    elapsed_ms: float
 
 @app.get("/api/v1/models", response_model=ModelListResponse)
 async def list_models() -> ModelListResponse:
@@ -80,6 +99,36 @@ async def unfavorite_model(model_name: str):
         return {"status": "info", "message": f"{model_name} was not in favorites"}
     except Exception as e:
         logger.error(f"Error removing favorite: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/generate", response_model=GenerateResponse)
+async def generate_text(request: GenerateRequest) -> GenerateResponse:
+    """Generate text using the specified model."""
+    try:
+        logger.info(f"Generating text with model {request.model}")
+        start_time = time.time()
+        
+        # Generate text
+        generated_text = await client.generate(
+            model_name=request.model,
+            prompt=request.prompt,
+            system_prompt=request.system_prompt,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            top_p=request.top_p,
+            top_k=request.top_k
+        )
+        
+        elapsed_ms = (time.time() - start_time) * 1000
+        logger.info(f"Generation completed in {elapsed_ms:.0f}ms")
+        
+        return GenerateResponse(
+            generated_text=generated_text,
+            model=request.model,
+            elapsed_ms=elapsed_ms
+        )
+    except Exception as e:
+        logger.error(f"Error generating text: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/", response_class=HTMLResponse)
