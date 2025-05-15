@@ -82,20 +82,41 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
     };
 
     try {
-        const response = await fetch('/api/settings', {
+        const response = await fetch('/v1/config/models', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                model_name: selectedModel,
-                settings: settings
+                models: {
+                    [selectedModel]: {
+                        system_prompt: settings.system_prompt,
+                        recommended_settings: {
+                            temperature: settings.temperature,
+                            top_p: settings.top_p,
+                            top_k: settings.top_k,
+                            max_tokens: settings.max_tokens
+                        }
+                    }
+                }
             })
         });
 
         if (!response.ok) {
-            throw new Error('Failed to save settings');
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to save settings');
         }
+
+        // Update model configs after successful save
+        modelConfigs[selectedModel] = {
+            system_prompt: settings.system_prompt,
+            recommended_settings: {
+                temperature: settings.temperature,
+                top_p: settings.top_p,
+                top_k: settings.top_k,
+                max_tokens: settings.max_tokens
+            }
+        };
 
         // Update current settings after successful save
         currentSettings = {
