@@ -4,65 +4,112 @@ orac.model_config
 Manages model configurations functionality.
 """
 
+import os
 import yaml
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 from orac.logger import get_logger
-from orac.models import ModelConfigs, ModelConfig, ModelSettings
+from orac.models import ModelConfigs, ModelConfig, ModelSettings, ModelType
 
 logger = get_logger(__name__)
 
-# Store configs in a YAML file in the app directory
-CONFIG_FILE = Path("/app/data/model_configs.yaml")
+CONFIG_DIR = "/app/data"
+CONFIG_FILE = os.path.join(CONFIG_DIR, "model_configs.yaml")
 
 def ensure_config_dir():
-    """Ensure the config directory exists."""
-    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    """Ensure the configuration directory exists."""
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+
+def get_default_settings() -> ModelSettings:
+    """Get default model settings."""
+    return ModelSettings(
+        temperature=0.7,
+        max_tokens=2048,
+        top_p=0.95,
+        repeat_penalty=1.1,
+        top_k=40
+    )
+
+def create_model_config(model_name: str) -> ModelConfig:
+    """Create a new model configuration with default settings."""
+    # Determine model type based on name
+    model_type = ModelType.CHAT if "chat" in model_name.lower() else ModelType.COMPLETION
+    
+    # Create default system prompt based on model type
+    system_prompt = (
+        "You are a helpful AI assistant. You provide clear, concise, and accurate responses."
+        if model_type == ModelType.CHAT
+        else None
+    )
+    
+    return ModelConfig(
+        type=model_type,
+        system_prompt=system_prompt,
+        capabilities=[],  # Start with no capabilities, can be added later
+        settings=get_default_settings(),
+        notes=f"Configuration for {model_name}"
+    )
+
+def initialize_config_file() -> ModelConfigs:
+    """Initialize the configuration file with default settings."""
+    configs = ModelConfigs(
+        defaults=get_default_settings(),
+        models={}
+    )
+    save_configs(configs)
+    return configs
 
 def load_configs() -> ModelConfigs:
     """Load model configurations from YAML file."""
+    ensure_config_dir()
+    
     try:
-        ensure_config_dir()
-        if CONFIG_FILE.exists():
+        if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, 'r') as f:
-                data = yaml.safe_load(f) or {}
-                return ModelConfigs(**data)
-        # Return default config if file doesn't exist
-        return ModelConfigs(
-            defaults=ModelSettings(),
-            models={}
-        )
+                data = yaml.safe_load(f)
+                if data is not None:
+                    return ModelConfigs(**data)
+        
+        # Initialize new config file with defaults if it doesn't exist
+        return initialize_config_file()
     except Exception as e:
-        logger.error(f"Error loading model configs: {e}")
-        return ModelConfigs(
-            defaults=ModelSettings(),
-            models={}
-        )
+        logger.error(f"Error loading model configs: {str(e)}")
+        return initialize_config_file()
 
-def save_configs(configs: ModelConfigs):
+def save_configs(configs: ModelConfigs) -> bool:
     """Save model configurations to YAML file."""
     try:
         ensure_config_dir()
         with open(CONFIG_FILE, 'w') as f:
-            yaml.safe_dump(configs.dict(), f, default_flow_style=False, sort_keys=False)
+            yaml.safe_dump(configs.model_dump(), f, default_flow_style=False)
+        return True
     except Exception as e:
-        logger.error(f"Error saving model configs: {e}")
-        raise
+        logger.error(f"Error saving model configs: {str(e)}")
+        return False
 
 def get_model_config(model_name: str) -> Optional[ModelConfig]:
-    """Get configuration for a specific model."""
+    """Get configuration for a specific model. Returns None if not configured."""
     configs = load_configs()
     return configs.models.get(model_name)
+
+def create_or_update_model_config(model_name: str, config: Optional[ModelConfig] = None) -> ModelConfig:
+    """Create or update configuration for a specific model."""
+    configs = load_configs()
+    
+    if config is None:
+        config = create_model_config(model_name)
+    
+    configs.models[model_name] = config
+    if save_configs(configs):
+        return config
+    raise RuntimeError(f"Failed to save configuration for model {model_name}")
 
 def update_model_config(model_name: str, config: ModelConfig) -> bool:
     """Update configuration for a specific model."""
     try:
-        configs = load_configs()
-        configs.models[model_name] = config
-        save_configs(configs)
-        return True
+        return create_or_update_model_config(model_name, config) is not None
     except Exception as e:
-        logger.error(f"Error updating model config for {model_name}: {e}")
+        logger.error(f"Error updating model config: {str(e)}")
         return False
 
 def delete_model_config(model_name: str) -> bool:
@@ -71,24 +118,18 @@ def delete_model_config(model_name: str) -> bool:
         configs = load_configs()
         if model_name in configs.models:
             del configs.models[model_name]
-            save_configs(configs)
-            return True
-        return False
+            return save_configs(configs)
+        return True  # Model config didn't exist, so deletion is successful
     except Exception as e:
-        logger.error(f"Error deleting model config for {model_name}: {e}")
+        logger.error(f"Error deleting model config: {str(e)}")
         return False
-
-def get_default_settings() -> ModelSettings:
-    """Get default model settings."""
-    return load_configs().defaults
 
 def update_default_settings(settings: ModelSettings) -> bool:
     """Update default model settings."""
     try:
         configs = load_configs()
         configs.defaults = settings
-        save_configs(configs)
-        return True
+        return save_configs(configs)
     except Exception as e:
-        logger.error(f"Error updating default settings: {e}")
+        logger.error(f"Error updating default settings: {str(e)}")
         return False 

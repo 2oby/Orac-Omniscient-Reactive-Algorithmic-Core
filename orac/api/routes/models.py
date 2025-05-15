@@ -8,7 +8,7 @@ from orac.logger import get_logger
 from orac.favorites import add_favorite, remove_favorite, is_favorite
 from orac.model_config import (
     get_model_config, update_model_config, delete_model_config,
-    get_default_settings, update_default_settings, load_configs
+    get_default_settings, update_default_settings, load_configs, create_or_update_model_config
 )
 from typing import Set
 
@@ -102,22 +102,16 @@ async def get_configs() -> ModelConfigs:
     summary="Get model configuration",
     description="Returns the configuration for a specific model."
 )
-async def get_config(model_name: str) -> ModelConfig:
+async def get_model_config(model_name: str):
     """Get configuration for a specific model."""
-    try:
-        model_name = normalize_model_name(model_name)
-        config = get_model_config(model_name)
-        if config is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No configuration found for model {model_name}"
-            )
-        return config
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting model config: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    normalized_name = normalize_model_name(model_name)
+    config = get_model_config(normalized_name)
+    if config is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No configuration found for model {model_name}. Use PUT to create one."
+        )
+    return config
 
 @router.put(
     "/models/{model_name}/config",
@@ -126,21 +120,17 @@ async def get_config(model_name: str) -> ModelConfig:
     summary="Update model configuration",
     description="Updates the configuration for a specific model."
 )
-async def update_config(model_name: str, config: ModelConfig) -> ModelConfig:
-    """Update configuration for a specific model."""
+async def update_model_config(model_name: str, config: ModelConfig):
+    """Create or update configuration for a specific model."""
     try:
-        model_name = normalize_model_name(model_name)
-        if update_model_config(model_name, config):
-            return config
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to update configuration for model {model_name}"
-        )
-    except HTTPException:
-        raise
+        normalized_name = normalize_model_name(model_name)
+        return create_or_update_model_config(normalized_name, config)
     except Exception as e:
         logger.error(f"Error updating model config: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update configuration for model {model_name}: {str(e)}"
+        )
 
 @router.delete(
     "/models/{model_name}/config",
