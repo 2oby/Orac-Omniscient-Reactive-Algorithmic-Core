@@ -102,16 +102,21 @@ async def get_configs() -> ModelConfigs:
     summary="Get model configuration",
     description="Returns the configuration for a specific model."
 )
-async def get_model_config(model_name: str):
+async def get_model_config_endpoint(model_name: str):
     """Get configuration for a specific model."""
-    normalized_name = normalize_model_name(model_name)
-    config = get_model_config(normalized_name)
-    if config is None:
+    try:
+        normalized_name = normalize_model_name(model_name)
+        config = get_model_config(normalized_name)
+        if config is None:
+            # Create a default config if none exists
+            config = create_or_update_model_config(normalized_name)
+        return config
+    except Exception as e:
+        logger.error(f"Error getting model config: {str(e)}")
         raise HTTPException(
-            status_code=404,
-            detail=f"No configuration found for model {model_name}. Use PUT to create one."
+            status_code=500,
+            detail=f"Failed to get configuration for model {model_name}: {str(e)}"
         )
-    return config
 
 @router.put(
     "/models/{model_name}/config",
