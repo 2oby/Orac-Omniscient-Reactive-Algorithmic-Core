@@ -25,19 +25,19 @@ let currentSettings = null;  // Store current settings for cancel functionality
 
 // Function to collapse settings panel
 function collapseSettingsPanel() {
-    settingsContent.classList.add('hidden');
+    settingsContent.classList.remove('active');
     settingsToggle.textContent = 'Model Settings';
 }
 
 // Function to expand settings panel
 function expandSettingsPanel() {
-    settingsContent.classList.remove('hidden');
+    settingsContent.classList.add('active');
     settingsToggle.textContent = 'Hide Settings';
 }
 
 // Settings toggle button click handler
 settingsToggle.addEventListener('click', () => {
-    if (settingsContent.classList.contains('hidden')) {
+    if (!settingsContent.classList.contains('active')) {
         // Store current settings before expanding
         currentSettings = {
             systemPrompt: systemPrompt.value,
