@@ -1,24 +1,26 @@
 """
 orac.web
 --------
-Simple web interface for ORAC.
+Web interface and API for ORAC.
 
-Provides a minimal HTML interface for interacting with the ORAC API.
+Provides both the HTML interface and API endpoints in a single server.
 """
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-import httpx
 from orac.logger import get_logger
+from orac.favorites import add_favorite, remove_favorite, is_favorite
+from orac.llama_cpp_client import LlamaCppClient
+from orac.models import ModelListResponse, ModelInfo
 
 # Get logger for this module
 logger = get_logger(__name__)
 
-# Create FastAPI application for web interface
+# Create FastAPI application
 app = FastAPI(
     title="ORAC Web Interface",
-    description="Simple web interface for ORAC LLM service",
+    description="Web interface and API for ORAC LLM service",
     version="0.1.0"
 )
 
@@ -31,74 +33,53 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize the llama.cpp client
+client = LlamaCppClient()
+
 # Default system prompt
 DEFAULT_SYSTEM_PROMPT = """You are a helpful AI assistant running on a Jetson Orin Nano.
 You aim to be concise, accurate, and helpful in your responses."""
 
-# Create HTTP client for proxying requests
-http_client = httpx.AsyncClient(base_url="http://127.0.0.1:8000", timeout=90.0)
-
-@app.get("/api/{path:path}")
-async def proxy_get(request: Request, path: str):
-    """Proxy GET requests to the API server."""
+@app.get("/api/v1/models", response_model=ModelListResponse)
+async def list_models() -> ModelListResponse:
+    """List available models."""
     try:
-        response = await http_client.get(f"/api/{path}")
-        if response.content:
-            return JSONResponse(
-                content=response.json(),
-                status_code=response.status_code
-            )
-        return JSONResponse(
-            content={"status": "success"},
-            status_code=response.status_code
+        models = await client.list_models()
+        # Add favorite status to each model
+        models_with_favorites = [
+            {**m, "is_favorite": is_favorite(m["name"])} 
+            for m in models
+        ]
+        # Sort models: favorites first, then by name
+        sorted_models = sorted(
+            models_with_favorites,
+            key=lambda x: (not x["is_favorite"], x["name"])
         )
+        return {"models": [ModelInfo(**m) for m in sorted_models]}
     except Exception as e:
-        logger.error(f"Error proxying GET request: {str(e)}")
+        logger.error(f"Error listing models: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/{path:path}")
-async def proxy_post(request: Request, path: str):
-    """Proxy POST requests to the API server."""
+@app.post("/api/v1/models/{model_name}/favorite")
+async def favorite_model(model_name: str):
+    """Add a model to favorites."""
     try:
-        body = await request.json()
-        response = await http_client.post(f"/api/{path}", json=body)
-        if response.content:
-            return JSONResponse(
-                content=response.json(),
-                status_code=response.status_code
-            )
-        return JSONResponse(
-            content={"status": "success"},
-            status_code=response.status_code
-        )
+        if add_favorite(model_name):
+            return {"status": "success", "message": f"Added {model_name} to favorites"}
+        return {"status": "info", "message": f"{model_name} was already in favorites"}
     except Exception as e:
-        logger.error(f"Error proxying POST request: {str(e)}")
+        logger.error(f"Error adding favorite: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/api/{path:path}")
-async def proxy_delete(request: Request, path: str):
-    """Proxy DELETE requests to the API server."""
+@app.delete("/api/v1/models/{model_name}/favorite")
+async def unfavorite_model(model_name: str):
+    """Remove a model from favorites."""
     try:
-        logger.info(f"Proxying DELETE request to /api/{path}")
-        response = await http_client.delete(f"/api/{path}")
-        logger.info(f"API response status: {response.status_code}")
-        logger.info(f"API response headers: {response.headers}")
-        logger.info(f"API response content: {response.content}")
-        
-        if response.content:
-            content = response.json()
-            logger.info(f"Parsed JSON response: {content}")
-            return JSONResponse(
-                content=content,
-                status_code=response.status_code
-            )
-        logger.info("No content in response, returning success")
-        return JSONResponse(
-            content={"status": "success"},
-            status_code=response.status_code
-        )
+        if remove_favorite(model_name):
+            return {"status": "success", "message": f"Removed {model_name} from favorites"}
+        return {"status": "info", "message": f"{model_name} was not in favorites"}
     except Exception as e:
-        logger.error(f"Error proxying DELETE request: {str(e)}")
+        logger.error(f"Error removing favorite: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/", response_class=HTMLResponse)
