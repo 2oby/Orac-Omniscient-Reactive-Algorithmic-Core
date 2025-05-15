@@ -176,7 +176,7 @@ async def web_interface(request: Request):
                 <textarea id="userPrompt" rows="5"></textarea>
             </div>
             
-            <button onclick="generate()">Generate</button>
+            <button onclick="generate()" id="generateBtn">Generate</button>
             
             <div id="response" class="response"></div>
             
@@ -199,8 +199,15 @@ async def web_interface(request: Request):
             // Load available models
             async function loadModels() {
                 try {
+                    console.log('Fetching models...');
                     const response = await fetch('/api/v1/models');
-                    const models = await response.json();
+                    console.log('Response status:', response.status);
+                    const data = await response.json();
+                    console.log('Models data:', data);
+                    
+                    if (!data.models) {
+                        throw new Error('Invalid response format: missing models array');
+                    }
                     
                     // Clear existing options
                     const select = document.getElementById('modelSelect');
@@ -211,7 +218,7 @@ async def web_interface(request: Request):
                     modelList.innerHTML = '';
                     
                     // Sort models: favorites first, then by name
-                    const sortedModels = models.sort((a, b) => {
+                    const sortedModels = data.models.sort((a, b) => {
                         if (a.is_favorite && !b.is_favorite) return -1;
                         if (!a.is_favorite && b.is_favorite) return 1;
                         return a.name.localeCompare(b.name);
@@ -240,7 +247,8 @@ async def web_interface(request: Request):
                     
                 } catch (error) {
                     console.error('Error loading models:', error);
-                    alert('Failed to load models. Please try again.');
+                    const modelList = document.getElementById('modelList');
+                    modelList.innerHTML = `<div class="error">Failed to load models: ${error.message}</div>`;
                 }
             }
             
