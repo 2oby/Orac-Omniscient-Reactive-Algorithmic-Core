@@ -1,9 +1,16 @@
+"""
+orac.api.routes.generate
+-----------------------
+API routes for text generation.
+"""
+
 import time
 from fastapi import APIRouter, HTTPException
 from orac.api.models.schemas import GenerationRequest, GenerationResponse
 from orac.llama_cpp_client import LlamaCppClient
-from orac.logger import get_logger
 from orac.model_config import get_model_config
+from orac.prompt_manager import prompt_manager
+from orac.logger import get_logger
 from orac.models.model_type import ModelType
 
 router = APIRouter(tags=["generation"])
@@ -20,7 +27,7 @@ client = LlamaCppClient()
     description="Generate text using the specified model and parameters. Returns the generated text along with generation metadata."
 )
 async def generate_text(request: GenerationRequest) -> GenerationResponse:
-    """Generate text using the specified model and parameters."""
+    """Generate text using the specified model."""
     try:
         start_time = time.time()
         
@@ -33,16 +40,23 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
                 detail=f"Model {request.model} not found. Available models: {model_names}"
             )
         
-        # Get model config to check if it's a chat model and get system prompt
+        # Get model config
         model_config = get_model_config(request.model)
+        
+        # Get appropriate system prompt using prompt manager
+        prompt_state = prompt_manager.get_system_prompt(
+            model_name=request.model,
+            user_prompt=request.system_prompt,
+            model_config=model_config
+        )
+        
+        # Format the final prompt
         if model_config and model_config.type == ModelType.CHAT:
-            # Use provided system prompt or fall back to model config
-            system_prompt = request.system_prompt or model_config.system_prompt
-            if system_prompt:
-                # Format prompt with system prompt for chat models
-                prompt = f"System: {system_prompt}\n\nUser: {request.prompt}\n\nAssistant:"
-            else:
-                prompt = request.prompt
+            prompt = prompt_manager.format_prompt(
+                system_prompt=prompt_state.prompt,
+                user_prompt=request.prompt,
+                model_name=request.model
+            )
         else:
             prompt = request.prompt
         
@@ -57,7 +71,10 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
                 top_k=request.top_k
             )
             
-            # The generate method returns a PromptResponse object
+            # Log prompt state for debugging
+            logger.debug(f"Prompt state: {prompt_state.dict()}")
+            
+            # Return response with prompt metadata
             return GenerationResponse(
                 generated_text=response.response,
                 model=request.model,
@@ -67,7 +84,11 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
                     "max_tokens": request.max_tokens,
                     "top_p": request.top_p,
                     "top_k": request.top_k,
-                    "system_prompt": system_prompt if model_config and model_config.type == ModelType.CHAT else None
+                    "system_prompt": {
+                        "text": prompt_state.prompt,
+                        "source": prompt_state.source,
+                        "metadata": prompt_state.metadata
+                    } if model_config and model_config.type == ModelType.CHAT else None
                 },
                 elapsed_ms=response.elapsed_ms
             )

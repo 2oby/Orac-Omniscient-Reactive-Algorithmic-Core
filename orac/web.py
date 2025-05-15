@@ -17,6 +17,8 @@ from orac.llama_cpp_client import LlamaCppClient
 from orac.models import ModelListResponse, ModelInfo, ModelType
 from orac.model_config import get_model_config
 from orac.api.routes.models import router as models_router
+from orac.api.routes.generate import router as generate_router
+from orac.middleware import PromptLoggingMiddleware
 import time
 
 # Get logger for this module
@@ -29,7 +31,7 @@ app = FastAPI(
     version="0.1.0"
 )
 
-# Add CORS middleware
+# Add middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -37,9 +39,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(PromptLoggingMiddleware)
 
-# Include the models router
+# Include the API routers
 app.include_router(models_router, prefix="/api/v1")
+app.include_router(generate_router, prefix="/api/v1")
 
 # Initialize the llama.cpp client
 client = LlamaCppClient()
@@ -313,6 +317,48 @@ async def web_interface(request: Request):
             .config-actions button.danger {
                 background: #d32f2f;
             }
+
+            .system-prompt-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 5px;
+            }
+
+            .system-prompt-actions {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .system-prompt-source {
+                font-size: 0.9em;
+                color: #666;
+                padding: 2px 8px;
+                background: #f0f0f0;
+                border-radius: 12px;
+            }
+
+            .system-prompt-info {
+                font-size: 0.9em;
+                color: #666;
+                margin-top: 5px;
+            }
+
+            .system-prompt-source.user {
+                background: #e3f2fd;
+                color: #1976d2;
+            }
+
+            .system-prompt-source.model {
+                background: #f3e5f5;
+                color: #7b1fa2;
+            }
+
+            .system-prompt-source.default {
+                background: #f1f8e9;
+                color: #689f38;
+            }
         </style>
     </head>
     <body>
@@ -398,8 +444,17 @@ async def web_interface(request: Request):
             </div>
 
             <div id="systemPromptContainer" class="input-group" style="display: none;">
-                <label for="systemPromptInput">System Prompt:</label>
+                <div class="system-prompt-header">
+                    <label for="systemPromptInput">System Prompt:</label>
+                    <div class="system-prompt-actions">
+                        <button type="button" class="secondary" onclick="resetSystemPrompt()" id="resetSystemPromptBtn" style="display: none;">
+                            Reset to Model Config
+                        </button>
+                        <span class="system-prompt-source" id="systemPromptSource"></span>
+                    </div>
+                </div>
                 <textarea id="systemPromptInput" rows="3" placeholder="Enter system prompt (optional)"></textarea>
+                <div class="system-prompt-info" id="systemPromptInfo"></div>
             </div>
 
             <div class="input-group">
@@ -582,6 +637,18 @@ async def web_interface(request: Request):
                     
                     if (response.ok) {
                         responseDiv.textContent = data.generated_text;
+                        
+                        // Update system prompt UI based on response
+                        if (data.parameters?.system_prompt) {
+                            const source = data.parameters.system_prompt.source;
+                            updateSystemPromptUI(
+                                data.parameters.system_prompt.text,
+                                source === 'user_input' ? 'user' :
+                                source === 'model_config' ? 'model' :
+                                'default'
+                            );
+                        }
+                        
                         statsDiv.textContent = 
                             `Generation time: ${data.elapsed_ms.toFixed(0)}ms\n` +
                             `Total request time: ${(endTime - startTime).toFixed(0)}ms\n` +
@@ -633,12 +700,15 @@ async def web_interface(request: Request):
                     if (response.ok) {
                         const config = await response.json();
                         populateConfigForm(config);
+                        
                         // Show/hide system prompt based on model type
                         const systemPromptContainer = document.getElementById('systemPromptContainer');
                         systemPromptContainer.style.display = config.type === 'chat' ? 'block' : 'none';
-                        // Set system prompt from config if available
-                        if (config.type === 'chat' && config.system_prompt) {
-                            document.getElementById('systemPromptInput').value = config.system_prompt;
+                        
+                        // Store model config system prompt for reset functionality
+                        if (config.type === 'chat') {
+                            window.modelConfigSystemPrompt = config.system_prompt;
+                            updateSystemPromptUI(config.system_prompt, 'model');
                         }
                     } else if (response.status === 404) {
                         // No config exists, show empty form
@@ -770,6 +840,45 @@ async def web_interface(request: Request):
 
             // Load models when page loads
             loadModels();
+
+            function updateSystemPromptUI(prompt, source) {
+                const systemPromptInput = document.getElementById('systemPromptInput');
+                const systemPromptSource = document.getElementById('systemPromptSource');
+                const resetSystemPromptBtn = document.getElementById('resetSystemPromptBtn');
+                const systemPromptInfo = document.getElementById('systemPromptInfo');
+                
+                // Update input value
+                systemPromptInput.value = prompt || '';
+                
+                // Update source indicator
+                systemPromptSource.textContent = source === 'user' ? 'User Input' :
+                                               source === 'model' ? 'Model Config' :
+                                               'Default';
+                systemPromptSource.className = `system-prompt-source ${source}`;
+                
+                // Show/hide reset button
+                resetSystemPromptBtn.style.display = 
+                    source === 'user' && window.modelConfigSystemPrompt ? 'inline-block' : 'none';
+                
+                // Update info text
+                systemPromptInfo.textContent = 
+                    source === 'user' ? 'Using custom system prompt' :
+                    source === 'model' ? 'Using model\'s default system prompt' :
+                    'Using default system prompt';
+            }
+
+            function resetSystemPrompt() {
+                if (window.modelConfigSystemPrompt) {
+                    updateSystemPromptUI(window.modelConfigSystemPrompt, 'model');
+                }
+            }
+
+            // Add system prompt input change handler
+            document.getElementById('systemPromptInput').addEventListener('input', function(e) {
+                if (e.target.value !== window.modelConfigSystemPrompt) {
+                    updateSystemPromptUI(e.target.value, 'user');
+                }
+            });
         </script>
     </body>
     </html>
