@@ -615,7 +615,9 @@ async def web_interface(request: Request):
                 }
                 
                 try {
-                    const response = await fetch(`/api/v1/models/${encodeURIComponent(modelName)}/config`);
+                    // Remove .gguf extension if present
+                    const normalizedName = modelName.replace('.gguf', '');
+                    const response = await fetch(`/api/v1/models/${encodeURIComponent(normalizedName)}/config`);
                     if (response.ok) {
                         const config = await response.json();
                         populateConfigForm(config);
@@ -682,8 +684,10 @@ async def web_interface(request: Request):
                 };
                 
                 try {
+                    // Remove .gguf extension if present
+                    const normalizedName = modelName.replace('.gguf', '');
                     const response = await fetch(
-                        `/api/v1/models/${encodeURIComponent(modelName)}/config`,
+                        `/api/v1/models/${encodeURIComponent(normalizedName)}/config`,
                         {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
@@ -694,11 +698,12 @@ async def web_interface(request: Request):
                     if (response.ok) {
                         alert('Configuration saved successfully');
                     } else {
-                        throw new Error('Failed to save configuration');
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to save configuration');
                     }
                 } catch (error) {
                     console.error('Error saving model config:', error);
-                    alert('Failed to save model configuration');
+                    alert(`Failed to save model configuration: ${error.message}`);
                 }
             }
             
@@ -709,8 +714,10 @@ async def web_interface(request: Request):
                 }
                 
                 try {
+                    // Remove .gguf extension if present
+                    const normalizedName = modelName.replace('.gguf', '');
                     const response = await fetch(
-                        `/api/v1/models/${encodeURIComponent(modelName)}/config`,
+                        `/api/v1/models/${encodeURIComponent(normalizedName)}/config`,
                         { method: 'DELETE' }
                     );
                     
@@ -718,11 +725,12 @@ async def web_interface(request: Request):
                         alert('Configuration deleted successfully');
                         resetConfig();
                     } else {
-                        throw new Error('Failed to delete configuration');
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to delete configuration');
                     }
                 } catch (error) {
                     console.error('Error deleting model config:', error);
-                    alert('Failed to delete model configuration');
+                    alert(`Failed to delete model configuration: ${error.message}`);
                 }
             }
             

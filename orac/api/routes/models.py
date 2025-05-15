@@ -18,6 +18,10 @@ logger = get_logger(__name__)
 # Initialize the llama.cpp client
 client = LlamaCppClient()
 
+def normalize_model_name(model_name: str) -> str:
+    """Remove .gguf extension from model name if present."""
+    return model_name.replace('.gguf', '')
+
 @router.get(
     "/models",
     response_model=ModelListResponse,
@@ -101,6 +105,7 @@ async def get_configs() -> ModelConfigs:
 async def get_config(model_name: str) -> ModelConfig:
     """Get configuration for a specific model."""
     try:
+        model_name = normalize_model_name(model_name)
         config = get_model_config(model_name)
         if config is None:
             raise HTTPException(
@@ -124,6 +129,7 @@ async def get_config(model_name: str) -> ModelConfig:
 async def update_config(model_name: str, config: ModelConfig) -> ModelConfig:
     """Update configuration for a specific model."""
     try:
+        model_name = normalize_model_name(model_name)
         if update_model_config(model_name, config):
             return config
         raise HTTPException(
@@ -145,6 +151,7 @@ async def update_config(model_name: str, config: ModelConfig) -> ModelConfig:
 async def delete_config(model_name: str):
     """Delete configuration for a specific model."""
     try:
+        model_name = normalize_model_name(model_name)
         if delete_model_config(model_name):
             return {"status": "success", "message": f"Deleted configuration for {model_name}"}
         return {"status": "info", "message": f"No configuration found for {model_name}"}
