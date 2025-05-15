@@ -29,18 +29,24 @@ settingsToggle.addEventListener('click', () => {
 // Load models and favorites
 async function loadModels() {
     try {
+        console.log('Loading models...');
         // Load models
         const response = await fetch('/v1/models');
         const data = await response.json();
+        console.log('Models loaded:', data);
         
         // Load favorites
+        console.log('Loading favorites...');
         const favResponse = await fetch('/v1/config/favorites');
         const favData = await favResponse.json();
+        console.log('Favorites loaded:', favData);
         favorites = favData.favorite_models || [];
 
         // Load model configs
+        console.log('Loading model configs...');
         const configResponse = await fetch('/v1/config/models');
         const configData = await configResponse.json();
+        console.log('Model configs loaded:', configData);
         modelConfigs = configData.models || {};
 
         // Clear existing options
@@ -49,6 +55,8 @@ async function loadModels() {
         // Add favorite models first
         const favoriteModels = data.models.filter(model => favorites.includes(model.name));
         const otherModels = data.models.filter(model => !favorites.includes(model.name));
+        console.log('Favorite models:', favoriteModels);
+        console.log('Other models:', otherModels);
 
         // Add favorite models to dropdown
         favoriteModels.forEach(model => {
@@ -61,6 +69,8 @@ async function loadModels() {
             const option = createModelOption(model, false);
             modelSelect.appendChild(option);
         });
+        
+        console.log('Dropdown populated with', modelSelect.options.length - 1, 'models');
     } catch (error) {
         console.error('Error loading models:', error);
     }

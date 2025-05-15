@@ -73,7 +73,18 @@ def load_favorites() -> Dict[str, Any]:
     try:
         with open(FAVORITES_PATH, 'r') as f:
             config = json.load(f)
-        return config
+            # Handle legacy format (list of model names)
+            if isinstance(config, list):
+                logger.info("Converting legacy favorites format to new format")
+                config = {
+                    "favorite_models": config,
+                    "default_model": config[0] if config else None,
+                    "default_settings": DEFAULT_FAVORITES["default_settings"]
+                }
+                # Save in new format
+                with open(FAVORITES_PATH, 'w') as f:
+                    json.dump(config, f, indent=2)
+            return config
     except Exception as e:
         logger.error(f"Error loading favorites.json: {e}")
         return DEFAULT_FAVORITES
