@@ -109,7 +109,7 @@ async def generate_text(request: GenerateRequest) -> GenerateResponse:
         start_time = time.time()
         
         # Generate text
-        generated_text = await client.generate(
+        response = await client.generate(
             model=request.model,
             prompt=request.prompt,
             temperature=request.temperature,
@@ -122,7 +122,7 @@ async def generate_text(request: GenerateRequest) -> GenerateResponse:
         logger.info(f"Generation completed in {elapsed_ms:.0f}ms")
         
         return GenerateResponse(
-            generated_text=generated_text,
+            generated_text=response.response,
             model=request.model,
             elapsed_ms=elapsed_ms
         )
