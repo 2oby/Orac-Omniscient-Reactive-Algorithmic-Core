@@ -28,9 +28,7 @@ ENV/
 *.swp
 *.swo
 
-# Exclude test files
-tests/
-test/
+# Keep test files but exclude test artifacts
 .pytest_cache/
 .coverage
 htmlcov/

@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   orac:
     build: .
     container_name: orac
     volumes:
-      - /mnt/external/models/gguf:/app/models/gguf:ro
+      - ./models/gguf:/app/models/gguf:ro
       - ./third_party/llama_cpp:/app/third_party/llama_cpp:ro
       - ./logs:/app/logs
     ports:

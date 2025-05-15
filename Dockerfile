@@ -26,6 +26,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 COPY setup.py .
 COPY orac/ ./orac/
 COPY scripts/ ./scripts/
+COPY tests/ ./tests/
 COPY third_party/llama_cpp/bin/ ./third_party/llama_cpp/bin/
 COPY third_party/llama_cpp/lib/ ./third_party/llama_cpp/lib/
 
