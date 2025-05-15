@@ -15,6 +15,7 @@ from orac.logger import get_logger
 from orac.favorites import add_favorite, remove_favorite, is_favorite
 from orac.llama_cpp_client import LlamaCppClient
 from orac.models import ModelListResponse, ModelInfo
+from orac.api.routes.models import router as models_router
 import time
 
 # Get logger for this module
@@ -35,6 +36,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include the models router
+app.include_router(models_router, prefix="/api/v1")
 
 # Initialize the llama.cpp client
 client = LlamaCppClient()

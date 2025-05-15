@@ -123,8 +123,14 @@ async def get_model_config(model_name: str):
 async def update_model_config(model_name: str, config: ModelConfig):
     """Create or update configuration for a specific model."""
     try:
+        logger.info(f"Received update request for model: {model_name}")
         normalized_name = normalize_model_name(model_name)
-        return create_or_update_model_config(normalized_name, config)
+        logger.info(f"Normalized model name: {normalized_name}")
+        logger.info(f"Config data: {config.model_dump()}")
+        
+        result = create_or_update_model_config(normalized_name, config)
+        logger.info(f"Successfully updated config for model: {normalized_name}")
+        return result
     except Exception as e:
         logger.error(f"Error updating model config: {str(e)}")
         raise HTTPException(
