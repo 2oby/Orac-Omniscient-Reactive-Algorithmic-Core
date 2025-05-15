@@ -79,12 +79,20 @@ async def proxy_post(request: Request, path: str):
 async def proxy_delete(request: Request, path: str):
     """Proxy DELETE requests to the API server."""
     try:
+        logger.info(f"Proxying DELETE request to /api/{path}")
         response = await http_client.delete(f"/api/{path}")
+        logger.info(f"API response status: {response.status_code}")
+        logger.info(f"API response headers: {response.headers}")
+        logger.info(f"API response content: {response.content}")
+        
         if response.content:
+            content = response.json()
+            logger.info(f"Parsed JSON response: {content}")
             return JSONResponse(
-                content=response.json(),
+                content=content,
                 status_code=response.status_code
             )
+        logger.info("No content in response, returning success")
         return JSONResponse(
             content={"status": "success"},
             status_code=response.status_code
@@ -308,6 +316,7 @@ async def web_interface(request: Request):
                 
                 try {
                     const method = isFavorite ? 'DELETE' : 'POST';
+                    console.log(`Sending ${method} request to toggle favorite for ${modelName}`);
                     const response = await fetch(`/api/v1/models/${encodeURIComponent(modelName)}/favorite`, {
                         method: method,
                         headers: {
@@ -315,14 +324,35 @@ async def web_interface(request: Request):
                         }
                     });
                     
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                    
                     if (response.ok) {
-                        const data = await response.json();
-                        console.log('Favorite toggle response:', data);
+                        const contentType = response.headers.get('content-type');
+                        console.log('Response content type:', contentType);
+                        
+                        let data;
+                        if (contentType && contentType.includes('application/json')) {
+                            data = await response.json();
+                            console.log('Parsed JSON response:', data);
+                        } else {
+                            data = { status: 'success' };
+                            console.log('No JSON content, using default success response');
+                        }
+                        
                         // Update star button and model list
                         starButton.classList.toggle('favorite');
                         await loadModels();  // Reload to update the list
                     } else {
-                        const error = await response.json();
+                        console.log('Error response received');
+                        const errorText = await response.text();
+                        console.log('Error response text:', errorText);
+                        let error;
+                        try {
+                            error = JSON.parse(errorText);
+                        } catch (e) {
+                            error = { detail: `Failed to ${isFavorite ? 'remove' : 'add'} favorite` };
+                        }
                         throw new Error(error.detail || `Failed to ${isFavorite ? 'remove' : 'add'} favorite`);
                     }
                 } catch (error) {
