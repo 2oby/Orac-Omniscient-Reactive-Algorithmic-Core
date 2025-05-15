@@ -146,5 +146,58 @@ saveSettings.addEventListener('click', async () => {
     }
 });
 
+// Handle generate button click
+generateButton.addEventListener('click', async () => {
+    if (!currentModel) {
+        alert('Please select a model first');
+        return;
+    }
+
+    const prompt = promptInput.value.trim();
+    if (!prompt) {
+        alert('Please enter a prompt');
+        return;
+    }
+
+    // Show generating indicator and hide copy button
+    generatingIndicator.classList.remove('hidden');
+    copyResponse.classList.add('hidden');
+    responseOutput.textContent = '';
+    generateButton.disabled = true;
+
+    try {
+        const response = await fetch('/v1/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: currentModel,
+                prompt: prompt,
+                stream: false,  // We'll implement streaming in the next iteration
+                temperature: parseFloat(temperature.value),
+                top_p: parseFloat(topP.value),
+                top_k: parseInt(topK.value),
+                max_tokens: parseInt(maxTokens.value)
+            })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            responseOutput.textContent = data.response;
+            copyResponse.classList.remove('hidden');
+        } else {
+            responseOutput.textContent = `Error: ${data.detail || 'Failed to generate response'}`;
+        }
+    } catch (error) {
+        console.error('Error generating response:', error);
+        responseOutput.textContent = `Error: ${error.message}`;
+    } finally {
+        generatingIndicator.classList.add('hidden');
+        generateButton.disabled = false;
+    }
+});
+
 // Initialize
 loadModels(); 
