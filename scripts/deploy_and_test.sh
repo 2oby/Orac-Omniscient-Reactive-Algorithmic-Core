@@ -151,7 +151,7 @@ ssh "$REMOTE_ALIAS" "\
     fi; \
     
     echo '${BLUE}🔍 Checking model file...${NC}'; \
-    \$DOCKER_CMD exec -T $SERVICE_NAME ls -l /models/gguf/$MODEL_NAME; \
+    \$DOCKER_CMD exec -T $SERVICE_NAME ls -l /app/models/gguf/$MODEL_NAME; \
     
     echo '${BLUE}🧪 Testing generation with $MODEL_NAME...${NC}'; \
     \$DOCKER_CMD exec -T $SERVICE_NAME python3 -m orac.cli generate --model $MODEL_NAME --prompt 'Write a haiku about AI running on a Jetson Orin'; \
