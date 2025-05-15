@@ -159,7 +159,7 @@ async def web_interface(request: Request):
                 <select id="modelSelect" onchange="updateStarButton()">
                     <option value="">Select a model...</option>
                 </select>
-                <button id="starButton" class="star-button" onclick="toggleFavorite()" style="display: none;">★</button>
+                <button id="starButton" class="star-button" onclick="toggleFavorite()" style="display:none">★</button>
             </div>
             
             <div class="model-list" id="modelList">
@@ -168,18 +168,19 @@ async def web_interface(request: Request):
             
             <div class="form-group">
                 <label for="systemPrompt">System Prompt:</label>
-                <textarea id="systemPrompt">""" + DEFAULT_SYSTEM_PROMPT + """</textarea>
+                <textarea id="systemPrompt" rows="3"></textarea>
             </div>
             
             <div class="form-group">
                 <label for="userPrompt">User Prompt:</label>
-                <textarea id="userPrompt" placeholder="Enter your prompt here..."></textarea>
+                <textarea id="userPrompt" rows="5"></textarea>
             </div>
             
-            <button onclick="generate()" id="generateBtn">Generate</button>
+            <button onclick="generate()">Generate</button>
+            
+            <div id="response" class="response"></div>
             
             <div id="stats"></div>
-            <div id="response"></div>
         </div>
 
         <script>
