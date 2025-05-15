@@ -19,17 +19,13 @@ async def test_cli_generation():
         if filename.endswith('.gguf'):
             filepath = os.path.join(model_dir, filename)
             size = os.path.getsize(filepath)
-            # Skip files that are too small (likely placeholders or corrupted)
-            if size < 100 * 1024 * 1024:  # Skip files smaller than 100MB
-                print(f"Skipping {filename} (too small: {size/1024/1024:.1f}MB)")
-                continue
             # Prefer Qwen3 models, but accept any valid model
             if 'Qwen3' in filename:
                 files.append((size, filename, True))  # True indicates Qwen3 model
             else:
                 files.append((size, filename, False))
     
-    assert files, f"No suitable .gguf files found in {model_dir}. Available files: {os.listdir(model_dir)}"
+    assert files, f"No .gguf files found in {model_dir}. Available files: {os.listdir(model_dir)}"
     
     # First try to find the smallest Qwen3 model
     qwen_models = [f for f in files if f[2]]
@@ -41,15 +37,13 @@ async def test_cli_generation():
         test_model = min(files, key=lambda x: x[0])[1]
         print(f"\nNo Qwen3 models found. Using smallest available model: {test_model} ({min(files)[0]/1024/1024:.1f}MB)")
     
-    # Test generation through CLI with system prompt
-    system_prompt = "You are a helpful AI assistant running on a Jetson Orin. Write concise, creative responses."
+    # Test generation through CLI
     user_prompt = "Write a haiku about AI running on a Jetson Orin"
     
     try:
         result = subprocess.run(
             ["python3", "-m", "orac.cli", "generate", 
              "--model", test_model,
-             "--system-prompt", system_prompt,
              "--prompt", user_prompt],
             capture_output=True,
             text=True,
@@ -65,7 +59,6 @@ async def test_cli_generation():
         # Log the interaction for visibility
         print("\n=== Model Interaction ===")
         print(f"Model: {test_model}")
-        print(f"System Prompt: {system_prompt}")
         print(f"User Prompt: {user_prompt}")
         print(f"Response:\n{result.stdout}")
         print("=======================\n")
