@@ -1,4 +1,5 @@
 import subprocess
+import os
 import pytest
 import asyncio
 from orac.llama_cpp_client import LlamaCppClient
@@ -11,28 +12,18 @@ async def test_cli_generation():
     models = await client.list_models()
     assert len(models) > 0, "No models found in /app/models/gguf"
     
-    # Find the smallest model by file size
-    ls_result = subprocess.run(
-        ["ls", "-l", "/app/models/gguf/*.gguf"],
-        capture_output=True,
-        text=True,
-        shell=True,
-        check=True
-    )
-    
-    # Parse ls output to find smallest file
+    # Find the smallest model by file size using os module
+    model_dir = "/app/models/gguf"
     files = []
-    for line in ls_result.stdout.split('\n'):
-        if line.strip() and '.gguf' in line:
-            parts = line.split()
-            if len(parts) >= 9:  # ls -l output has at least 9 fields
-                size = int(parts[4])
-                name = parts[-1].split('/')[-1]  # Get just the filename
-                files.append((size, name))
+    for filename in os.listdir(model_dir):
+        if filename.endswith('.gguf'):
+            filepath = os.path.join(model_dir, filename)
+            size = os.path.getsize(filepath)
+            files.append((size, filename))
     
-    assert files, "No .gguf files found in /app/models/gguf"
+    assert files, f"No .gguf files found in {model_dir}. Available files: {os.listdir(model_dir)}"
     smallest_model = min(files, key=lambda x: x[0])[1]
-    print(f"\nFound {len(files)} models. Using smallest model: {smallest_model} ({smallest_model[0]/1024/1024:.1f}MB)")
+    print(f"\nFound {len(files)} models. Using smallest model: {smallest_model} ({files[0][0]/1024/1024:.1f}MB)")
     
     # Test generation through CLI
     prompt = "Write a haiku about AI running on a Jetson Orin"
