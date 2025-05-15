@@ -41,6 +41,9 @@ RUN pip3 install -e .
 # Create log directory
 RUN mkdir -p /app/logs && chmod 777 /app/logs
 
+# Create data directory for favorites
+RUN mkdir -p /app/data && chmod 777 /app/data
+
 # Make start script executable
 RUN chmod +x /app/scripts/start.sh
 

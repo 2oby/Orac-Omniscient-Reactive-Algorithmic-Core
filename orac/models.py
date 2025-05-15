@@ -16,6 +16,7 @@ class ModelInfo(BaseModel):
     size: int = Field(..., description="Model size in bytes")
     modified: float = Field(..., description="Last modification timestamp")
     backend: str = Field("llama_cpp", description="Backend used for inference")
+    is_favorite: bool = Field(False, description="Whether the model is favorited")
 
 class ModelListResponse(BaseModel):
     """Response for model listing endpoint."""

@@ -104,13 +104,49 @@ async def web_interface(request: Request):
                 margin-top: 10px; 
             }
             .error { color: red; }
+            .model-list {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+            .model-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px;
+                background: #f8f8f8;
+                border-radius: 4px;
+            }
+            .model-name {
+                flex-grow: 1;
+            }
+            .star-button {
+                background: none;
+                border: none;
+                cursor: pointer;
+                font-size: 1.5em;
+                padding: 0;
+                color: #ccc;
+            }
+            .star-button.favorite {
+                color: #ffd700;
+            }
+            .model-size {
+                color: #666;
+                font-size: 0.9em;
+            }
         </style>
     </head>
     <body>
         <h1>ORAC Web Interface</h1>
         <div class="container">
+            <div class="model-list" id="modelList">
+                <!-- Models will be populated here -->
+            </div>
+            
             <div class="form-group">
-                <label for="model">Model:</label>
+                <label for="model">Selected Model:</label>
                 <select id="model"></select>
             </div>
             
@@ -136,14 +172,70 @@ async def web_interface(request: Request):
                 try {
                     const response = await fetch('/api/v1/models');
                     const data = await response.json();
+                    const modelList = document.getElementById('modelList');
                     const select = document.getElementById('model');
-                    select.innerHTML = data.models.map(m => 
-                        `<option value="${m.name}">${m.name}</option>`
-                    ).join('');
+                    
+                    // Clear existing content
+                    modelList.innerHTML = '';
+                    select.innerHTML = '';
+                    
+                    // Add each model to both the list and select
+                    data.models.forEach(m => {
+                        // Add to select dropdown
+                        const option = document.createElement('option');
+                        option.value = m.name;
+                        option.textContent = m.name;
+                        select.appendChild(option);
+                        
+                        // Add to model list
+                        const modelItem = document.createElement('div');
+                        modelItem.className = 'model-item';
+                        
+                        const starButton = document.createElement('button');
+                        starButton.className = `star-button ${m.is_favorite ? 'favorite' : ''}`;
+                        starButton.innerHTML = m.is_favorite ? '★' : '☆';
+                        starButton.onclick = () => toggleFavorite(m.name, starButton);
+                        
+                        const modelName = document.createElement('span');
+                        modelName.className = 'model-name';
+                        modelName.textContent = m.name;
+                        
+                        const modelSize = document.createElement('span');
+                        modelSize.className = 'model-size';
+                        modelSize.textContent = `${(m.size / (1024*1024)).toFixed(1)} MB`;
+                        
+                        modelItem.appendChild(starButton);
+                        modelItem.appendChild(modelName);
+                        modelItem.appendChild(modelSize);
+                        modelList.appendChild(modelItem);
+                    });
                 } catch (e) {
                     console.error('Error loading models:', e);
                     document.getElementById('response').innerHTML = 
                         `<span class="error">Error loading models: ${e.message}</span>`;
+                }
+            }
+
+            // Toggle favorite status
+            async function toggleFavorite(modelName, button) {
+                try {
+                    const isFavorite = button.classList.contains('favorite');
+                    const method = isFavorite ? 'DELETE' : 'POST';
+                    const response = await fetch(`/api/v1/models/${encodeURIComponent(modelName)}/favorite`, {
+                        method: method
+                    });
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        button.classList.toggle('favorite');
+                        button.innerHTML = button.classList.contains('favorite') ? '★' : '☆';
+                        // Reload models to update the order
+                        loadModels();
+                    } else {
+                        console.error('Error toggling favorite:', data.detail);
+                    }
+                } catch (e) {
+                    console.error('Error toggling favorite:', e);
                 }
             }
 

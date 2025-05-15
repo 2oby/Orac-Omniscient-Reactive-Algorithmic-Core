@@ -6,6 +6,7 @@ services:
       - ./models/gguf:/app/models/gguf:ro
       - ./third_party/llama_cpp:/app/third_party/llama_cpp:ro
       - ./logs:/app/logs
+      - ./data:/app/data  # Add persistent data directory for favorites
     ports:
       - "8000:8000"  # API port
       - "80:80"      # Web interface port

@@ -56,7 +56,7 @@ else
     git push origin "$DEPLOY_BRANCH"
 fi
 
-# 2) Remote: pull, build & test in container
+# 2) Remote: commit local changes, pull, build & test in container
 echo -e "${YELLOW}👉 Running remote update & tests on $REMOTE_ALIAS...${NC}"
 ssh "$REMOTE_ALIAS" "\
     set -euo pipefail; \
@@ -64,6 +64,16 @@ ssh "$REMOTE_ALIAS" "\
     cd \$HOME/ORAC; \
     git remote set-url origin $SSH_ORIGIN || true; \
     git fetch origin; \
+    
+    # Check for local changes to favorites.json
+    if git diff --quiet data/favorites.json 2>/dev/null; then
+        echo '${BLUE}No local changes to favorites.json${NC}'
+    else
+        echo '${BLUE}Found local changes to favorites.json, committing...${NC}'
+        git add data/favorites.json
+        git commit -m 'chore: update model favorites from production' || true
+    fi; \
+    
     if git show-ref --verify --quiet refs/heads/$DEPLOY_BRANCH; then \
         git checkout $DEPLOY_BRANCH; \
     else \
