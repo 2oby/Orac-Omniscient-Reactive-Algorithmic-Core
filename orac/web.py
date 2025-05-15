@@ -14,7 +14,8 @@ from typing import Optional
 from orac.logger import get_logger
 from orac.favorites import add_favorite, remove_favorite, is_favorite
 from orac.llama_cpp_client import LlamaCppClient
-from orac.models import ModelListResponse, ModelInfo
+from orac.models import ModelListResponse, ModelInfo, ModelType
+from orac.model_config import get_model_config
 from orac.api.routes.models import router as models_router
 import time
 
@@ -397,8 +398,8 @@ async def web_interface(request: Request):
             </div>
 
             <div id="systemPromptContainer" class="input-group" style="display: none;">
-                <label for="systemPrompt">System Prompt:</label>
-                <textarea id="systemPrompt" rows="3" placeholder="Enter system prompt (optional)"></textarea>
+                <label for="systemPromptInput">System Prompt:</label>
+                <textarea id="systemPromptInput" rows="3" placeholder="Enter system prompt (optional)"></textarea>
             </div>
 
             <div class="input-group">
@@ -558,7 +559,7 @@ async def web_interface(request: Request):
             // Generate text
             async function generate() {
                 const model = document.getElementById('modelSelect').value;
-                const systemPrompt = document.getElementById('systemPrompt').value;
+                const systemPrompt = document.getElementById('systemPromptInput').value;
                 const userPrompt = document.getElementById('promptInput').value;
                 const generateBtn = document.getElementById('generateBtn');
                 const responseDiv = document.getElementById('response');
@@ -581,7 +582,8 @@ async def web_interface(request: Request):
                         body: JSON.stringify({
                             model: model,
                             prompt: userPrompt,
-                            temperature: 0.3,
+                            system_prompt: systemPrompt,
+                            temperature: parseFloat(document.getElementById('temperature').value),
                             max_tokens: 200,
                             top_p: 0.95,
                             top_k: 100
@@ -633,6 +635,7 @@ async def web_interface(request: Request):
                 const modelName = document.getElementById('modelSelect').value;
                 if (!modelName) {
                     document.getElementById('configPanel').classList.remove('active');
+                    document.getElementById('systemPromptContainer').style.display = 'none';
                     return;
                 }
                 
@@ -643,9 +646,17 @@ async def web_interface(request: Request):
                     if (response.ok) {
                         const config = await response.json();
                         populateConfigForm(config);
+                        // Show/hide system prompt based on model type
+                        const systemPromptContainer = document.getElementById('systemPromptContainer');
+                        systemPromptContainer.style.display = config.type === 'chat' ? 'block' : 'none';
+                        // Set system prompt from config if available
+                        if (config.type === 'chat' && config.system_prompt) {
+                            document.getElementById('systemPromptInput').value = config.system_prompt;
+                        }
                     } else if (response.status === 404) {
                         // No config exists, show empty form
                         resetConfig();
+                        document.getElementById('systemPromptContainer').style.display = 'none';
                     } else {
                         throw new Error('Failed to load configuration');
                     }
