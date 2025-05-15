@@ -65,13 +65,20 @@ ssh "$REMOTE_ALIAS" "\
     git remote set-url origin $SSH_ORIGIN || true; \
     git fetch origin; \
     
+    # Ensure data directory exists
+    mkdir -p data; \
+    
     # Check for local changes to favorites.json
-    if git diff --quiet data/favorites.json 2>/dev/null; then
-        echo '${BLUE}No local changes to favorites.json${NC}'
+    if [ -f data/favorites.json ]; then
+        if ! git diff --quiet data/favorites.json 2>/dev/null; then
+            echo '${BLUE}Found local changes to favorites.json, committing...${NC}'
+            git add data/favorites.json
+            git commit -m 'chore: update model favorites from production' || true
+        else
+            echo '${BLUE}No local changes to favorites.json${NC}'
+        fi
     else
-        echo '${BLUE}Found local changes to favorites.json, committing...${NC}'
-        git add data/favorites.json
-        git commit -m 'chore: update model favorites from production' || true
+        echo '${BLUE}No favorites.json file found yet${NC}'
     fi; \
     
     if git show-ref --verify --quiet refs/heads/$DEPLOY_BRANCH; then \
