@@ -37,13 +37,68 @@ DEFAULT_FAVORITES = {
 
 DEFAULT_MODEL_CONFIGS = {
     "models": {
-        "tinyllama": {
-            "description": "TinyLlama 1.1B Chat",
+        "Qwen3-0.6B-Q4_K_M.gguf": {
+            "description": "Qwen 3 0.6B Chat Model",
             "context_size": 2048,
+            "prompt_format": {
+                "template": "<|im_start|>system\n{system_prompt}\n<|im_end|>\n<|im_start|>user\n{user_prompt}\n<|im_end|>\n<|im_start|>assistant\n",
+                "system_role": "system",
+                "user_role": "user",
+                "assistant_role": "assistant"
+            },
             "recommended_settings": {
                 "temperature": 0.7,
                 "top_p": 0.7,
-                "top_k": 40
+                "top_k": 40,
+                "max_tokens": 512
+            }
+        },
+        "Qwen3-1.7B-Q4_K_M.gguf": {
+            "description": "Qwen 3 1.7B Chat Model",
+            "context_size": 2048,
+            "prompt_format": {
+                "template": "<|im_start|>system\n{system_prompt}\n<|im_end|>\n<|im_start|>user\n{user_prompt}\n<|im_end|>\n<|im_start|>assistant\n",
+                "system_role": "system",
+                "user_role": "user",
+                "assistant_role": "assistant"
+            },
+            "recommended_settings": {
+                "temperature": 0.7,
+                "top_p": 0.7,
+                "top_k": 40,
+                "max_tokens": 512
+            }
+        },
+        "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf": {
+            "description": "TinyLlama 1.1B Chat Model",
+            "context_size": 2048,
+            "prompt_format": {
+                "template": "<|system|>\n{system_prompt}\n<|user|>\n{user_prompt}\n<|assistant|>\n",
+                "system_role": "system",
+                "user_role": "user",
+                "assistant_role": "assistant"
+            },
+            "recommended_settings": {
+                "temperature": 0.7,
+                "top_p": 0.7,
+                "top_k": 40,
+                "max_tokens": 512
+            }
+        },
+        "distilgpt2.Q2_K.gguf": {
+            "description": "DistilGPT2 Base Model",
+            "context_size": 1024,
+            "prompt_format": {
+                "template": "{system_prompt}\n\n{user_prompt}",
+                "system_role": "instruction",
+                "user_role": "input",
+                "assistant_role": "output"
+            },
+            "recommended_settings": {
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "top_k": 50,
+                "max_tokens": 256
             }
         }
     }

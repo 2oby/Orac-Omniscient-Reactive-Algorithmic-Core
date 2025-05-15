@@ -216,6 +216,7 @@ generateButton.addEventListener('click', async () => {
             body: JSON.stringify({
                 model: currentModel,
                 prompt: prompt,
+                system_prompt: systemPrompt.value.trim(),
                 stream: false,  // We'll implement streaming in the next iteration
                 temperature: parseFloat(temperature.value),
                 top_p: parseFloat(topP.value),

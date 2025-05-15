@@ -64,7 +64,8 @@ class ModelUnloadResponse(BaseModel):
 class GenerationRequest(BaseModel):
     """Request for text generation."""
     model: str = Field(..., description="Name of the model to use")
-    prompt: str = Field(..., description="Text prompt to send to the model")
+    prompt: str = Field(..., description="User prompt to send to the model")
+    system_prompt: Optional[str] = Field(None, description="System prompt to send to the model")
     stream: bool = Field(False, description="Whether to stream the response")
     temperature: float = Field(0.7, description="Sampling temperature")
     top_p: float = Field(0.7, description="Top-p sampling parameter")

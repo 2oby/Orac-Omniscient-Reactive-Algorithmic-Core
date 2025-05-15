@@ -123,10 +123,24 @@ async def unload_model(model_name: str) -> ModelUnloadResponse:
 async def generate_text(request: GenerationRequest) -> GenerationResponse:
     """Generate text from a model."""
     try:
+        # Load model configs to get the prompt format
+        model_configs = load_model_configs()
+        model_config = model_configs.get("models", {}).get(request.model, {})
+        
+        # Get the prompt format template
+        prompt_format = model_config.get("prompt_format", {})
+        template = prompt_format.get("template", "{system_prompt}\n\n{user_prompt}")
+        
+        # Format the prompt using the template
+        formatted_prompt = template.format(
+            system_prompt=request.system_prompt or "",
+            user_prompt=request.prompt
+        )
+        
         client = await get_client()
         response = await client.generate(
             model=request.model,
-            prompt=request.prompt,
+            prompt=formatted_prompt,
             stream=request.stream,
             temperature=request.temperature,
             top_p=request.top_p,
