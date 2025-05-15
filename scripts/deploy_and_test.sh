@@ -113,19 +113,25 @@ ssh "$REMOTE_ALIAS" "\
     mkdir -p data; \
     chmod 755 data; \
     
-    # If data directory is not tracked, add it
-    if ! git ls-files data/ &>/dev/null; then \
-        echo '${BLUE}Adding data directory to git...${NC}'; \
-        git add data/; \
-        git commit -m 'chore: add data directory for model configurations' || true; \
-    fi; \
-    
-    # Check for changes in data directory
+    # Check and commit any local configuration changes
     if [ -f data/favorites.json ] || [ -f data/model_configs.yaml ]; then \
-        if ! git diff --quiet data/ 2>/dev/null; then \
-            echo '${BLUE}Found changes in data directory, committing...${NC}'; \
-            git add data/; \
+        echo '${BLUE}Checking for local configuration changes...${NC}'; \
+        # Check favorites.json \
+        if [ -f data/favorites.json ] && ! git diff --quiet data/favorites.json 2>/dev/null; then \
+            echo '${BLUE}Found changes in favorites.json, committing...${NC}'; \
+            git add data/favorites.json; \
+            git commit -m 'chore: update model favorites from production' || true; \
+        fi; \
+        # Check model_configs.yaml \
+        if [ -f data/model_configs.yaml ] && ! git diff --quiet data/model_configs.yaml 2>/dev/null; then \
+            echo '${BLUE}Found changes in model_configs.yaml, committing...${NC}'; \
+            git add data/model_configs.yaml; \
             git commit -m 'chore: update model configurations from production' || true; \
+        fi; \
+        # Push any local commits \
+        if ! git diff --quiet origin/$DEPLOY_BRANCH..HEAD 2>/dev/null; then \
+            echo '${BLUE}Pushing local configuration changes...${NC}'; \
+            git push origin $DEPLOY_BRANCH || true; \
         fi; \
     fi; \
     

@@ -6,7 +6,7 @@ services:
       - ./models/gguf:/app/models/gguf:ro
       - ./third_party/llama_cpp:/app/third_party/llama_cpp:ro
       - ./logs:/app/logs
-      - ./data:/app/data  # Add persistent data directory for favorites
+      - /home/toby/ORAC/data:/app/data  # Add persistent data directory for favorites
     ports:
       - "80:80"      # Web interface and API port
     environment:
