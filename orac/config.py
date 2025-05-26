@@ -46,11 +46,12 @@ DEFAULT_MODEL_CONFIGS = {
                 "user_role": "user",
                 "assistant_role": "assistant"
             },
+            "system_prompt": "/no_think\nYou are a JSON-only formatter. For each user input, respond with a single-line JSON object containing the keys: \"device\", \"action\", and \"location\". Do not include any explanations, comments, or additional text. Only output the JSON object.",
             "recommended_settings": {
-                "temperature": 0.7,
-                "top_p": 0.7,
+                "temperature": 0.1,
+                "top_p": 0.9,
                 "top_k": 40,
-                "max_tokens": 512
+                "max_tokens": 50
             }
         },
         "Qwen3-1.7B-Q4_K_M.gguf": {
