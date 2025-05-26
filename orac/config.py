@@ -78,11 +78,12 @@ DEFAULT_MODEL_CONFIGS = {
                 "user_role": "user",
                 "assistant_role": "assistant"
             },
+            "system_prompt": "Input: turn off kitchen lights\nOutput: {\"device\":\"lights\",\"action\":\"off\",\"location\":\"kitchen\"}\n\nInput: set living room thermostat to 70\nOutput: {\"device\":\"thermostat\",\"action\":\"set\",\"location\":\"living room\"}\n\nInput: open bedroom blinds\nOutput: {\"device\":\"blinds\",\"action\":\"open\",\"location\":\"bedroom\"}\n\nInput:",
             "recommended_settings": {
-                "temperature": 0.7,
-                "top_p": 0.7,
-                "top_k": 40,
-                "max_tokens": 512
+                "temperature": 0.05,
+                "top_p": 0.1,
+                "top_k": 5,
+                "max_tokens": 50
             }
         },
         "distilgpt2.Q2_K.gguf": {
