@@ -43,13 +43,13 @@ body {
     gap: 0.5rem;
     flex-wrap: nowrap;
     box-sizing: border-box;
-    border: 2px dashed #ff4a4a; /* DEBUG: Remove after fixing */
+    /* border: 2px dashed #ff4a4a;  DEBUG: Remove after fixing */
 }
 
 .model-dropdown {
     flex: 1 1 auto;
     min-width: 0;
-    width: 100%;
+    /* width: 100%; */
     padding: 0.5rem;
     background-color: var(--input-bg);
     color: var(--text-color);
