@@ -41,6 +41,9 @@ body {
     align-items: stretch;
     width: 100%;
     gap: 0.5rem;
+    flex-wrap: nowrap;
+    box-sizing: border-box;
+    border: 2px dashed #ff4a4a; /* DEBUG: Remove after fixing */
 }
 
 .model-dropdown {
@@ -54,6 +57,7 @@ body {
     border-radius: 4px;
     font-size: 1rem;
     height: 100%;
+    box-sizing: border-box;
 }
 
 .favorite-button {
@@ -72,6 +76,8 @@ body {
     min-width: 2.5rem;
     height: 100%;
     outline: none;
+    pointer-events: auto;
+    z-index: 10;
 }
 
 .favorite-button:focus {
@@ -111,6 +117,7 @@ body {
     opacity: 0.5;
     cursor: not-allowed;
     background-color: var(--input-bg);
+    pointer-events: none;
 }
 
 .favorite-button:disabled:hover {
