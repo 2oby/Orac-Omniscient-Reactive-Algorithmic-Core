@@ -32,18 +32,20 @@ body {
 /* Model Selection */
 .model-selection {
     margin-bottom: 1rem;
-    position: relative;
-}
-
-.model-controls {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 0.5rem;
-    align-items: stretch;
     width: 100%;
 }
 
+.model-controls {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    width: 100%;
+    gap: 0.5rem;
+}
+
 .model-dropdown {
+    flex: 1 1 auto;
+    min-width: 0;
     width: 100%;
     padding: 0.5rem;
     background-color: var(--input-bg);
@@ -55,6 +57,7 @@ body {
 }
 
 .favorite-button {
+    flex: 0 0 auto;
     background-color: var(--input-bg);
     border: 1px solid var(--border-color);
     cursor: pointer;
@@ -68,8 +71,11 @@ body {
     border-radius: 4px;
     min-width: 2.5rem;
     height: 100%;
-    position: relative;
-    z-index: 2;
+    outline: none;
+}
+
+.favorite-button:focus {
+    box-shadow: 0 0 0 2px var(--accent-color);
 }
 
 .favorite-button:hover {
