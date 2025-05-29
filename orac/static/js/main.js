@@ -209,10 +209,12 @@ document.getElementById('resetSettings').addEventListener('click', async () => {
 
 // Function to update favorite button state
 function updateFavoriteButtonState(modelName) {
+    console.log('[DEBUG] updateFavoriteButtonState called with modelName:', modelName);
     if (!modelName) {
         favoriteToggle.classList.remove('favorited');
         favoriteToggle.disabled = true;
         favoriteToggle.querySelector('.star-icon').innerText = '';
+        console.log('[DEBUG] No model selected. Button disabled:', favoriteToggle.disabled, 'Classes:', favoriteToggle.className);
         return;
     }
     
@@ -224,6 +226,7 @@ function updateFavoriteButtonState(modelName) {
     }
     // Always clear the static star, let CSS handle it
     favoriteToggle.querySelector('.star-icon').innerText = '';
+    console.log('[DEBUG] Model selected. Button disabled:', favoriteToggle.disabled, 'Classes:', favoriteToggle.className, 'Favorited:', favorites.includes(modelName));
 }
 
 // Function to toggle favorite status

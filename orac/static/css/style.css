@@ -105,12 +105,10 @@ body {
     color: var(--text-color);
 }
 
-.favorite-button.favorited .star-icon::before {
+.favorite-button .star-icon::before {
     content: "★";
-}
-
-.favorite-button:not(.favorited) .star-icon::before {
-    content: "☆";
+    color: gold;
+    font-size: 1.5rem;
 }
 
 .favorite-button:disabled {
