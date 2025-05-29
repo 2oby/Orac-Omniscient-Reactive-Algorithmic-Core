@@ -212,6 +212,7 @@ function updateFavoriteButtonState(modelName) {
     if (!modelName) {
         favoriteToggle.classList.remove('favorited');
         favoriteToggle.disabled = true;
+        favoriteToggle.querySelector('.star-icon').innerText = '';
         return;
     }
     
@@ -221,6 +222,8 @@ function updateFavoriteButtonState(modelName) {
     } else {
         favoriteToggle.classList.remove('favorited');
     }
+    // Always clear the static star, let CSS handle it
+    favoriteToggle.querySelector('.star-icon').innerText = '';
 }
 
 // Function to toggle favorite status
