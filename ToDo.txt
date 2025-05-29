@@ -1,17 +1,17 @@
 ToDO
 
-- update the name of the project and files from voice_service-voice. to ORAK.
+- ~~update the name of the project and files from voice_service-voice. to ORAK.~~ ✅ COMPLETED
 - check the swap settings once the build has completed successfully, can we use physical swap as we are running on NVME
 
-# GitHub Repository Migration Guide for ORAC MVP
+# GitHub Repository Migration Guide for ORAC MVP ✅ COMPLETED
 
 ## Quick‑look summary
-- Rename the repository on GitHub to drop the trailing dash—GitHub will create automatic redirects, so old links keep working.
-- Create a long‑lived `mvp` branch that will house the brand‑new structure (Dockerfile, FastAPI package, tests, etc.).
-- Move the existing codebase into an `archive/legacy` folder in `main` so its history is preserved but stays out of the MVP's way.
-- Merge the fresh scaffold (from the Markdown guide) into `mvp` while keeping the old branch around for reference.
-- Open a pull request (`mvp → main`) and iterate until CI passes and Docker builds cleanly.
-- Protect both branches and enable required‑status‑checks so broken commits never land in `main`.
+- ~~Rename the repository on GitHub to drop the trailing dash—GitHub will create automatic redirects, so old links keep working.~~ ✅
+- ~~Create a long‑lived `mvp` branch that will house the brand‑new structure (Dockerfile, FastAPI package, tests, etc.).~~ ✅
+- ~~Move the existing codebase into an `archive/legacy` folder in `main` so its history is preserved but stays out of the MVP's way.~~ ✅
+- ~~Merge the fresh scaffold (from the Markdown guide) into `mvp` while keeping the old branch around for reference.~~ ✅
+- ~~Open a pull request (`mvp → main`) and iterate until CI passes and Docker builds cleanly.~~ ✅
+- ~~Protect both branches and enable required‑status‑checks so broken commits never land in `main`.~~ ✅
 
 ## 1. Rename the repository (fix the dash)
 1. Visit Settings → General → Rename on the repo's GitHub page.
@@ -146,4 +146,31 @@ When you're sure everyone has migrated to the new clone URL, you can reclaim the
 | Why isolate legacy code in archive/legacy? | Keeps history but removes clutter so the FastAPI package is clean. |
 | What if I later need to build Ollama from source? | Add a second stage in the Dockerfile with `FROM nvcr.io/nvidia/l4t-base:r36.4.3` and compile Ollama—the guide notes this as an open question. |
 | How to benchmark safetensors? | Convert them to GGUF offline with `scripts/convert_safetensors.py`, commit only the script, not the big files. |
+
+## Model Configuration Tasks
+
+### Completed
+- Configured TinyLlama 1.1B for JSON command parsing:
+  - System prompt with example I/O format
+  - Parameters: temp=0.05, top_p=0.1, top_k=5, max_tokens=50
+- Configured Qwen3 0.6B for JSON command parsing:
+  - System prompt with /no_think directive
+  - Parameters: temp=0.1, top_p=0.9, top_k=40, max_tokens=50
+
+### TODO
+- [ ] Fix favoriting functionality in the UI
+- [ ] Set Qwen3 1.7B as the default model
+- [ ] Implement model pre-loading on startup
+- [ ] Optimize Orin GPU performance:
+  - [ ] Enable maximum power mode
+  - [ ] Profile GPU utilization
+  - [ ] Adjust CUDA/GPU layers settings
+  - [ ] Test with different batch sizes
+
+### Future Tasks
+- [ ] Add model performance benchmarks
+- [ ] Create test suite for JSON command parsing
+- [ ] Document model configurations and parameters
+- [ ] Add model-specific error handling
+- [ ] Implement model fallback strategy
 
