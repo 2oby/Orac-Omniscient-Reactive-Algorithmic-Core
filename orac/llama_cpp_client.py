@@ -7,16 +7,20 @@ A lightweight Python wrapper around the llama.cpp command-line tools that provid
 - Seamless integration with ORAC's existing architecture
 - Support for model quantization and fine-tuning
 
-This client uses subprocess calls to interact with the llama.cpp binaries,
-providing a simple and efficient way to run inference.
+This client uses a persistent server model for efficient inference,
+with automatic server management and transparent HTTP API usage.
 """
 
 import os
 import json
 import asyncio
 import subprocess
-from typing import List, Dict, Any, Optional
+import aiohttp
+import weakref
+from typing import List, Dict, Any, Optional, Set
 from pathlib import Path
+from dataclasses import dataclass
+from contextlib import asynccontextmanager
 
 from orac.logger import get_logger
 from orac.models import PromptResponse
@@ -31,8 +35,27 @@ LLAMA_SERVER = os.path.join(LLAMA_CPP_PATH, "bin/llama-server")
 # Use environment variable with fallback to relative path for development
 MODELS_PATH = os.getenv("ORAC_MODELS_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "models/gguf"))
 
+# Default server settings
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 8080
+DEFAULT_TIMEOUT = 30
+
+@dataclass
+class ServerState:
+    """Internal state for a running server instance."""
+    process: subprocess.Popen
+    host: str
+    port: int
+    model: str
+    session: Optional[aiohttp.ClientSession] = None
+    last_used: float = 0.0
+
 class LlamaCppClient:
     """Client for interacting with llama.cpp binaries."""
+    
+    # Class-level tracking of all client instances and their servers
+    _instances: Set[weakref.ReferenceType['LlamaCppClient']] = set()
+    _server_ports: Set[int] = set()
     
     def __init__(self, models_path: str = None):
         """
@@ -43,6 +66,11 @@ class LlamaCppClient:
         """
         self.models_path = models_path or MODELS_PATH
         logger.info(f"Initializing LlamaCppClient with models path: {self.models_path}")
+        
+        # Internal state
+        self._servers: Dict[str, ServerState] = {}  # model -> server state
+        self._session: Optional[aiohttp.ClientSession] = None
+        self._cleanup_task: Optional[asyncio.Task] = None
         
         # Ensure the binaries are executable
         for binary in [LLAMA_CLI, LLAMA_SERVER]:
@@ -60,7 +88,54 @@ class LlamaCppClient:
         if not os.path.exists(LLAMA_SERVER):
             raise RuntimeError(f"llama-server binary not found at {LLAMA_SERVER}")
         
+        # Register this instance for cleanup
+        self._instances.add(weakref.ref(self, self._cleanup_instance))
+        
+        # Start cleanup task if not already running
+        if not any(hasattr(inst(), '_cleanup_task') and inst()._cleanup_task for inst in self._instances if inst()):
+            self._cleanup_task = asyncio.create_task(self._periodic_cleanup())
+        
         logger.info("LlamaCppClient initialized successfully")
+
+    def __del__(self):
+        """Cleanup when the client is destroyed."""
+        if self._cleanup_task:
+            self._cleanup_task.cancel()
+        if self._session:
+            asyncio.create_task(self._session.close())
+        for server in self._servers.values():
+            if server.process and server.process.poll() is None:
+                server.process.terminate()
+            if server.session:
+                asyncio.create_task(server.session.close())
+
+    @classmethod
+    def _cleanup_instance(cls, ref):
+        """Cleanup when a client instance is destroyed."""
+        cls._instances.discard(ref)
+        # If this was the last instance, clean up any remaining servers
+        if not any(inst() for inst in cls._instances):
+            for port in list(cls._server_ports):
+                try:
+                    process = subprocess.run(['fuser', '-k', str(port)], capture_output=True)
+                    if process.returncode == 0:
+                        cls._server_ports.discard(port)
+                except Exception as e:
+                    logger.error(f"Error cleaning up port {port}: {e}")
+
+    async def _periodic_cleanup(self):
+        """Periodically clean up unused servers."""
+        while True:
+            try:
+                await asyncio.sleep(300)  # Check every 5 minutes
+                current_time = asyncio.get_event_loop().time()
+                for model, server in list(self._servers.items()):
+                    if current_time - server.last_used > 1800:  # 30 minutes
+                        await self._stop_server(model)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in periodic cleanup: {e}")
 
     async def list_models(self) -> List[Dict[str, Any]]:
         """
@@ -85,174 +160,65 @@ class LlamaCppClient:
         logger.info(f"Found {len(models)} models")
         return models
 
-    async def generate(
+    async def _ensure_server_running(
         self,
         model: str,
-        prompt: str,
-        stream: bool = False,
-        temperature: float = 0.7,
-        top_p: float = 0.7,
-        top_k: int = 40,
-        max_tokens: Optional[int] = None,
-        verbose: bool = False,
-        timeout: int = 30  # Add timeout parameter in seconds
-    ) -> PromptResponse:
-        """
-        Generate a response from the model.
-        
-        Args:
-            model: Model name
-            prompt: Text prompt
-            stream: Whether to stream the response
-            temperature: Sampling temperature
-            top_p: Top-p sampling parameter
-            top_k: Top-k sampling parameter
-            max_tokens: Maximum tokens to generate
-            verbose: Whether to run in verbose mode
-            timeout: Maximum time in seconds to wait for generation
-            
-        Returns:
-            PromptResponse with generated text and metadata
-        """
-        if not prompt.strip():
-            raise ValueError("Prompt cannot be empty")
-
-        start_time = asyncio.get_event_loop().time()
-        
-        try:
-            model_path = os.path.join(self.models_path, model)
-            if not model_path.endswith(".gguf"):
-                model_path += ".gguf"
-                
-            if not os.path.exists(model_path):
-                raise FileNotFoundError(f"Model not found: {model_path}")
-            
-            # Add detailed model file debugging
-            model_stats = os.stat(model_path)
-            logger.info(f"Model file details for {model_path}:")
-            logger.info(f"  Size: {model_stats.st_size} bytes")
-            logger.info(f"  Permissions: {oct(model_stats.st_mode)}")
-            logger.info(f"  Owner: {model_stats.st_uid}")
-            logger.info(f"  Group: {model_stats.st_gid}")
-            
-            # Add llama-cli binary debugging
-            llama_cli_stats = os.stat(LLAMA_CLI)
-            logger.info(f"llama-cli binary details:")
-            logger.info(f"  Path: {LLAMA_CLI}")
-            logger.info(f"  Size: {llama_cli_stats.st_size} bytes")
-            logger.info(f"  Permissions: {oct(llama_cli_stats.st_mode)}")
-            logger.info(f"  Owner: {llama_cli_stats.st_uid}")
-            logger.info(f"  Group: {llama_cli_stats.st_gid}")
-            
-            cmd = [
-                LLAMA_CLI,
-                "-m", model_path,
-                "-p", prompt,
-                "--temp", str(temperature),
-                "--top-p", str(top_p),
-                "--top-k", str(top_k),
-                "--ctx-size", "2048",
-                "--n-predict", str(max_tokens or 512)
-            ]
-            
-            # Only add verbose flag if requested
-            if verbose:
-                cmd.append("--verbose")
-            
-            logger.info(f"Running llama-cli command: {' '.join(cmd)}")
-            
-            # Execute the command and capture output
-            try:
-                process = await asyncio.create_subprocess_exec(
-                    *cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    stdin=asyncio.subprocess.PIPE,  # We need stdin to send EOF
-                    env=self.env
-                )
-                
-                # Send EOF to stdin to signal end of input
-                process.stdin.close()
-                
-                # Add timeout to process.communicate()
-                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
-                
-            except asyncio.TimeoutError:
-                # Kill the process if it times out
-                process.kill()
-                try:
-                    await process.wait()
-                except:
-                    pass
-                logger.error(f"Generation timed out after {timeout} seconds")
-                raise Exception(f"Generation timed out after {timeout} seconds")
-            except Exception as e:
-                logger.error(f"Error during generation: {str(e)}")
-                raise
-            
-            # Log both stdout and stderr for debugging
-            stdout_str = stdout.decode('utf-8', errors='replace')
-            stderr_str = stderr.decode('utf-8', errors='replace')
-            logger.info(f"Raw llama-cli stdout: {stdout_str!r}")
-            logger.info(f"Raw llama-cli stderr: {stderr_str!r}")
-            
-            if process.returncode != 0:
-                logger.error(f"llama-cli error: {stderr_str}")
-                raise Exception(f"llama-cli error: {stderr_str}")
-            
-            # Extract the response - in interactive mode, the response is between the prompt and the next prompt marker
-            # or between the prompt and the end of output
-            response_text = ""
-            if prompt in stdout_str:
-                # Get everything after the prompt
-                after_prompt = stdout_str.split(prompt, 1)[1]
-                # Look for the next prompt marker or end of output
-                if "<|im_start|>" in after_prompt:
-                    response_text = after_prompt.split("<|im_start|>", 1)[0]
-                else:
-                    response_text = after_prompt
-            else:
-                response_text = stdout_str
-            
-            # Clean up the response
-            response_text = response_text.strip()
-            response_text = response_text.replace('<|im_end|>', '')
-            response_text = response_text.replace('assistant', '')
-            response_text = response_text.replace('<think>', '').replace('</think>', '')
-            response_text = ' '.join(response_text.split())
-            
-            logger.info(f"Cleaned response: {response_text!r}")
-            
-            if not response_text:
-                logger.warning("Empty response from model")
-                response_text = "No response generated"
-            
-            elapsed_ms = (asyncio.get_event_loop().time() - start_time) * 1000
-            
-            return PromptResponse(
-                response=response_text,
-                elapsed_ms=elapsed_ms,
-                model=model,
-                prompt=prompt,
-                finish_reason="stop" if max_tokens else None,
-                usage=None  # llama.cpp doesn't provide token usage stats
-            )
-            
-        except Exception as e:
-            logger.error(f"Generation error: {str(e)}")
-            raise
-
-    async def start_server(
-        self,
-        model: str,
-        host: str = "127.0.0.1",
-        port: int = 8080,
         temperature: float = 0.7,
         top_p: float = 0.7,
         top_k: int = 40
-    ) -> subprocess.Popen:
+    ) -> ServerState:
         """
-        Start the llama.cpp server with the specified model.
+        Ensure a server is running for the given model.
+        
+        Args:
+            model: Model name
+            temperature: Sampling temperature
+            top_p: Top-p sampling parameter
+            top_k: Top-k sampling parameter
+            
+        Returns:
+            ServerState for the running server
+        """
+        # Check if we already have a server for this model
+        if model in self._servers:
+            server = self._servers[model]
+            if server.process.poll() is None:  # Server is still running
+                server.last_used = asyncio.get_event_loop().time()
+                return server
+            else:
+                # Server died, clean it up
+                await self._stop_server(model)
+        
+        # Find an available port
+        port = DEFAULT_PORT
+        while port in self._server_ports:
+            port += 1
+        
+        # Start a new server
+        server = await self._start_internal_server(
+            model=model,
+            host=DEFAULT_HOST,
+            port=port,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k
+        )
+        
+        self._servers[model] = server
+        self._server_ports.add(port)
+        return server
+
+    async def _start_internal_server(
+        self,
+        model: str,
+        host: str,
+        port: int,
+        temperature: float = 0.7,
+        top_p: float = 0.7,
+        top_k: int = 40
+    ) -> ServerState:
+        """
+        Start a new server instance.
         
         Args:
             model: Model name
@@ -263,7 +229,7 @@ class LlamaCppClient:
             top_k: Top-k sampling parameter
             
         Returns:
-            Subprocess handle for the server process
+            ServerState for the new server
         """
         model_path = os.path.join(self.models_path, model)
         if not model_path.endswith(".gguf"):
@@ -290,17 +256,245 @@ class LlamaCppClient:
             env=self.env
         )
         
-        # Wait a moment for the server to start
-        await asyncio.sleep(2)
+        # Wait for server to start
+        for _ in range(10):  # Try for 5 seconds
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(f"http://{host}:{port}/health") as response:
+                        if response.status == 200:
+                            # Create a new session for this server
+                            server_session = aiohttp.ClientSession(
+                                base_url=f"http://{host}:{port}",
+                                timeout=aiohttp.ClientTimeout(total=DEFAULT_TIMEOUT)
+                            )
+                            return ServerState(
+                                process=process,
+                                host=host,
+                                port=port,
+                                model=model,
+                                session=server_session,
+                                last_used=asyncio.get_event_loop().time()
+                            )
+            except Exception:
+                pass
+            await asyncio.sleep(0.5)
         
-        if process.poll() is not None:
-            # Process has already terminated
-            stdout, stderr = process.communicate()
-            error = stderr.decode('utf-8', errors='replace')
-            raise Exception(f"Failed to start llama server: {error}")
+        # If we get here, server didn't start
+        process.terminate()
+        stdout, stderr = process.communicate()
+        error = stderr.decode('utf-8', errors='replace')
+        raise Exception(f"Failed to start llama server: {error}")
+
+    async def _stop_server(self, model: str) -> None:
+        """
+        Stop a server instance.
         
-        logger.info(f"Started llama.cpp server for model {model} on {host}:{port}")
-        return process
+        Args:
+            model: Model name
+        """
+        if model not in self._servers:
+            return
+        
+        server = self._servers[model]
+        
+        # Close the session
+        if server.session:
+            await server.session.close()
+        
+        # Stop the process
+        if server.process and server.process.poll() is None:
+            server.process.terminate()
+            try:
+                server.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                server.process.kill()
+        
+        # Clean up
+        self._server_ports.discard(server.port)
+        del self._servers[model]
+
+    @asynccontextmanager
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create an aiohttp session."""
+        if not self._session:
+            self._session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=DEFAULT_TIMEOUT)
+            )
+        try:
+            yield self._session
+        except Exception as e:
+            logger.error(f"Session error: {e}")
+            if self._session:
+                await self._session.close()
+                self._session = None
+            raise
+
+    async def generate(
+        self,
+        model: str,
+        prompt: str,
+        stream: bool = False,
+        temperature: float = 0.7,
+        top_p: float = 0.7,
+        top_k: int = 40,
+        max_tokens: Optional[int] = None,
+        verbose: bool = False,
+        timeout: int = 30
+    ) -> PromptResponse:
+        """
+        Generate a response from the model.
+        
+        Args:
+            model: Model name
+            prompt: Text prompt
+            stream: Whether to stream the response
+            temperature: Sampling temperature
+            top_p: Top-p sampling parameter
+            top_k: Top-k sampling parameter
+            max_tokens: Maximum tokens to generate
+            verbose: Whether to run in verbose mode
+            timeout: Maximum time in seconds to wait for generation
+            
+        Returns:
+            PromptResponse with generated text and metadata
+        """
+        if not prompt.strip():
+            raise ValueError("Prompt cannot be empty")
+
+        start_time = asyncio.get_event_loop().time()
+        
+        try:
+            # Ensure we have a server running for this model
+            server = await self._ensure_server_running(
+                model=model,
+                temperature=temperature,
+                top_p=top_p,
+                top_k=top_k
+            )
+            
+            # Prepare the request
+            request_data = {
+                "prompt": prompt,
+                "temperature": temperature,
+                "top_p": top_p,
+                "top_k": top_k,
+                "n_predict": max_tokens or 512,
+                "stream": stream
+            }
+            
+            # Make the request
+            try:
+                async with server.session.post(
+                    "/completion",
+                    json=request_data,
+                    timeout=timeout
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        raise Exception(f"Server error: {error_text}")
+                    
+                    if stream:
+                        # Handle streaming response
+                        response_text = ""
+                        async for line in response.content:
+                            if line:
+                                try:
+                                    chunk = json.loads(line)
+                                    if "content" in chunk:
+                                        response_text += chunk["content"]
+                                except json.JSONDecodeError:
+                                    continue
+                    else:
+                        # Handle regular response
+                        result = await response.json()
+                        response_text = result.get("content", "")
+                    
+                    # Clean up the response
+                    response_text = response_text.strip()
+                    response_text = response_text.replace('<|im_end|>', '')
+                    response_text = response_text.replace('assistant', '')
+                    response_text = response_text.replace('<think>', '').replace('</think>', '')
+                    response_text = ' '.join(response_text.split())
+                    
+                    if not response_text:
+                        logger.warning("Empty response from model")
+                        response_text = "No response generated"
+                    
+                    elapsed_ms = (asyncio.get_event_loop().time() - start_time) * 1000
+                    
+                    return PromptResponse(
+                        response=response_text,
+                        elapsed_ms=elapsed_ms,
+                        model=model,
+                        prompt=prompt,
+                        finish_reason="stop" if max_tokens else None,
+                        usage=None  # llama.cpp doesn't provide token usage stats
+                    )
+                    
+            except asyncio.TimeoutError:
+                raise Exception(f"Generation timed out after {timeout} seconds")
+            except aiohttp.ClientError as e:
+                raise Exception(f"HTTP error during generation: {str(e)}")
+            
+        except Exception as e:
+            logger.error(f"Generation error: {str(e)}")
+            raise
+
+    async def start_server(
+        self,
+        model: str,
+        host: str = "127.0.0.1",
+        port: int = 8080,
+        temperature: float = 0.7,
+        top_p: float = 0.7,
+        top_k: int = 40
+    ) -> subprocess.Popen:
+        """
+        Start the llama.cpp server with the specified model.
+        
+        This method maintains backward compatibility by returning a subprocess.Popen
+        object, but internally uses the new server management system.
+        
+        Args:
+            model: Model name
+            host: Server host
+            port: Server port
+            temperature: Sampling temperature
+            top_p: Top-p sampling parameter
+            top_k: Top-k sampling parameter
+            
+        Returns:
+            Subprocess handle for the server process
+        """
+        # Check if we already have a server for this model
+        if model in self._servers:
+            server = self._servers[model]
+            if server.process.poll() is None:  # Server is still running
+                if server.host == host and server.port == port:
+                    # Server is already running on the requested host/port
+                    return server.process
+                else:
+                    # Server is running but on different host/port
+                    await self._stop_server(model)
+            else:
+                # Server died, clean it up
+                await self._stop_server(model)
+        
+        # Start a new server
+        server = await self._start_internal_server(
+            model=model,
+            host=host,
+            port=port,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k
+        )
+        
+        self._servers[model] = server
+        self._server_ports.add(port)
+        
+        # Return the process handle for backward compatibility
+        return server.process
 
     async def quantize_model(
         self,
