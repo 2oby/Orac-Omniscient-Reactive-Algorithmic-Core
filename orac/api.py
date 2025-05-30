@@ -145,7 +145,8 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
             temperature=request.temperature,
             top_p=request.top_p,
             top_k=request.top_k,
-            max_tokens=request.max_tokens
+            max_tokens=request.max_tokens,
+            timeout=30  # Set a 60-second timeout for the API endpoint
         )
         return GenerationResponse(
             status="success",
@@ -155,6 +156,8 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
         )
     except Exception as e:
         logger.error(f"Error generating text: {e}")
+        if "timed out" in str(e):
+            raise HTTPException(status_code=504, detail="Generation timed out")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/v1/config/favorites", tags=["Configuration"])

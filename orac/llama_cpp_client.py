@@ -94,7 +94,8 @@ class LlamaCppClient:
         top_p: float = 0.7,
         top_k: int = 40,
         max_tokens: Optional[int] = None,
-        verbose: bool = False
+        verbose: bool = False,
+        timeout: int = 30  # Add timeout parameter in seconds
     ) -> PromptResponse:
         """
         Generate a response from the model.
@@ -108,6 +109,7 @@ class LlamaCppClient:
             top_k: Top-k sampling parameter
             max_tokens: Maximum tokens to generate
             verbose: Whether to run in verbose mode
+            timeout: Maximum time in seconds to wait for generation
             
         Returns:
             PromptResponse with generated text and metadata
@@ -160,18 +162,33 @@ class LlamaCppClient:
             logger.info(f"Running llama-cli command: {' '.join(cmd)}")
             
             # Execute the command and capture output
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                stdin=asyncio.subprocess.PIPE,  # We need stdin to send EOF
-                env=self.env
-            )
-            
-            # Send EOF to stdin to signal end of input
-            process.stdin.close()
-            
-            stdout, stderr = await process.communicate()
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    stdin=asyncio.subprocess.PIPE,  # We need stdin to send EOF
+                    env=self.env
+                )
+                
+                # Send EOF to stdin to signal end of input
+                process.stdin.close()
+                
+                # Add timeout to process.communicate()
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+                
+            except asyncio.TimeoutError:
+                # Kill the process if it times out
+                process.kill()
+                try:
+                    await process.wait()
+                except:
+                    pass
+                logger.error(f"Generation timed out after {timeout} seconds")
+                raise Exception(f"Generation timed out after {timeout} seconds")
+            except Exception as e:
+                logger.error(f"Error during generation: {str(e)}")
+                raise
             
             # Log both stdout and stderr for debugging
             stdout_str = stdout.decode('utf-8', errors='replace')

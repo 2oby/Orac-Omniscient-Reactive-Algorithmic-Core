@@ -86,7 +86,17 @@ async def generate_text(model_name: str, prompt: str, stream: bool = False, verb
     """Generate text from a model."""
     client = await setup_client()
     try:
-        response = await client.generate(model_name, prompt, stream=stream)
+        response = await client.generate(
+            model=model_name,
+            prompt=prompt,
+            stream=stream,
+            temperature=0.7,
+            top_p=0.7,
+            top_k=40,
+            max_tokens=512,
+            verbose=verbose,
+            timeout=30
+        )
         return {
             "status": "success",
             "response": response.response,
