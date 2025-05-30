@@ -18,6 +18,7 @@ setup(
         "pytest>=7.0.0",
         "pytest-asyncio>=0.18.0",
         "pytest-cov>=3.0.0",
+        "aiohttp>=3.9.0",
     ],
     entry_points={
         "console_scripts": [
