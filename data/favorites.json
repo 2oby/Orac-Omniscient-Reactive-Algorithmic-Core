@@ -1,0 +1,13 @@
+{
+  "favorite_models": [
+    "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+    "Qwen3-0.6B-Q4_K_M.gguf",
+    "Qwen3-1.7B-Q4_K_M.gguf"
+  ],
+  "default_settings": {
+    "temperature": 0.7,
+    "top_p": 0.7,
+    "top_k": 40,
+    "max_tokens": 512
+  }
+}

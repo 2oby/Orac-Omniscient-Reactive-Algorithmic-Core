@@ -63,6 +63,6 @@ ENV/
 *.swp
 *.swo
 
-# Data directory (exclude contents but keep directory)
-data/*
+# Data directory (keep directory and config files)
+data/.DS_Store
 !data/.gitkeep

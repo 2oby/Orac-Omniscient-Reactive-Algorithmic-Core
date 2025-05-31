@@ -187,15 +187,28 @@ def save_favorites(config: Dict[str, Any]) -> None:
 
 def save_model_configs(config: Dict[str, Any]) -> None:
     """
-    Save model configurations.
+    Save model configurations, merging with existing configs.
     
     Args:
         config: Configuration dictionary to save
     """
     ensure_data_dir()
     try:
+        # Load existing configs
+        existing_config = {}
+        if os.path.exists(MODEL_CONFIGS_PATH):
+            with open(MODEL_CONFIGS_PATH, 'r') as f:
+                existing_config = yaml.safe_load(f) or {}
+        
+        # Merge new configs with existing ones
+        if "models" in config:
+            if "models" not in existing_config:
+                existing_config["models"] = {}
+            existing_config["models"].update(config["models"])
+        
+        # Save merged configs
         with open(MODEL_CONFIGS_PATH, 'w') as f:
-            yaml.dump(config, f, default_flow_style=False)
+            yaml.dump(existing_config, f, default_flow_style=False)
         logger.info("Saved model_configs.yaml")
     except Exception as e:
         logger.error(f"Error saving model_configs.yaml: {e}") 
