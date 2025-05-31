@@ -76,9 +76,21 @@ ssh "$REMOTE_ALIAS" "\
     git remote set-url origin $SSH_ORIGIN || true; \
     git fetch origin; \
     
-    # Remove configuration files if they exist
-    echo '${BLUE}📝 Cleaning up configuration files...${NC}'; \
-    rm -f data/favorites.json data/model_configs.yaml; \
+    # Backup and commit local configuration files if they exist
+    echo '${BLUE}📝 Handling configuration files...${NC}'; \
+    if [ -f data/favorites.json ] || [ -f data/model_configs.yaml ]; then \
+        echo 'Backing up local configuration files...'; \
+        git add data/favorites.json data/model_configs.yaml 2>/dev/null || true; \
+        if git diff --cached --quiet; then \
+            echo 'No changes to commit in config files'; \
+        else \
+            git commit -m 'Update local configuration files' || true; \
+        fi; \
+    fi; \
+    
+    # Stash any other local changes
+    echo 'Stashing any other local changes...'; \
+    git stash push -m 'Temporary stash during deployment' || true; \
     
     if git show-ref --verify --quiet refs/heads/$DEPLOY_BRANCH; then \
         git checkout $DEPLOY_BRANCH; \
@@ -86,6 +98,22 @@ ssh "$REMOTE_ALIAS" "\
         git checkout -b $DEPLOY_BRANCH origin/$DEPLOY_BRANCH; \
     fi; \
     git pull origin $DEPLOY_BRANCH; \
+    
+    # Restore stashed changes if any
+    if git stash list | grep -q 'Temporary stash during deployment'; then \
+        echo 'Restoring stashed changes...'; \
+        git stash pop || true; \
+    fi; \
+    
+    # Ensure configuration files exist
+    if [ ! -f data/favorites.json ]; then \
+        echo 'Creating default favorites.json...'; \
+        echo '{\"favorites\": {\"default_model\": \"Qwen3-0.6B-Q4_K_M.gguf\"}}' > data/favorites.json; \
+    fi; \
+    if [ ! -f data/model_configs.yaml ]; then \
+        echo 'Creating default model_configs.yaml...'; \
+        echo 'models:\n  Qwen3-0.6B-Q4_K_M.gguf:\n    context_size: 2048\n    gpu_layers: 24' > data/model_configs.yaml; \
+    fi; \
     
     echo '${BLUE}🔍 Checking system resources...${NC}'; \
     echo 'Memory:'; \
