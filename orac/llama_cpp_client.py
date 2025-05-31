@@ -56,6 +56,14 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8080
 DEFAULT_TIMEOUT = 30
 
+# Orin Nano optimizations (configurable via environment)
+ORIN_NANO_OPTIMIZATIONS = os.getenv("ORAC_ORIN_OPTIMIZATIONS", "true").lower() == "true"
+ORIN_CTX_SIZE = os.getenv("ORAC_CTX_SIZE", "2048")
+ORIN_GPU_LAYERS = os.getenv("ORAC_GPU_LAYERS", "999")
+
+# JSON-specific system prompt for structured output
+JSON_SYSTEM_PROMPT = """You must respond with valid JSON only. Do not include any explanations, thinking, or commentary outside the JSON structure. Your response should be clean, properly formatted JSON that directly answers the request."""
+
 @dataclass
 class ServerState:
     """Internal state for a running server instance."""
@@ -262,7 +270,7 @@ class LlamaCppClient:
         temperature: float = 0.7,
         top_p: float = 0.7,
         top_k: int = 40,
-        json_mode: bool = False
+        json_mode: bool = True
     ) -> ServerState:
         """
         Ensure a server is running for the given model.
@@ -349,6 +357,11 @@ class LlamaCppClient:
             "--top-k", str(top_k)
         ]
         
+        # Add Orin Nano optimizations if enabled
+        if ORIN_NANO_OPTIMIZATIONS:
+            cmd.extend(["--ctx-size", ORIN_CTX_SIZE])
+            cmd.extend(["--n-gpu-layers", ORIN_GPU_LAYERS])
+        
         # Only add grammar if json_mode is True
         if json_mode:
             cmd.extend(["--grammar", JSON_GRAMMAR.strip()])
@@ -417,7 +430,7 @@ class LlamaCppClient:
         verbose: bool = False,
         timeout: int = 30,
         system_prompt: Optional[str] = None,
-        json_mode: bool = False,
+        json_mode: bool = True,
         stream: bool = False
     ) -> PromptResponse:
         """
@@ -454,8 +467,12 @@ class LlamaCppClient:
             template = prompt_format.get("template", "{system_prompt}\n\n{user_prompt}")
             default_system_prompt = model_config.get("system_prompt", "")
             
-            # Use provided system prompt or fall back to model's default
-            system_prompt = system_prompt or default_system_prompt
+            # Use JSON-specific system prompt when in JSON mode
+            if json_mode:
+                system_prompt = JSON_SYSTEM_PROMPT
+            else:
+                # Use provided system prompt or fall back to model's default
+                system_prompt = system_prompt or default_system_prompt
             
             # Format the prompt using the template
             formatted_prompt = template.format(
