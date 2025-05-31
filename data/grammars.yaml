@@ -1,10 +1,8 @@
-"""
-Grammar definitions for different output formats.
-
-These grammars are used to enforce specific output formats from the models.
-Each grammar is defined using the GBNF (Grammar Backus-Naur Form) format
-used by llama.cpp.
-"""
+# Grammar definitions for different output formats.
+#
+# These grammars are used to enforce specific output formats from the models.
+# Each grammar is defined using the GBNF (Grammar Backus-Naur Form) format
+# used by llama.cpp.
 
 grammars:
   json:
