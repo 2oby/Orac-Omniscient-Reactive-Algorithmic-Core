@@ -76,10 +76,20 @@ ssh "$REMOTE_ALIAS" "\
     git remote set-url origin $SSH_ORIGIN || true; \
     git fetch origin; \
     
-    # Backup and commit local configuration files if they exist
+    # Handle configuration files
     echo '${BLUE}📝 Handling configuration files...${NC}'; \
-    if [ -f data/favorites.json ] || [ -f data/model_configs.yaml ]; then \
-        echo 'Backing up local configuration files...'; \
+    if [ ! -f data/favorites.json ] && [ ! -f data/model_configs.yaml ]; then \
+        echo 'First run detected - copying configuration files...'; \
+        # Create data directory if it doesn't exist \
+        mkdir -p data; \
+        # Copy files from local machine \
+        scp \$HOME/ORAC/data/favorites.json \$HOME/ORAC/data/model_configs.yaml \$HOME/ORAC/data/ 2>/dev/null || { \
+            echo 'No local config files found - you will need to create these manually on the test machine'; \
+            exit 1; \
+        }; \
+        echo 'Configuration files copied successfully'; \
+    else \
+        echo 'Preserving existing configuration files...'; \
         git add data/favorites.json data/model_configs.yaml 2>/dev/null || true; \
         if git diff --cached --quiet; then \
             echo 'No changes to commit in config files'; \
@@ -103,16 +113,6 @@ ssh "$REMOTE_ALIAS" "\
     if git stash list | grep -q 'Temporary stash during deployment'; then \
         echo 'Restoring stashed changes...'; \
         git stash pop || true; \
-    fi; \
-    
-    # Ensure configuration files exist
-    if [ ! -f data/favorites.json ]; then \
-        echo 'Creating default favorites.json...'; \
-        echo '{\"favorites\": {\"default_model\": \"Qwen3-0.6B-Q4_K_M.gguf\"}}' > data/favorites.json; \
-    fi; \
-    if [ ! -f data/model_configs.yaml ]; then \
-        echo 'Creating default model_configs.yaml...'; \
-        echo 'models:\n  Qwen3-0.6B-Q4_K_M.gguf:\n    context_size: 2048\n    gpu_layers: 24' > data/model_configs.yaml; \
     fi; \
     
     echo '${BLUE}🔍 Checking system resources...${NC}'; \
