@@ -27,10 +27,19 @@ async def test_generate_text(llama_cpp_client):
     
     # Test generation
     prompt = "Write a haiku about artificial intelligence."
-    response = await llama_cpp_client.generate(model, prompt)
+    response = await llama_cpp_client.generate(
+        model=model,
+        prompt=prompt,
+        temperature=0.7,
+        top_p=0.7,
+        top_k=40,
+        max_tokens=512,
+        json_mode=False
+    )
     
-    assert response.response
-    assert len(response.response) > 0
-    assert response.elapsed_ms > 0
-    assert response.model == model
-    assert response.prompt == prompt 
+    assert response.text, "Empty response from model"
+    assert len(response.text.split('\n')) > 1, "Response too short"
+    assert response.response_time > 0, "Invalid response time"
+    assert response.model == model, "Model name mismatch"
+    assert response.prompt == prompt, "Prompt mismatch"
+    assert not response.json_mode, "JSON mode should be False" 

@@ -146,13 +146,13 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
             top_p=request.top_p,
             top_k=request.top_k,
             max_tokens=request.max_tokens,
-            timeout=30,  # Set a 60-second timeout for the API endpoint
+            timeout=30,  # Set a 30-second timeout for the API endpoint
             json_mode=request.json_mode
         )
         return GenerationResponse(
             status="success",
-            response=response.response,
-            elapsed_ms=response.elapsed_ms,
+            response=response.text,  # Use text instead of response
+            elapsed_ms=response.response_time * 1000,  # Convert to milliseconds
             model=request.model
         )
     except Exception as e:

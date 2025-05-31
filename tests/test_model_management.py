@@ -11,6 +11,9 @@ import pytest
 import os
 from pathlib import Path
 from orac.llama_cpp_client import LlamaCppClient
+import logging
+
+logger = logging.getLogger(__name__)
 
 @pytest.fixture
 def llama_cpp_client():
@@ -47,15 +50,35 @@ async def test_generate_with_real_model(llama_cpp_client):
     # Test generation
     prompt = "Write a haiku about artificial intelligence."
     try:
-        response = await llama_cpp_client.generate(model, prompt)
-        assert response.response
-        assert len(response.response) > 0
-        assert response.elapsed_ms > 0
-        assert response.model == model
-        assert response.prompt == prompt
+        response = await llama_cpp_client.generate(
+            model=model,
+            prompt=prompt,
+            temperature=0.7,
+            top_p=0.7,
+            top_k=40,
+            max_tokens=512,
+            json_mode=False  # Ensure free-form text
+        )
+        
+        # Print debug info
+        print("\n=== Model Generation Test ===")
+        print(f"Prompt: {prompt}")
+        print(f"Response:\n{response.text}")
+        print(f"Generation time: {response.response_time:.2f}s")
+        print("===========================\n")
+        
+        # Verify response
+        assert response.text, "Empty response from model"
+        assert len(response.text.split('\n')) > 1, "Response too short"
+        assert response.response_time > 0, "Invalid response time"
+        assert response.model == model, "Model name mismatch"
+        assert response.prompt == prompt, "Prompt mismatch"
+        assert not response.json_mode, "JSON mode should be False"
+        
     except Exception as e:
         if "libgomp.so.1" in str(e):
             pytest.skip("libgomp.so.1 not available")
+        logger.error(f"Generation error: {str(e)}")
         raise
 
 @pytest.mark.asyncio

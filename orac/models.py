@@ -33,10 +33,17 @@ class PromptRequest(BaseModel):
 
 class PromptResponse(BaseModel):
     """Response from text generation."""
-    response: str = Field(..., description="Generated text")
-    elapsed_ms: float = Field(..., description="Generation time in milliseconds")
+    text: str = Field(..., description="Generated text")
+    response_time: float = Field(..., description="Generation time in seconds")
     model: str = Field(..., description="Model used for generation")
     prompt: str = Field(..., description="Original prompt")
+    temperature: float = Field(..., description="Sampling temperature used")
+    top_p: float = Field(..., description="Top-p sampling parameter used")
+    top_k: int = Field(..., description="Top-k sampling parameter used")
+    max_tokens: int = Field(..., description="Maximum tokens generated")
+    json_mode: bool = Field(False, description="Whether JSON mode was enabled")
+    system_prompt: Optional[str] = Field(None, description="System prompt used")
+    generated_at: float = Field(..., description="Timestamp when generation started")
     finish_reason: Optional[str] = Field(None, description="Reason for generation completion")
     usage: Optional[Dict[str, int]] = Field(None, description="Token usage statistics")
 

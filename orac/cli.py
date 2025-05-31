@@ -100,7 +100,9 @@ async def generate_text(model_name: str, prompt: str, stream: bool = False, verb
         return {
             "status": "success",
             "response": response.text,  # Use text instead of response
-            "elapsed_ms": response.response_time * 1000  # Convert to milliseconds
+            "elapsed_ms": response.response_time * 1000,  # Convert to milliseconds
+            "model": response.model,
+            "prompt": response.prompt
         }
     except Exception as e:
         logger.error(f"Error generating text: {str(e)}")
