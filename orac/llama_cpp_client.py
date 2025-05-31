@@ -28,6 +28,19 @@ from orac.logger import get_logger
 from orac.models import PromptResponse
 from orac.config import load_model_configs
 
+# JSON grammar for structured output
+JSON_GRAMMAR = r'''
+root ::= object
+object ::= "{" ws (string ":" ws value ("," ws string ":" ws value)*)? ws "}"
+value ::= object | array | string | number | boolean | null
+array ::= "[" ws (value ("," ws value)*)? ws "]"
+string ::= "\"" ([^"\\] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))* "\""
+number ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [-+]? [0-9]+)?
+boolean ::= "true" | "false"
+null ::= "null" 
+ws ::= [ \t\n\r]*
+'''
+
 # Get logger for this module
 logger = get_logger(__name__)
 
@@ -288,7 +301,8 @@ class LlamaCppClient:
             "--port", str(port),
             "--temp", str(temperature),
             "--top-p", str(top_p),
-            "--top-k", str(top_k)
+            "--top-k", str(top_k),
+            "--grammar", JSON_GRAMMAR.strip()
         ]
         
         # Start the server process
@@ -371,6 +385,7 @@ class LlamaCppClient:
             verbose: Whether to run in verbose mode
             timeout: Maximum time in seconds to wait for generation
             system_prompt: Optional system prompt to override the model's default
+            json_mode: Explicit JSON mode override
             
         Returns:
             PromptResponse with generated text and metadata
@@ -422,7 +437,8 @@ class LlamaCppClient:
                 "top_k": top_k,
                 "n_predict": max_tokens,
                 "stream": stream,
-                "stop": ["<|im_end|>", "<|im_start|>", "<think>", "</think>"]  # Updated stop tokens
+                "stop": ["<|im_end|>", "<|im_start|>", "<think>", "</think>"],
+                "grammar": JSON_GRAMMAR.strip()
             }
             
             # Make the request
