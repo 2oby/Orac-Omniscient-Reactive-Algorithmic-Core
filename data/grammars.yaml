@@ -1,0 +1,40 @@
+"""
+Grammar definitions for different output formats.
+
+These grammars are used to enforce specific output formats from the models.
+Each grammar is defined using the GBNF (Grammar Backus-Naur Form) format
+used by llama.cpp.
+"""
+
+grammars:
+  json:
+    description: "Standard JSON grammar for structured output"
+    grammar: |
+      root ::= object
+      object ::= "{" ws (string ":" ws value ("," ws string ":" ws value)*)? ws "}"
+      value ::= object | array | string | number | boolean | null
+      array ::= "[" ws (value ("," ws value)*)? ws "]"
+      string ::= "\"" ([^"\\] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))* "\""
+      number ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [-+]? [0-9]+)?
+      boolean ::= "true" | "false"
+      null ::= "null" 
+      ws ::= [ \t\n\r]*
+
+  home_automation:
+    description: "Grammar for home automation commands with device, action, and location"
+    grammar: |
+      root ::= object
+      object ::= "{" ws string ":" ws string "," ws string ":" ws string "," ws string ":" ws string ws "}"
+      string ::= "\"" ([^"\\] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))* "\""
+      ws ::= [ \t\n\r]*
+    required_keys:
+      - device
+      - action
+      - location
+    valid_actions:
+      - "turn on"
+      - "turn off"
+      - "toggle"
+      - "set"
+      - "open"
+      - "close" 

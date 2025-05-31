@@ -69,7 +69,7 @@ The key insight is that the efficiency gains happen at the implementation level 
 
 ### Connection Information
 - Development Machine IP: (http://192.168.1.13)
-- SSH Connection: `ssh toby@<ip-address>`
+- SSH Connection: `ssh orin`
 - Working Directory: `/home/toby/ORAC`
 
 ### Log File System
@@ -105,4 +105,9 @@ The key insight is that the efficiency gains happen at the implementation level 
 - [ ] Document model configurations and parameters
 - [ ] Add model-specific error handling
 - [ ] Implement model fallback strategy
+- [ ] Resource Monitoring:
+  - [ ] Monitor server resource usage (CPU, GPU, memory)
+  - [ ] Dynamically adjust parameters (ORIN_CTX_SIZE, n-gpu-layers) based on system load
+  - [ ] Integrate with psutil for memory monitoring
+  - [ ] Implement adaptive resource management to prevent crashes on low-resource systems
 

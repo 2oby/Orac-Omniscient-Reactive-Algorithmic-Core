@@ -19,6 +19,7 @@ import aiohttp
 import weakref
 import signal
 import psutil
+import yaml
 from typing import List, Dict, Any, Optional, Set
 from pathlib import Path
 from dataclasses import dataclass
@@ -61,9 +62,6 @@ ORIN_NANO_OPTIMIZATIONS = os.getenv("ORAC_ORIN_OPTIMIZATIONS", "true").lower() =
 ORIN_CTX_SIZE = os.getenv("ORAC_CTX_SIZE", "2048")
 ORIN_GPU_LAYERS = os.getenv("ORAC_GPU_LAYERS", "999")
 
-# JSON-specific system prompt for structured output
-JSON_SYSTEM_PROMPT = """You must respond with valid JSON only. Do not include any explanations, thinking, or commentary outside the JSON structure. Your response should be clean, properly formatted JSON that directly answers the request."""
-
 @dataclass
 class ServerState:
     """Internal state for a running server instance."""
@@ -80,16 +78,33 @@ class LlamaCppClient:
     # Class-level tracking of all client instances and their servers
     _instances: Set[weakref.ReferenceType['LlamaCppClient']] = set()
     _server_ports: Set[int] = set()
+    # Class-level cache for grammars
+    _grammars: Optional[Dict[str, Dict[str, Any]]] = None
+    # Class-level cache for model configurations
+    _model_configs: Optional[Dict[str, Any]] = None
+    # Class-level cache for system prompts
+    _system_prompts: Dict[str, str] = {
+        "json": """You must respond with valid JSON only. Do not include any explanations, thinking, or commentary outside the JSON structure. Your response should be clean, properly formatted JSON that directly answers the request."""
+    }
     
-    def __init__(self, models_path: str = None):
-        """
-        Initialize the llama.cpp client.
+    def __init__(self, model_path: str, config_path: str = "data/model_configs.yaml"):
+        """Initialize the LlamaCppClient with model and configuration paths."""
+        self.model_path = model_path
+        self.config_path = config_path
+        self.model = None
+        self.config = self._load_config()
         
-        Args:
-            models_path: Optional path to models directory. Defaults to MODELS_PATH.
-        """
-        self.models_path = models_path or MODELS_PATH
-        logger.info(f"Initializing LlamaCppClient with models path: {self.models_path}")
+        # Load grammars only once at class level
+        if LlamaCppClient._grammars is None:
+            LlamaCppClient._grammars = self._load_grammars()
+        self.grammars = LlamaCppClient._grammars
+        
+        # Load model configs only once at class level
+        if LlamaCppClient._model_configs is None:
+            LlamaCppClient._model_configs = load_model_configs()
+        self.model_configs = LlamaCppClient._model_configs
+        
+        logger.info(f"Initializing LlamaCppClient with models path: {self.model_path}")
         
         # Internal state
         self._servers: Dict[str, ServerState] = {}  # model -> server state
@@ -250,10 +265,10 @@ class LlamaCppClient:
         """
         models = []
         
-        if os.path.exists(self.models_path):
-            for file in os.listdir(self.models_path):
+        if os.path.exists(self.model_path):
+            for file in os.listdir(self.model_path):
                 if file.endswith(".gguf"):
-                    model_path = os.path.join(self.models_path, file)
+                    model_path = os.path.join(self.model_path, file)
                     models.append({
                         "name": file,
                         "size": os.path.getsize(model_path),
@@ -340,7 +355,7 @@ class LlamaCppClient:
         Returns:
             ServerState for the new server
         """
-        model_path = os.path.join(self.models_path, model)
+        model_path = os.path.join(self.model_path, model)
         if not model_path.endswith(".gguf"):
             model_path += ".gguf"
             
@@ -364,7 +379,7 @@ class LlamaCppClient:
         
         # Only add grammar if json_mode is True
         if json_mode:
-            cmd.extend(["--grammar", JSON_GRAMMAR.strip()])
+            cmd.extend(["--grammar", self.get_grammar('json').strip()])
         
         # Start the server process
         process = subprocess.Popen(
@@ -458,9 +473,8 @@ class LlamaCppClient:
         start_time = asyncio.get_event_loop().time()
         
         try:
-            # Load model configuration
-            model_configs = load_model_configs()
-            model_config = model_configs.get("models", {}).get(model, {})
+            # Get model configuration from cache
+            model_config = self.model_configs.get("models", {}).get(model, {})
             
             # Get the prompt format template and system prompt
             prompt_format = model_config.get("prompt_format", {})
@@ -469,7 +483,7 @@ class LlamaCppClient:
             
             # Use JSON-specific system prompt when in JSON mode
             if json_mode:
-                system_prompt = JSON_SYSTEM_PROMPT
+                system_prompt = self._system_prompts["json"]
             else:
                 # Use provided system prompt or fall back to model's default
                 system_prompt = system_prompt or default_system_prompt
@@ -522,7 +536,7 @@ class LlamaCppClient:
             
             # Only include grammar in request if json_mode is True
             if json_mode:
-                request_data["grammar"] = JSON_GRAMMAR.strip()
+                request_data["grammar"] = self.get_grammar('json').strip()
             
             # Make request to server
             async with self._get_session() as session:
@@ -664,11 +678,11 @@ class LlamaCppClient:
         Returns:
             True if quantization was successful
         """
-        input_path = os.path.join(self.models_path, input_model)
+        input_path = os.path.join(self.model_path, input_model)
         if not input_path.endswith(".gguf"):
             input_path += ".gguf"
             
-        output_path = os.path.join(self.models_path, output_model)
+        output_path = os.path.join(self.model_path, output_model)
         if not output_path.endswith(".gguf"):
             output_path += ".gguf"
         
@@ -699,3 +713,33 @@ class LlamaCppClient:
         if success:
             logger.info(f"Successfully quantized model to {output_path}")
         return success 
+
+    def _load_config(self) -> Dict[str, Any]:
+        """Load model configuration from the configuration file."""
+        config_path = Path(self.config_path)
+        if not config_path.exists():
+            raise FileNotFoundError(f"Model configuration file not found at {config_path}")
+            
+        with open(config_path, 'r') as f:
+            return yaml.safe_load(f)
+
+    def _load_grammars(self) -> Dict[str, Dict[str, Any]]:
+        """Load grammar definitions from the grammars configuration file."""
+        grammar_path = Path("data/grammars.yaml")
+        if not grammar_path.exists():
+            raise FileNotFoundError(f"Grammar configuration file not found at {grammar_path}")
+            
+        with open(grammar_path, 'r') as f:
+            return yaml.safe_load(f)['grammars']
+            
+    def get_grammar(self, grammar_name: str) -> str:
+        """Get a grammar definition by name from the cached grammars."""
+        if grammar_name not in self.grammars:
+            raise ValueError(f"Grammar '{grammar_name}' not found in configuration")
+        return self.grammars[grammar_name]['grammar']
+        
+    def get_grammar_info(self, grammar_name: str) -> Dict[str, Any]:
+        """Get additional information about a grammar from the cached grammars."""
+        if grammar_name not in self.grammars:
+            raise ValueError(f"Grammar '{grammar_name}' not found in configuration")
+        return self.grammars[grammar_name] 
