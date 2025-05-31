@@ -66,3 +66,7 @@ ENV/
 # Data directory (keep directory and config files)
 data/.DS_Store
 !data/.gitkeep
+
+# Client-specific configuration files
+data/favorites.json
+data/model_configs.yaml
