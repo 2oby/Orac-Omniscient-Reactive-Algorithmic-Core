@@ -4,6 +4,7 @@
     "Qwen3-0.6B-Q4_K_M.gguf",
     "Qwen3-1.7B-Q4_K_M.gguf"
   ],
+  "default_model": "Qwen3-0.6B-Q4_K_M.gguf",
   "default_settings": {
     "temperature": 0.2,
     "top_p": 0.8,
