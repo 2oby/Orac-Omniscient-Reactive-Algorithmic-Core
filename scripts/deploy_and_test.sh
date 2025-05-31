@@ -73,8 +73,8 @@ if ! ssh "$REMOTE_ALIAS" "[ -f \$HOME/ORAC/data/favorites.json ] && [ -f \$HOME/
     echo -e "${YELLOW}First run detected - copying configuration files...${NC}"
     # Create remote data directory
     ssh "$REMOTE_ALIAS" "mkdir -p \$HOME/ORAC/data"
-    # Copy files to remote
-    scp data/favorites.json data/model_configs.yaml "$REMOTE_ALIAS:\$HOME/ORAC/data/" || {
+    # Copy files to remote (using path relative to project root)
+    scp "$(git rev-parse --show-toplevel)/data/favorites.json" "$(git rev-parse --show-toplevel)/data/model_configs.yaml" "$REMOTE_ALIAS:\$HOME/ORAC/data/" || {
         echo -e "${RED}❌ No local config files found - you will need to create these manually on the test machine${NC}"
         exit 1
     }
