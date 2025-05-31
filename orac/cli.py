@@ -89,18 +89,18 @@ async def generate_text(model_name: str, prompt: str, stream: bool = False, verb
         response = await client.generate(
             model=model_name,
             prompt=prompt,
-            stream=stream,
             temperature=0.7,
             top_p=0.7,
             top_k=40,
             max_tokens=512,
             verbose=verbose,
-            timeout=30
+            timeout=30,
+            json_mode=False  # Always use free-form text for CLI
         )
         return {
             "status": "success",
-            "response": response.response,
-            "elapsed_ms": response.elapsed_ms
+            "response": response.text,  # Use text instead of response
+            "elapsed_ms": response.response_time * 1000  # Convert to milliseconds
         }
     except Exception as e:
         logger.error(f"Error generating text: {str(e)}")
