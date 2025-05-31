@@ -244,6 +244,13 @@ document.getElementById('resetSettings').addEventListener('click', async () => {
 // Function to update favorite button state
 function updateFavoriteButtonState(modelName) {
     console.log('[DEBUG] updateFavoriteButtonState called with modelName:', modelName);
+    console.log('[DEBUG] Current favorites:', favorites);
+    console.log('[DEBUG] Button state before update:', {
+        disabled: favoriteToggle.disabled,
+        classes: favoriteToggle.className,
+        isFavorite: favorites.includes(modelName)
+    });
+    
     if (!modelName) {
         favoriteToggle.classList.remove('favorited');
         favoriteToggle.disabled = true;
@@ -255,23 +262,53 @@ function updateFavoriteButtonState(modelName) {
     favoriteToggle.disabled = false;
     if (favorites.includes(modelName)) {
         favoriteToggle.classList.add('favorited');
+        console.log('[DEBUG] Model is favorited, adding favorited class');
     } else {
         favoriteToggle.classList.remove('favorited');
+        console.log('[DEBUG] Model is not favorited, removing favorited class');
     }
     // Always clear the static star, let CSS handle it
     favoriteToggle.querySelector('.star-icon').innerText = '';
-    console.log('[DEBUG] Model selected. Button disabled:', favoriteToggle.disabled, 'Classes:', favoriteToggle.className, 'Favorited:', favorites.includes(modelName));
+    console.log('[DEBUG] Button state after update:', {
+        disabled: favoriteToggle.disabled,
+        classes: favoriteToggle.className,
+        isFavorite: favorites.includes(modelName)
+    });
 }
 
 // Function to toggle favorite status
 async function toggleFavorite() {
-    if (!currentModel) return;
+    console.log('[DEBUG] toggleFavorite called for model:', currentModel);
+    console.log('[DEBUG] Current favorites before toggle:', favorites);
+    console.log('[DEBUG] Current default model:', defaultModel);
+    
+    if (!currentModel) {
+        console.log('[DEBUG] No model selected, ignoring toggle');
+        return;
+    }
     
     try {
         const isFavorite = favorites.includes(currentModel);
+        console.log('[DEBUG] Current favorite status:', isFavorite);
+        
+        // If trying to remove favorite status from default model, prevent it
+        if (isFavorite && currentModel === defaultModel) {
+            console.log('[DEBUG] Cannot remove favorite status from default model');
+            alert('Cannot remove favorite status from default model. Please set a different default model first.');
+            return;
+        }
+        
         const newFavorites = isFavorite 
             ? favorites.filter(m => m !== currentModel)
             : [...favorites, currentModel];
+        
+        console.log('[DEBUG] New favorites array:', newFavorites);
+        
+        // Ensure default model is in favorites
+        if (defaultModel && !newFavorites.includes(defaultModel)) {
+            console.log('[DEBUG] Adding default model to favorites:', defaultModel);
+            newFavorites.push(defaultModel);
+        }
         
         const response = await fetch('/v1/config/favorites', {
             method: 'POST',
@@ -280,33 +317,49 @@ async function toggleFavorite() {
             },
             body: JSON.stringify({
                 favorite_models: newFavorites,
+                default_model: defaultModel,
                 default_settings: defaultSettings
             })
         });
 
         if (!response.ok) {
-            throw new Error('Failed to update favorites');
+            const errorData = await response.json();
+            console.error('[DEBUG] API error response:', errorData);
+            throw new Error(errorData.detail || 'Failed to update favorites');
         }
+
+        const responseData = await response.json();
+        console.log('[DEBUG] API success response:', responseData);
 
         // Update local state
         favorites = newFavorites;
+        console.log('[DEBUG] Updated local favorites:', favorites);
+        
         updateFavoriteButtonState(currentModel);
+        console.log('[DEBUG] Updated button state');
         
         // Re-sort and update the model dropdown
         await loadModels();
+        console.log('[DEBUG] Reloaded models');
         
         // Restore the current model selection
         modelSelect.value = currentModel;
+        console.log('[DEBUG] Restored model selection:', currentModel);
         
         // Show feedback
         const feedback = document.createElement('div');
         feedback.className = 'feedback-message';
         feedback.textContent = isFavorite ? 'Removed from favorites' : 'Added to favorites';
         document.querySelector('.model-selection').appendChild(feedback);
-        setTimeout(() => feedback.remove(), 2000);
+        console.log('[DEBUG] Added feedback message');
+        
+        setTimeout(() => {
+            feedback.remove();
+            console.log('[DEBUG] Removed feedback message');
+        }, 2000);
         
     } catch (error) {
-        console.error('Error toggling favorite:', error);
+        console.error('[DEBUG] Error in toggleFavorite:', error);
         alert('Failed to update favorites. Please try again.');
     }
 }
