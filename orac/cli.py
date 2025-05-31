@@ -34,7 +34,8 @@ async def setup_client() -> LlamaCppClient:
     global client
     if client is None:
         logger.info("Initializing llama.cpp client")
-        client = LlamaCppClient()
+        model_path = os.getenv("ORAC_MODELS_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "models/gguf"))
+        client = LlamaCppClient(model_path=model_path)
     return client
 
 async def close_client():

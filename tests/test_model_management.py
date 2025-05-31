@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 @pytest.fixture
 def llama_cpp_client():
     """Create a LlamaCppClient instance for testing."""
-    return LlamaCppClient()
+    model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests/test_models")
+    return LlamaCppClient(model_path=model_path)
 
 @pytest.mark.asyncio
 async def test_list_models(llama_cpp_client):

@@ -226,7 +226,14 @@ async def startup_event():
         if favorites.get("default_model"):
             try:
                 logger.info(f"Loading default model: {favorites['default_model']}")
-                await client.load_model(favorites["default_model"])
+                # Use _ensure_server_running instead of load_model
+                await client._ensure_server_running(
+                    model=favorites["default_model"],
+                    temperature=0.7,
+                    top_p=0.7,
+                    top_k=40,
+                    json_mode=True
+                )
                 logger.info("Default model loaded successfully")
             except Exception as e:
                 logger.error(f"Failed to load default model: {e}")
