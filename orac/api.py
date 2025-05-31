@@ -146,7 +146,8 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
             top_p=request.top_p,
             top_k=request.top_k,
             max_tokens=request.max_tokens,
-            timeout=30  # Set a 60-second timeout for the API endpoint
+            timeout=30,  # Set a 60-second timeout for the API endpoint
+            json_mode=request.json_mode
         )
         return GenerationResponse(
             status="success",

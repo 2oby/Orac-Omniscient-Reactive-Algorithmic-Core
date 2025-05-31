@@ -8,6 +8,7 @@ const temperature = document.getElementById('temperature');
 const topP = document.getElementById('topP');
 const topK = document.getElementById('topK');
 const maxTokens = document.getElementById('maxTokens');
+const forceJson = document.getElementById('forceJson');
 const resetSettings = document.getElementById('resetSettings');
 const saveSettings = document.getElementById('saveSettings');
 const promptInput = document.getElementById('promptInput');
@@ -45,7 +46,8 @@ settingsToggle.addEventListener('click', () => {
             temperature: temperature.value,
             topP: topP.value,
             topK: topK.value,
-            maxTokens: maxTokens.value
+            maxTokens: maxTokens.value,
+            forceJson: forceJson.checked
         };
         expandSettingsPanel();
     } else {
@@ -62,6 +64,7 @@ document.getElementById('cancelSettings').addEventListener('click', () => {
         topP.value = currentSettings.topP;
         topK.value = currentSettings.topK;
         maxTokens.value = currentSettings.maxTokens;
+        forceJson.checked = currentSettings.forceJson;
     }
     collapseSettingsPanel();
 });
@@ -79,7 +82,8 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
         temperature: parseFloat(temperature.value),
         top_p: parseFloat(topP.value),
         top_k: parseInt(topK.value),
-        max_tokens: parseInt(maxTokens.value)
+        max_tokens: parseInt(maxTokens.value),
+        json_mode: forceJson.checked
     };
 
     try {
@@ -96,7 +100,8 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
                             temperature: settings.temperature,
                             top_p: settings.top_p,
                             top_k: settings.top_k,
-                            max_tokens: settings.max_tokens
+                            max_tokens: settings.max_tokens,
+                            json_mode: settings.json_mode
                         }
                     }
                 }
@@ -115,7 +120,8 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
                 temperature: settings.temperature,
                 top_p: settings.top_p,
                 top_k: settings.top_k,
-                max_tokens: settings.max_tokens
+                max_tokens: settings.max_tokens,
+                json_mode: settings.json_mode
             }
         };
 
@@ -125,7 +131,8 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
             temperature: settings.temperature,
             topP: settings.top_p,
             topK: settings.top_k,
-            maxTokens: settings.max_tokens
+            maxTokens: settings.max_tokens,
+            forceJson: settings.json_mode
         };
 
         // Show success message
@@ -178,6 +185,7 @@ document.getElementById('resetSettings').addEventListener('click', async () => {
         topP.value = modelConfig?.recommended_settings?.top_p || defaultSettings.top_p || 0.9;
         topK.value = modelConfig?.recommended_settings?.top_k || defaultSettings.top_k || 40;
         maxTokens.value = modelConfig?.recommended_settings?.max_tokens || defaultSettings.max_tokens || 2048;
+        forceJson.checked = modelConfig?.recommended_settings?.json_mode || defaultSettings.json_mode || false;
 
         // Update current settings
         currentSettings = {
@@ -185,7 +193,8 @@ document.getElementById('resetSettings').addEventListener('click', async () => {
             temperature: temperature.value,
             topP: topP.value,
             topK: topK.value,
-            maxTokens: maxTokens.value
+            maxTokens: maxTokens.value,
+            forceJson: forceJson.checked
         };
 
         // Show success message
@@ -367,6 +376,7 @@ modelSelect.addEventListener('change', async () => {
     topP.value = settings.top_p || defaultSettings.top_p;
     topK.value = settings.top_k || defaultSettings.top_k;
     maxTokens.value = settings.max_tokens || defaultSettings.max_tokens;
+    forceJson.checked = settings.json_mode || false;
 });
 
 // Handle generate button click
@@ -402,7 +412,8 @@ generateButton.addEventListener('click', async () => {
                 temperature: parseFloat(temperature.value),
                 top_p: parseFloat(topP.value),
                 top_k: parseInt(topK.value),
-                max_tokens: parseInt(maxTokens.value)
+                max_tokens: parseInt(maxTokens.value),
+                json_mode: forceJson.checked
             })
         });
 

@@ -261,7 +261,8 @@ class LlamaCppClient:
         model: str,
         temperature: float = 0.7,
         top_p: float = 0.7,
-        top_k: int = 40
+        top_k: int = 40,
+        json_mode: bool = False
     ) -> ServerState:
         """
         Ensure a server is running for the given model.
@@ -271,6 +272,7 @@ class LlamaCppClient:
             temperature: Sampling temperature
             top_p: Top-p sampling parameter
             top_k: Top-k sampling parameter
+            json_mode: Whether to enforce JSON grammar
             
         Returns:
             ServerState for the running server
@@ -297,7 +299,8 @@ class LlamaCppClient:
             port=port,
             temperature=temperature,
             top_p=top_p,
-            top_k=top_k
+            top_k=top_k,
+            json_mode=json_mode
         )
         
         self._servers[model] = server
@@ -311,7 +314,8 @@ class LlamaCppClient:
         port: int,
         temperature: float = 0.7,
         top_p: float = 0.7,
-        top_k: int = 40
+        top_k: int = 40,
+        json_mode: bool = False
     ) -> ServerState:
         """
         Start a new server instance.
@@ -323,6 +327,7 @@ class LlamaCppClient:
             temperature: Sampling temperature
             top_p: Top-p sampling parameter
             top_k: Top-k sampling parameter
+            json_mode: Whether to enforce JSON grammar
             
         Returns:
             ServerState for the new server
@@ -341,9 +346,12 @@ class LlamaCppClient:
             "--port", str(port),
             "--temp", str(temperature),
             "--top-p", str(top_p),
-            "--top-k", str(top_k),
-            "--grammar", JSON_GRAMMAR.strip()
+            "--top-k", str(top_k)
         ]
+        
+        # Only add grammar if json_mode is True
+        if json_mode:
+            cmd.extend(["--grammar", JSON_GRAMMAR.strip()])
         
         # Start the server process
         process = subprocess.Popen(
@@ -400,9 +408,8 @@ class LlamaCppClient:
 
     async def generate(
         self,
-        model: str,
         prompt: str,
-        stream: bool = False,
+        model: str,
         temperature: float = 0.7,
         top_p: float = 0.7,
         top_k: int = 40,
@@ -426,7 +433,7 @@ class LlamaCppClient:
             verbose: Whether to run in verbose mode
             timeout: Maximum time in seconds to wait for generation
             system_prompt: Optional system prompt to override the model's default
-            json_mode: Explicit JSON mode override
+            json_mode: Whether to enforce JSON grammar
             
         Returns:
             PromptResponse with generated text and metadata
@@ -467,50 +474,35 @@ class LlamaCppClient:
                 model=model,
                 temperature=temperature,
                 top_p=top_p,
-                top_k=top_k
+                top_k=top_k,
+                json_mode=json_mode
             )
             
-            # Prepare the request
+            # Prepare request data
             request_data = {
                 "prompt": formatted_prompt,
                 "temperature": temperature,
                 "top_p": top_p,
                 "top_k": top_k,
-                "n_predict": max_tokens,
-                "stream": stream,
-                "stop": ["<|im_end|>", "<|im_start|>", "<think>", "</think>"]
+                "max_tokens": max_tokens
             }
             
-            # Only add grammar if json_mode is True
+            # Only include grammar in request if json_mode is True
             if json_mode:
                 request_data["grammar"] = JSON_GRAMMAR.strip()
             
-            # Make the request
-            try:
-                async with server.session.post(
-                    "/completion",
-                    json=request_data,
-                    timeout=timeout
+            # Make request to server
+            async with self._get_session() as session:
+                async with session.post(
+                    f"http://{server.host}:{server.port}/completion",
+                    json=request_data
                 ) as response:
                     if response.status != 200:
                         error_text = await response.text()
                         raise Exception(f"Server error: {error_text}")
                     
-                    if stream:
-                        # Handle streaming response
-                        response_text = ""
-                        async for line in response.content:
-                            if line:
-                                try:
-                                    chunk = json.loads(line)
-                                    if "content" in chunk:
-                                        response_text += chunk["content"]
-                                except json.JSONDecodeError:
-                                    continue
-                    else:
-                        # Handle regular response
-                        result = await response.json()
-                        response_text = result.get("content", "")
+                    result = await response.json()
+                    response_text = result.get("content", "")
                     
                     # Clean up the response
                     response_text = response_text.strip()
@@ -526,22 +518,20 @@ class LlamaCppClient:
                         logger.warning("Empty response from model")
                         response_text = "No response generated"
                     
-                    elapsed_ms = (asyncio.get_event_loop().time() - start_time) * 1000
-                    
                     return PromptResponse(
-                        response=response_text,
-                        elapsed_ms=elapsed_ms,
+                        text=response_text,
                         model=model,
+                        temperature=temperature,
+                        top_p=top_p,
+                        top_k=top_k,
+                        max_tokens=max_tokens,
+                        json_mode=json_mode,
+                        system_prompt=system_prompt,
                         prompt=prompt,
-                        finish_reason="stop" if max_tokens else None,
-                        usage=None  # llama.cpp doesn't provide token usage stats
+                        generated_at=start_time,
+                        response_time=asyncio.get_event_loop().time() - start_time
                     )
                     
-            except asyncio.TimeoutError:
-                raise Exception(f"Generation timed out after {timeout} seconds")
-            except aiohttp.ClientError as e:
-                raise Exception(f"HTTP error during generation: {str(e)}")
-            
         except Exception as e:
             logger.error(f"Generation error: {str(e)}")
             raise
