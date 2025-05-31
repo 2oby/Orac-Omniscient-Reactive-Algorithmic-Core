@@ -12,3 +12,16 @@ models:
       JSON object containing the keys: "device", "action", and "location". Do not
       include any explanations, comments, or additional text. Only output the JSON
       object.'
+  Qwen3-1.7B-Q4_K_M.gguf:
+    recommended_settings:
+      json_mode: true
+      max_tokens: 50
+      temperature: 0.2
+      top_k: 30
+      top_p: 0.8
+    system_prompt: '/no_think
+
+      You are a JSON-only formatter. For each user input, respond with a single-line
+      JSON object containing the keys: "device", "action", and "location". Do not
+      include any explanations, comments, or additional text. Only output the JSON
+      object.'

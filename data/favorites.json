@@ -5,9 +5,9 @@
     "Qwen3-1.7B-Q4_K_M.gguf"
   ],
   "default_settings": {
-    "temperature": 0.7,
-    "top_p": 0.7,
-    "top_k": 40,
-    "max_tokens": 512
+    "temperature": 0.2,
+    "top_p": 0.8,
+    "top_k": 30,
+    "max_tokens": 60
   }
 }
