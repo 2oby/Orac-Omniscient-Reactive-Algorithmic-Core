@@ -75,6 +75,16 @@ ssh "$REMOTE_ALIAS" "\
     cd \$HOME/ORAC; \
     git remote set-url origin $SSH_ORIGIN || true; \
     git fetch origin; \
+    
+    # Stop tracking configuration files if they exist
+    echo '${BLUE}📝 Updating Git configuration...${NC}'; \
+    if [ -f data/favorites.json ]; then \
+        git rm --cached data/favorites.json 2>/dev/null || true; \
+    fi; \
+    if [ -f data/model_configs.yaml ]; then \
+        git rm --cached data/model_configs.yaml 2>/dev/null || true; \
+    fi; \
+    
     if git show-ref --verify --quiet refs/heads/$DEPLOY_BRANCH; then \
         git checkout $DEPLOY_BRANCH; \
     else \
