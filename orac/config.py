@@ -26,7 +26,7 @@ MODEL_CONFIGS_PATH = os.path.join(DATA_DIR, "model_configs.yaml")
 # Default configurations
 DEFAULT_FAVORITES = {
     "favorite_models": [],
-    "default_model": None,
+    "default_model": None,  # Name of the default model to load on startup
     "default_settings": {
         "temperature": 0.7,
         "top_p": 0.7,
@@ -179,11 +179,25 @@ def save_favorites(config: Dict[str, Any]) -> None:
     """
     ensure_data_dir()
     try:
+        # Ensure we have all required fields
+        if "favorite_models" not in config:
+            config["favorite_models"] = []
+        if "default_model" not in config:
+            config["default_model"] = None
+        if "default_settings" not in config:
+            config["default_settings"] = DEFAULT_FAVORITES["default_settings"]
+        
+        # Validate default model is in favorites if set
+        if config["default_model"] and config["default_model"] not in config["favorite_models"]:
+            logger.warning(f"Default model {config['default_model']} is not in favorites, adding it")
+            config["favorite_models"].append(config["default_model"])
+        
         with open(FAVORITES_PATH, 'w') as f:
             json.dump(config, f, indent=2)
         logger.info("Saved favorites.json")
     except Exception as e:
         logger.error(f"Error saving favorites.json: {e}")
+        raise
 
 def save_model_configs(config: Dict[str, Any]) -> None:
     """

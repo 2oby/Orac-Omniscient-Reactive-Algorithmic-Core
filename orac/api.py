@@ -18,6 +18,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from typing import List, Dict, Any
 import os
+import asyncio
 
 from orac.logger import get_logger
 from orac.llama_cpp_client import LlamaCppClient
@@ -201,22 +202,34 @@ async def update_model_configs(config: Dict[str, Any]) -> Dict[str, Any]:
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize the client on startup."""
+    """Initialize the API on startup."""
+    global client
     try:
-        await get_client()
-        logger.info("API server started successfully")
+        # Create client instance
+        client = LlamaCppClient()
+        
+        # Load default model if configured
+        favorites = load_favorites()
+        if favorites.get("default_model"):
+            try:
+                logger.info(f"Loading default model: {favorites['default_model']}")
+                await client.load_model(favorites["default_model"])
+                logger.info("Default model loaded successfully")
+            except Exception as e:
+                logger.error(f"Failed to load default model: {e}")
     except Exception as e:
-        logger.error(f"Error during API startup: {e}")
+        logger.error(f"Error during startup: {e}")
         raise
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Clean up on shutdown."""
+    """Clean up resources on shutdown."""
     global client
-    if client is not None:
-        # Add any cleanup needed
-        client = None
-        logger.info("API server shutdown complete")
+    if client:
+        try:
+            await client.cleanup()
+        except Exception as e:
+            logger.error(f"Error during shutdown: {e}")
 
 # Web interface routes
 @app.get("/", response_class=HTMLResponse)

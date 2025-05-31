@@ -9,6 +9,7 @@ const topP = document.getElementById('topP');
 const topK = document.getElementById('topK');
 const maxTokens = document.getElementById('maxTokens');
 const forceJson = document.getElementById('forceJson');
+const setDefault = document.getElementById('setDefault');
 const resetSettings = document.getElementById('resetSettings');
 const saveSettings = document.getElementById('saveSettings');
 const promptInput = document.getElementById('promptInput');
@@ -23,6 +24,7 @@ let currentModel = null;
 let favorites = [];
 let modelConfigs = {};
 let defaultSettings = null;
+let defaultModel = null;
 let currentSettings = null;  // Store current settings for cancel functionality
 
 // Function to collapse settings panel
@@ -47,7 +49,8 @@ settingsToggle.addEventListener('click', () => {
             topP: topP.value,
             topK: topK.value,
             maxTokens: maxTokens.value,
-            forceJson: forceJson.checked
+            forceJson: forceJson.checked,
+            isDefault: setDefault.checked
         };
         expandSettingsPanel();
     } else {
@@ -65,6 +68,7 @@ document.getElementById('cancelSettings').addEventListener('click', () => {
         topK.value = currentSettings.topK;
         maxTokens.value = currentSettings.maxTokens;
         forceJson.checked = currentSettings.forceJson;
+        setDefault.checked = currentSettings.isDefault;
     }
     collapseSettingsPanel();
 });
@@ -87,7 +91,8 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
     };
 
     try {
-        const response = await fetch('/v1/config/models', {
+        // First save model settings
+        const modelResponse = await fetch('/v1/config/models', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -108,12 +113,30 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
             })
         });
 
-        if (!response.ok) {
-            const error = await response.json();
+        if (!modelResponse.ok) {
+            const error = await modelResponse.json();
             throw new Error(error.detail || 'Failed to save settings');
         }
 
-        // Update model configs after successful save
+        // Then update favorites and default model if needed
+        const newDefaultModel = setDefault.checked ? selectedModel : (defaultModel === selectedModel ? null : defaultModel);
+        const favResponse = await fetch('/v1/config/favorites', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                favorite_models: favorites,
+                default_model: newDefaultModel,
+                default_settings: defaultSettings
+            })
+        });
+
+        if (!favResponse.ok) {
+            throw new Error('Failed to update default model');
+        }
+
+        // Update local state
         modelConfigs[selectedModel] = {
             system_prompt: settings.system_prompt,
             recommended_settings: {
@@ -124,15 +147,17 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
                 json_mode: settings.json_mode
             }
         };
+        defaultModel = newDefaultModel;
 
-        // Update current settings after successful save
+        // Update current settings
         currentSettings = {
             systemPrompt: settings.system_prompt,
             temperature: settings.temperature,
             topP: settings.top_p,
             topK: settings.top_k,
             maxTokens: settings.max_tokens,
-            forceJson: settings.json_mode
+            forceJson: settings.json_mode,
+            isDefault: setDefault.checked
         };
 
         // Show success message
@@ -304,6 +329,7 @@ async function loadModels() {
         const favData = await favResponse.json();
         console.log('Favorites loaded:', favData);
         favorites = favData.favorite_models || [];
+        defaultModel = favData.default_model || null;
         defaultSettings = favData.default_settings || {
             temperature: 0.7,
             top_p: 0.7,
@@ -338,6 +364,14 @@ async function loadModels() {
             const option = createModelOption(model, false);
             modelSelect.appendChild(option);
         });
+
+        // Select default model if set
+        if (defaultModel) {
+            modelSelect.value = defaultModel;
+            currentModel = defaultModel;
+            updateFavoriteButtonState(defaultModel);
+            updateSettingsPanel(defaultModel);
+        }
         
         console.log('Dropdown populated with', modelSelect.options.length - 1, 'models');
     } catch (error) {
@@ -354,6 +388,23 @@ function createModelOption(model, isFavorite) {
     return option;
 }
 
+// Update settings panel with model settings
+function updateSettingsPanel(modelName) {
+    if (!modelName) return;
+    
+    const config = modelConfigs[modelName] || {};
+    const settings = config.recommended_settings || defaultSettings;
+    
+    systemPrompt.value = config.system_prompt || '';
+    systemPromptDisplay.textContent = config.system_prompt || '';
+    temperature.value = settings.temperature || defaultSettings.temperature;
+    topP.value = settings.top_p || defaultSettings.top_p;
+    topK.value = settings.top_k || defaultSettings.top_k;
+    maxTokens.value = settings.max_tokens || defaultSettings.max_tokens;
+    forceJson.checked = settings.json_mode || false;
+    setDefault.checked = modelName === defaultModel;
+}
+
 // Update model selection handler
 modelSelect.addEventListener('change', async () => {
     const selectedModel = modelSelect.value;
@@ -365,18 +416,7 @@ modelSelect.addEventListener('change', async () => {
 
     currentModel = selectedModel;
     updateFavoriteButtonState(selectedModel);
-    
-    const config = modelConfigs[selectedModel] || {};
-    const settings = config.recommended_settings || defaultSettings;
-    
-    // Update settings panel with model-specific settings or defaults
-    systemPrompt.value = config.system_prompt || '';
-    systemPromptDisplay.textContent = config.system_prompt || '';
-    temperature.value = settings.temperature || defaultSettings.temperature;
-    topP.value = settings.top_p || defaultSettings.top_p;
-    topK.value = settings.top_k || defaultSettings.top_k;
-    maxTokens.value = settings.max_tokens || defaultSettings.max_tokens;
-    forceJson.checked = settings.json_mode || false;
+    updateSettingsPanel(selectedModel);
 });
 
 // Handle generate button click
