@@ -144,6 +144,10 @@ class LlamaCppClient:
             if hasattr(self, '_shutdown_event'):
                 self._shutdown_event.set()
             
+            # Only try to clean up servers if _servers was initialized
+            if not hasattr(self, '_servers'):
+                return
+                
             # Stop all servers
             for model in list(self._servers.keys()):
                 try:
@@ -188,7 +192,7 @@ class LlamaCppClient:
                     logger.error(f"Error cleaning up server for model {model}: {str(e)}")
             
             # Cancel the cleanup task
-            if self._cleanup_task and not self._cleanup_task.done():
+            if hasattr(self, '_cleanup_task') and self._cleanup_task and not self._cleanup_task.done():
                 try:
                     loop = asyncio.get_event_loop()
                     if loop.is_running():

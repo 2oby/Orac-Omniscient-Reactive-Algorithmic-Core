@@ -1,13 +1,15 @@
 import subprocess
 import pytest
 import asyncio
+import os
 from orac.llama_cpp_client import LlamaCppClient
 
 @pytest.mark.asyncio
 async def test_cli_generation():
     """Test model generation through the CLI with proper assertions"""
     # Initialize client to check model availability
-    client = LlamaCppClient()
+    model_path = os.getenv("ORAC_MODELS_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "models/gguf"))
+    client = LlamaCppClient(model_path=model_path)
     models = await client.list_models()
     assert len(models) > 0, "No models found"
     
