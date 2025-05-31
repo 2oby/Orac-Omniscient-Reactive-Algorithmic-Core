@@ -70,7 +70,7 @@ class ModelUnloadResponse(BaseModel):
 
 class GenerationRequest(BaseModel):
     """Request for text generation."""
-    model: str = Field(..., description="Name of the model to use")
+    model: Optional[str] = Field(None, description="Name of the model to use (if not specified, uses default model)")
     prompt: str = Field(..., description="User prompt to send to the model")
     system_prompt: Optional[str] = Field(None, description="System prompt to send to the model")
     stream: bool = Field(False, description="Whether to stream the response")

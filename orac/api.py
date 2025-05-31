@@ -69,7 +69,9 @@ async def get_client() -> LlamaCppClient:
     global client
     if client is None:
         logger.info("Initializing llama.cpp client")
-        client = LlamaCppClient()
+        # Use the environment variable or default path
+        model_path = os.getenv("ORAC_MODELS_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "models/gguf"))
+        client = LlamaCppClient(model_path=model_path)
     return client
 
 @app.get("/v1/status", tags=["System"])
@@ -124,9 +126,19 @@ async def unload_model(model_name: str) -> ModelUnloadResponse:
 async def generate_text(request: GenerationRequest) -> GenerationResponse:
     """Generate text from a model."""
     try:
+        # Get the model to use (default or specified)
+        favorites = load_favorites()
+        model_to_use = request.model or favorites.get("default_model")
+        
+        if not model_to_use:
+            raise HTTPException(
+                status_code=400,
+                detail="No model specified in request and no default model configured"
+            )
+        
         # Load model configs to get the prompt format
         model_configs = load_model_configs()
-        model_config = model_configs.get("models", {}).get(request.model, {})
+        model_config = model_configs.get("models", {}).get(model_to_use, {})
         
         # Get the prompt format template
         prompt_format = model_config.get("prompt_format", {})
@@ -140,7 +152,7 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
         
         client = await get_client()
         response = await client.generate(
-            model=request.model,
+            model=model_to_use,  # Use the determined model
             prompt=formatted_prompt,
             stream=request.stream,
             temperature=request.temperature,
@@ -152,9 +164,9 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
         )
         return GenerationResponse(
             status="success",
-            response=response.text,  # Use text instead of response
+            response=response.text,
             elapsed_ms=response.response_time * 1000,  # Convert to milliseconds
-            model=request.model
+            model=model_to_use  # Return the actual model used
         )
     except Exception as e:
         logger.error(f"Error generating text: {e}")
@@ -205,8 +217,9 @@ async def startup_event():
     """Initialize the API on startup."""
     global client
     try:
-        # Create client instance
-        client = LlamaCppClient()
+        # Create client instance with proper model path
+        model_path = os.getenv("ORAC_MODELS_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "models/gguf"))
+        client = LlamaCppClient(model_path=model_path)
         
         # Load default model if configured
         favorites = load_favorites()

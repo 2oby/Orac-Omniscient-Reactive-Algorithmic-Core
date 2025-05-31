@@ -34,7 +34,9 @@ def setup_test_environment():
 @pytest.fixture
 def llama_cpp_client() -> Generator[LlamaCppClient, None, None]:
     """Create a LlamaCppClient instance for testing."""
-    client = LlamaCppClient()
+    # Use a test-specific models path
+    model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "tests/test_models")
+    client = LlamaCppClient(model_path=model_path)
     yield client
 
 @pytest.fixture(autouse=True)
