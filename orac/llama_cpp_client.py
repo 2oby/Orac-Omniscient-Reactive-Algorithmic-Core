@@ -417,7 +417,8 @@ class LlamaCppClient:
         verbose: bool = False,
         timeout: int = 30,
         system_prompt: Optional[str] = None,
-        json_mode: bool = False
+        json_mode: bool = False,
+        stream: bool = False
     ) -> PromptResponse:
         """
         Generate a response from the model.
@@ -425,7 +426,6 @@ class LlamaCppClient:
         Args:
             model: Model name
             prompt: Text prompt
-            stream: Whether to stream the response
             temperature: Sampling temperature
             top_p: Top-p sampling parameter
             top_k: Top-k sampling parameter
@@ -434,6 +434,7 @@ class LlamaCppClient:
             timeout: Maximum time in seconds to wait for generation
             system_prompt: Optional system prompt to override the model's default
             json_mode: Whether to enforce JSON grammar
+            stream: Whether to stream the response (not currently implemented)
             
         Returns:
             PromptResponse with generated text and metadata
@@ -464,9 +465,19 @@ class LlamaCppClient:
             
             # Get model's recommended settings
             recommended_settings = model_config.get("recommended_settings", {})
-            temperature = temperature if temperature != 0.7 else recommended_settings.get("temperature", temperature)
-            top_p = top_p if top_p != 0.7 else recommended_settings.get("top_p", top_p)
-            top_k = top_k if top_k != 40 else recommended_settings.get("top_k", top_k)
+            
+            # Set parameters based on JSON mode
+            if json_mode:
+                # Use JSON-optimized parameters
+                temperature = 0.2
+                top_p = 0.8
+                top_k = 30
+            else:
+                # Use default or recommended settings
+                temperature = temperature if temperature != 0.7 else recommended_settings.get("temperature", temperature)
+                top_p = top_p if top_p != 0.7 else recommended_settings.get("top_p", top_p)
+                top_k = top_k if top_k != 40 else recommended_settings.get("top_k", top_k)
+            
             max_tokens = max_tokens or recommended_settings.get("max_tokens", 512)
             
             # Ensure we have a server running for this model
@@ -484,7 +495,8 @@ class LlamaCppClient:
                 "temperature": temperature,
                 "top_p": top_p,
                 "top_k": top_k,
-                "max_tokens": max_tokens
+                "max_tokens": max_tokens,
+                "stop": [] if json_mode else ["<|im_end|>", "<|im_start|>", "<think>", "</think>"]
             }
             
             # Only include grammar in request if json_mode is True
@@ -507,9 +519,10 @@ class LlamaCppClient:
                     # Clean up the response
                     response_text = response_text.strip()
                     
-                    # Remove any remaining markers
-                    for marker in ["<|im_end|>", "<|im_start|>", "<think>", "</think>"]:
-                        response_text = response_text.replace(marker, "")
+                    # Remove any remaining markers only if not in JSON mode
+                    if not json_mode:
+                        for marker in ["<|im_end|>", "<|im_start|>", "<think>", "</think>"]:
+                            response_text = response_text.replace(marker, "")
                     
                     # Clean up whitespace
                     response_text = ' '.join(response_text.split())
