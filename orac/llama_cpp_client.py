@@ -17,6 +17,8 @@ import asyncio
 import subprocess
 import aiohttp
 import weakref
+import signal
+import psutil
 from typing import List, Dict, Any, Optional, Set
 from pathlib import Path
 from dataclasses import dataclass
@@ -24,6 +26,7 @@ from contextlib import asynccontextmanager
 
 from orac.logger import get_logger
 from orac.models import PromptResponse
+from orac.config import load_model_configs
 
 # Get logger for this module
 logger = get_logger(__name__)
@@ -71,6 +74,7 @@ class LlamaCppClient:
         self._servers: Dict[str, ServerState] = {}  # model -> server state
         self._session: Optional[aiohttp.ClientSession] = None
         self._cleanup_task: Optional[asyncio.Task] = None
+        self._shutdown_event = asyncio.Event()
         
         # Ensure the binaries are executable
         for binary in [LLAMA_CLI, LLAMA_SERVER]:
@@ -98,44 +102,83 @@ class LlamaCppClient:
         logger.info("LlamaCppClient initialized successfully")
 
     def __del__(self):
-        """Cleanup when the client is destroyed."""
-        if self._cleanup_task:
-            self._cleanup_task.cancel()
-        if self._session:
-            asyncio.create_task(self._session.close())
-        for server in self._servers.values():
-            if server.process and server.process.poll() is None:
-                server.process.terminate()
-            if server.session:
-                asyncio.create_task(server.session.close())
+        """Clean up resources when the client is destroyed."""
+        try:
+            # Signal the cleanup task to stop
+            if hasattr(self, '_shutdown_event'):
+                self._shutdown_event.set()
+            
+            # Stop all servers
+            for model in list(self._servers.keys()):
+                try:
+                    server = self._servers[model]
+                    if server.process and server.process.poll() is None:
+                        server.process.terminate()
+                        try:
+                            server.process.wait(timeout=1)
+                        except subprocess.TimeoutExpired:
+                            server.process.kill()
+                    
+                    if server.session and not server.session.closed:
+                        asyncio.create_task(server.session.close())
+                except Exception as e:
+                    logger.error(f"Error cleaning up server for model {model}: {str(e)}")
+            
+            # Clean up the main session
+            if self._session and not self._session.closed:
+                asyncio.create_task(self._session.close())
+            
+            # Cancel the cleanup task
+            if self._cleanup_task and not self._cleanup_task.done():
+                self._cleanup_task.cancel()
+        except Exception as e:
+            logger.error(f"Error in __del__: {str(e)}")
 
     @classmethod
     def _cleanup_instance(cls, ref):
-        """Cleanup when a client instance is destroyed."""
+        """Clean up when a client instance is destroyed."""
         cls._instances.discard(ref)
-        # If this was the last instance, clean up any remaining servers
-        if not any(inst() for inst in cls._instances):
-            for port in list(cls._server_ports):
-                try:
-                    process = subprocess.run(['fuser', '-k', str(port)], capture_output=True)
-                    if process.returncode == 0:
-                        cls._server_ports.discard(port)
-                except Exception as e:
-                    logger.error(f"Error cleaning up port {port}: {e}")
+        if not cls._instances:
+            # No more instances, clean up ports
+            cls._server_ports.clear()
 
     async def _periodic_cleanup(self):
         """Periodically clean up unused servers."""
-        while True:
-            try:
-                await asyncio.sleep(300)  # Check every 5 minutes
+        try:
+            while not self._shutdown_event.is_set():
                 current_time = asyncio.get_event_loop().time()
                 for model, server in list(self._servers.items()):
-                    if current_time - server.last_used > 1800:  # 30 minutes
-                        await self._stop_server(model)
-            except asyncio.CancelledError:
-                break
+                    if current_time - server.last_used > 300:  # 5 minutes
+                        try:
+                            await self._stop_server(model)
+                        except Exception as e:
+                            logger.error(f"Error cleaning up server for model {model}: {str(e)}")
+                await asyncio.sleep(60)  # Check every minute
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"Error in periodic cleanup: {str(e)}")
+
+    async def _stop_server(self, model: str):
+        """Stop a server instance."""
+        if model in self._servers:
+            server = self._servers[model]
+            try:
+                if server.process and server.process.poll() is None:
+                    server.process.terminate()
+                    try:
+                        server.process.wait(timeout=1)
+                    except subprocess.TimeoutExpired:
+                        server.process.kill()
+                
+                if server.session and not server.session.closed:
+                    await server.session.close()
+                
+                self._server_ports.discard(server.port)
+                del self._servers[model]
             except Exception as e:
-                logger.error(f"Error in periodic cleanup: {e}")
+                logger.error(f"Error stopping server for model {model}: {str(e)}")
+                raise
 
     async def list_models(self) -> List[Dict[str, Any]]:
         """
@@ -285,34 +328,6 @@ class LlamaCppClient:
         error = stderr.decode('utf-8', errors='replace')
         raise Exception(f"Failed to start llama server: {error}")
 
-    async def _stop_server(self, model: str) -> None:
-        """
-        Stop a server instance.
-        
-        Args:
-            model: Model name
-        """
-        if model not in self._servers:
-            return
-        
-        server = self._servers[model]
-        
-        # Close the session
-        if server.session:
-            await server.session.close()
-        
-        # Stop the process
-        if server.process and server.process.poll() is None:
-            server.process.terminate()
-            try:
-                server.process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                server.process.kill()
-        
-        # Clean up
-        self._server_ports.discard(server.port)
-        del self._servers[model]
-
     @asynccontextmanager
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create an aiohttp session."""
@@ -339,7 +354,8 @@ class LlamaCppClient:
         top_k: int = 40,
         max_tokens: Optional[int] = None,
         verbose: bool = False,
-        timeout: int = 30
+        timeout: int = 30,
+        system_prompt: Optional[str] = None
     ) -> PromptResponse:
         """
         Generate a response from the model.
@@ -354,6 +370,7 @@ class LlamaCppClient:
             max_tokens: Maximum tokens to generate
             verbose: Whether to run in verbose mode
             timeout: Maximum time in seconds to wait for generation
+            system_prompt: Optional system prompt to override the model's default
             
         Returns:
             PromptResponse with generated text and metadata
@@ -364,6 +381,31 @@ class LlamaCppClient:
         start_time = asyncio.get_event_loop().time()
         
         try:
+            # Load model configuration
+            model_configs = load_model_configs()
+            model_config = model_configs.get("models", {}).get(model, {})
+            
+            # Get the prompt format template and system prompt
+            prompt_format = model_config.get("prompt_format", {})
+            template = prompt_format.get("template", "{system_prompt}\n\n{user_prompt}")
+            default_system_prompt = model_config.get("system_prompt", "")
+            
+            # Use provided system prompt or fall back to model's default
+            system_prompt = system_prompt or default_system_prompt
+            
+            # Format the prompt using the template
+            formatted_prompt = template.format(
+                system_prompt=system_prompt,
+                user_prompt=prompt
+            )
+            
+            # Get model's recommended settings
+            recommended_settings = model_config.get("recommended_settings", {})
+            temperature = temperature if temperature != 0.7 else recommended_settings.get("temperature", temperature)
+            top_p = top_p if top_p != 0.7 else recommended_settings.get("top_p", top_p)
+            top_k = top_k if top_k != 40 else recommended_settings.get("top_k", top_k)
+            max_tokens = max_tokens or recommended_settings.get("max_tokens", 512)
+            
             # Ensure we have a server running for this model
             server = await self._ensure_server_running(
                 model=model,
@@ -374,12 +416,13 @@ class LlamaCppClient:
             
             # Prepare the request
             request_data = {
-                "prompt": prompt,
+                "prompt": formatted_prompt,
                 "temperature": temperature,
                 "top_p": top_p,
                 "top_k": top_k,
-                "n_predict": max_tokens or 512,
-                "stream": stream
+                "n_predict": max_tokens,
+                "stream": stream,
+                "stop": ["<|im_end|>", "<|im_start|>", "<think>", "</think>"]  # Updated stop tokens
             }
             
             # Make the request
@@ -411,9 +454,12 @@ class LlamaCppClient:
                     
                     # Clean up the response
                     response_text = response_text.strip()
-                    response_text = response_text.replace('<|im_end|>', '')
-                    response_text = response_text.replace('assistant', '')
-                    response_text = response_text.replace('<think>', '').replace('</think>', '')
+                    
+                    # Remove any remaining markers
+                    for marker in ["<|im_end|>", "<|im_start|>", "<think>", "</think>"]:
+                        response_text = response_text.replace(marker, "")
+                    
+                    # Clean up whitespace
                     response_text = ' '.join(response_text.split())
                     
                     if not response_text:
