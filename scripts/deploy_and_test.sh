@@ -67,6 +67,20 @@ else
     git push origin "$DEPLOY_BRANCH"
 fi
 
+# Check if this is first run on remote
+echo -e "${YELLOW}👉 Checking remote configuration...${NC}"
+if ! ssh "$REMOTE_ALIAS" "[ -f \$HOME/ORAC/data/favorites.json ] && [ -f \$HOME/ORAC/data/model_configs.yaml ]"; then
+    echo -e "${YELLOW}First run detected - copying configuration files...${NC}"
+    # Create remote data directory
+    ssh "$REMOTE_ALIAS" "mkdir -p \$HOME/ORAC/data"
+    # Copy files to remote
+    scp data/favorites.json data/model_configs.yaml "$REMOTE_ALIAS:\$HOME/ORAC/data/" || {
+        echo -e "${RED}❌ No local config files found - you will need to create these manually on the test machine${NC}"
+        exit 1
+    }
+    echo -e "${GREEN}✓ Configuration files copied successfully${NC}"
+fi
+
 # 2) Remote: pull, build & test in container
 echo -e "${YELLOW}👉 Running remote update & tests on $REMOTE_ALIAS...${NC}"
 ssh "$REMOTE_ALIAS" "\
@@ -78,24 +92,12 @@ ssh "$REMOTE_ALIAS" "\
     
     # Handle configuration files
     echo '${BLUE}📝 Handling configuration files...${NC}'; \
-    if [ ! -f data/favorites.json ] && [ ! -f data/model_configs.yaml ]; then \
-        echo 'First run detected - copying configuration files...'; \
-        # Create data directory if it doesn't exist \
-        mkdir -p data; \
-        # Copy files from local machine \
-        scp \$HOME/ORAC/data/favorites.json \$HOME/ORAC/data/model_configs.yaml \$HOME/ORAC/data/ 2>/dev/null || { \
-            echo 'No local config files found - you will need to create these manually on the test machine'; \
-            exit 1; \
-        }; \
-        echo 'Configuration files copied successfully'; \
+    echo 'Preserving existing configuration files...'; \
+    git add data/favorites.json data/model_configs.yaml 2>/dev/null || true; \
+    if git diff --cached --quiet; then \
+        echo 'No changes to commit in config files'; \
     else \
-        echo 'Preserving existing configuration files...'; \
-        git add data/favorites.json data/model_configs.yaml 2>/dev/null || true; \
-        if git diff --cached --quiet; then \
-            echo 'No changes to commit in config files'; \
-        else \
-            git commit -m 'Update local configuration files' || true; \
-        fi; \
+        git commit -m 'Update local configuration files' || true; \
     fi; \
     
     # Stash any other local changes
