@@ -132,18 +132,51 @@ class LlamaCppClient:
                         except subprocess.TimeoutExpired:
                             server.process.kill()
                     
+                    # Close session in a new event loop if needed
                     if server.session and not server.session.closed:
-                        asyncio.create_task(server.session.close())
+                        try:
+                            loop = asyncio.get_event_loop()
+                            if loop.is_running():
+                                asyncio.create_task(server.session.close())
+                            else:
+                                loop = asyncio.new_event_loop()
+                                asyncio.set_event_loop(loop)
+                                loop.run_until_complete(server.session.close())
+                                loop.close()
+                        except Exception as e:
+                            logger.error(f"Error closing server session: {str(e)}")
+                    
+                    if self._session and not self._session.closed:
+                        try:
+                            loop = asyncio.get_event_loop()
+                            if loop.is_running():
+                                asyncio.create_task(self._session.close())
+                            else:
+                                loop = asyncio.new_event_loop()
+                                asyncio.set_event_loop(loop)
+                                loop.run_until_complete(self._session.close())
+                                loop.close()
+                        except Exception as e:
+                            logger.error(f"Error closing main session: {str(e)}")
+                    
+                    self._server_ports.discard(server.port)
+                    del self._servers[model]
                 except Exception as e:
                     logger.error(f"Error cleaning up server for model {model}: {str(e)}")
             
-            # Clean up the main session
-            if self._session and not self._session.closed:
-                asyncio.create_task(self._session.close())
-            
             # Cancel the cleanup task
             if self._cleanup_task and not self._cleanup_task.done():
-                self._cleanup_task.cancel()
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        self._cleanup_task.cancel()
+                    else:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        loop.run_until_complete(self._cleanup_task.cancel())
+                        loop.close()
+                except Exception as e:
+                    logger.error(f"Error cancelling cleanup task: {str(e)}")
         except Exception as e:
             logger.error(f"Error in __del__: {str(e)}")
 
@@ -168,9 +201,16 @@ class LlamaCppClient:
                             logger.error(f"Error cleaning up server for model {model}: {str(e)}")
                 await asyncio.sleep(60)  # Check every minute
         except asyncio.CancelledError:
-            pass
+            # Ensure we clean up any remaining servers on cancellation
+            for model in list(self._servers.keys()):
+                try:
+                    await self._stop_server(model)
+                except Exception as e:
+                    logger.error(f"Error cleaning up server during shutdown: {str(e)}")
+            raise
         except Exception as e:
             logger.error(f"Error in periodic cleanup: {str(e)}")
+            raise
 
     async def _stop_server(self, model: str):
         """Stop a server instance."""
@@ -369,7 +409,8 @@ class LlamaCppClient:
         max_tokens: Optional[int] = None,
         verbose: bool = False,
         timeout: int = 30,
-        system_prompt: Optional[str] = None
+        system_prompt: Optional[str] = None,
+        json_mode: bool = False
     ) -> PromptResponse:
         """
         Generate a response from the model.
@@ -437,9 +478,12 @@ class LlamaCppClient:
                 "top_k": top_k,
                 "n_predict": max_tokens,
                 "stream": stream,
-                "stop": ["<|im_end|>", "<|im_start|>", "<think>", "</think>"],
-                "grammar": JSON_GRAMMAR.strip()
+                "stop": ["<|im_end|>", "<|im_start|>", "<think>", "</think>"]
             }
+            
+            # Only add grammar if json_mode is True
+            if json_mode:
+                request_data["grammar"] = JSON_GRAMMAR.strip()
             
             # Make the request
             try:
