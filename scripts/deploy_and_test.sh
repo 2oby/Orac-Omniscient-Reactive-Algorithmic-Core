@@ -8,7 +8,7 @@ set -euo pipefail
 COMMIT_MSG=${1:-"Update ORAC MVP"}
 DEPLOY_BRANCH=${2:-"MVP_HOMEASSISTANT"}   # Default to 'MVP_HOMEASSISTANT' branch if not specified
 SERVICE_NAME=${3:-"orac"}   # Docker Compose service to exec into
-REMOTE_ALIAS="orin"
+REMOTE_ALIAS="orin2"
 SSH_ORIGIN="git@github.com:2oby/Orac-Omniscient-Reactive-Algorithmic-Core.git"
 
 # Terminal colors
@@ -179,6 +179,9 @@ ssh "$REMOTE_ALIAS" "\
     
     echo '${BLUE}📊 Checking container stats...${NC}'; \
     \$DOCKER_CMD stats --no-stream; \
+
+    echo '${BLUE}🧪 Testing Home Assistant integration...${NC}'; \
+    \$DOCKER_CMD exec -T $SERVICE_NAME python3 -m pytest tests/test_homeassistant.py -v; \
 "
 
 echo -e "${GREEN}🎉 All deployment and test operations completed successfully!${NC}"

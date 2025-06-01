@@ -1,306 +1,120 @@
-The project is well-organized, with a clear separation of concerns (e.g., orac/llama_cpp_client.py, data/ for configs, models/gguf for Qwen3 0.6B, and FastAPI-related files like orac/api.py). The goal is to enhance the project with a configuration system for Home Assistant integration, using a single data/grammars.yaml file that includes generic constraints (e.g., "bedroom lights", "turn on", "bedroom") for the LLM’s JSON output and mappings to specific Home Assistant entity IDs and services for post-processing. The configuration will be dynamically populated by fetching devices, actions, and locations from Home Assistant’s API, with support for manual edits via a web UI. The system will ensure backwards compatibility with the existing JSON grammar, use generic terms to simplify the LLM’s task, and maintain performance (<0.2s overhead) on the Jetson Orin Nano.
-Step-by-Step Guide
-Step 1: Define the Configuration Structure
-Modified: Update the existing data/grammars.yaml file to include Home Assistant configuration, with sections for generic constraints (home_automation_constraints) and mappings (mapping) alongside the JSON grammar.
+Steps to Implement the Home Automation LLM Workflow
+Define and Initialize Configuration Structure:
+Store all configuration in data/grammars.yaml, including the JSON grammar, home_automation_constraints (generic devices, actions, locations, synonyms), and mapping (to Home Assistant entity IDs and services).
 
 Structure grammars.yaml to support:
-Generic devices (e.g., "bedroom lights", "kitchen switch") for LLM output.
+Generic devices (e.g., "bedroom lights", "kitchen switch").
 
-Actions (e.g., "turn on", "bright") with synonyms (e.g., "activate" for "turn on") and parameters (e.g., brightness_pct: 70 for lights).
+Actions with synonyms (e.g., "turn on" with synonym "activate") and parameters (e.g., "bright" → brightness_pct: 70).
 
 Generic locations (e.g., "bedroom", "kitchen").
 
-Mappings from generic terms to specific Home Assistant entity IDs (e.g., "bedroom lights" → ["light.bedroom_lamp_1", "light.bedroom_ceiling"]) and services (e.g., "turn on" → light.turn_on).
+Mappings (e.g., "bedroom lights" → ["light.bedroom_lamp_1", "light.bedroom_ceiling"], "turn on" → light.turn_on).
 
-Domain-specific mappings for actions (e.g., "bright" → brightness_pct: 70 for lights, "warm" → temperature: 25 for climate).
+Domain-specific action mappings (e.g., "bright" → brightness_pct: 70 for lights, "warm" → temperature: 25 for climate).
 
-A default error response (e.g., {"error": "Invalid command or device"}) for invalid inputs.
+Default error response (e.g., {"error": "Invalid command or device"}).
 
-Ensure the config supports manual additions (e.g., custom devices) and auto-discovered entities without overwriting manual entries.
+Allow manual additions via a web UI, ensuring auto-discovery preserves these entries.
 
-New: Store all Home Assistant configuration (constraints and mappings) in data/grammars.yaml, dynamically populated via Home Assistant API or user GUI, eliminating the need for a separate home_assistant_config.yaml file.
+Use Pydantic in orac/config_manager.py to validate the configuration.
 
-Step 2: Implement Auto-Discovery of Devices and Locations
-At service startup, query Home Assistant’s REST API (/api/states) to fetch all entities (e.g., light.bedroom_light, climate.bedroom_heating).
+Implement Auto-Discovery of Devices and Locations:
+At service startup, query Home Assistant’s REST API (/api/states, /api/areas, /api/services) to fetch entities (e.g., light.bedroom_lamp_1), areas (e.g., area_bedroom), and services (e.g., light.turn_on).
 
-Group entities into generic devices (e.g., light.bedroom_light, light.bedroom_ceiling → "bedroom lights") and locations (e.g., area_id: area_bedroom → "bedroom") based on entity ID naming conventions or area metadata from /api/areas.
+Group entities into generic devices (e.g., light.bedroom_lamp_1, light.bedroom_ceiling → "bedroom lights") and locations (e.g., area_bedroom → "bedroom") using naming conventions or metadata.
 
-Modified: Append discovered generic devices, actions, and locations to the home_automation_constraints section of data/grammars.yaml, and populate the mapping section with specific entity IDs (e.g., "bedroom lights": ["light.bedroom_lamp_1", "light.bedroom_ceiling"]) and services (e.g., "turn on": ["light.turn_on", "switch.turn_on"]).
+Append discovered terms to home_automation_constraints and populate mapping in data/grammars.yaml with entity IDs and services.
 
-Preserve manually added devices, locations, and mappings in grammars.yaml, ensuring they are not overwritten during auto-discovery.
+Preserve manual entries during auto-discovery using a merge strategy (e.g., flag manual entries in grammars.yaml).
 
-Store the updated configuration in data/grammars.yaml as the local cache.
+Cache the configuration in memory to minimize disk reads.
 
-Step 3: Generate a Dynamic JSON Grammar
-At service startup, read the home_automation_constraints section of data/grammars.yaml to extract generic devices (e.g., "bedroom lights"), actions (e.g., "turn on"), and locations (e.g., "bedroom").
+Generate Dynamic JSON Grammar:
+Read home_automation_constraints from data/grammars.yaml to extract valid devices, actions, and locations.
 
-Modified: Update the JSON grammar in data/grammars.yaml by dynamically modifying the string rule to constrain device, action, and location to the generic terms from home_automation_constraints (e.g., device ::= "bedroom lights" | "kitchen switch" | ...).
+In orac/grammar_generator.py, update the JSON grammar’s string rule to restrict "device", "action", and "location" to generic terms (e.g., device ::= "bedroom lights" | "kitchen switch" | ...).
 
-Ensure the grammar enforces outputs like {"device": str, "action": str, "location": str} with only permitted generic values.
+Ensure backwards compatibility with the existing JSON grammar for non-home-automation outputs.
 
-Save the grammar in memory for use by orac/llama_cpp_client.py during inference.
+Update the in-memory grammar when grammars.yaml changes (e.g., via UI or auto-discovery).
 
-Update the grammar whenever grammars.yaml changes (e.g., via web UI edits or auto-discovery).
+Pass the grammar to orac/llama_cpp_client.py for Qwen3 0.6B inference.
 
-Modified: Ensure the JSON grammar in data/grammars.yaml remains backwards compatible with the existing definition, allowing non-home-automation JSON outputs to function as before.
+Process User Commands with the LLM:
+Accept user input (e.g., “turn on the bedroom light”, “brighten the lounge lamp”) via a FastAPI endpoint in orac/api.py.
 
-Step 4: Process User Commands with the Model
-Accept raw user input (e.g., “turn on the bedroom light”, “brighten the lounge lamp”) via an API endpoint in orac/api.py.
+Process input with Qwen3 0.6B in orac/llama_cpp_client.py, using the dynamic grammar to produce JSON output (e.g., {"device": "bedroom lights", "action": "turn on", "location": "bedroom"}).
 
-Pass the input to orac/llama_cpp_client.py with the Qwen3 0.6B model in JSON mode, using the dynamic grammar from data/grammars.yaml.
+Apply ORIN_NANO_OPTIMIZATIONS for fast inference (~0.08–0.12s).
 
-Ensure the model outputs structured JSON (e.g., {"device": "bedroom lights", "action": "turn on", "location": "bedroom"}), constrained to generic terms to reduce inconsistencies.
+Post-Process LLM Outputs:
+In orac/synonym_processor.py, map the LLM’s JSON output to Home Assistant format ({"domain": str, "service": str, "entity_id": list, "parameters": dict}) using mapping from grammars.yaml.
 
-Step 5: Post-Process Model Outputs
-Read the model’s JSON output and map it to Home Assistant’s REST API format: {"domain": str, "service": str, "entity_id": list, "parameters": dict} using the mapping section in data/grammars.yaml.
+Resolve synonyms (e.g., "bedroom light" → "bedroom lights") and apply domain-specific mappings (e.g., "bright" → brightness_pct: 70 for lights, "warm" → temperature: 25 for climate, "50%_open" → position: 50 for blinds).
 
-Modified: Use the mapping section to convert generic terms to specific entity IDs and services (e.g., "bedroom lights" → ["light.bedroom_lamp_1", "light.bedroom_ceiling"], "turn on" → light.turn_on).
-
-Handle inconsistencies in the output (e.g., {"device": "bedroom light"} → {"device": "bedroom lights"}) using the synonyms in home_automation_constraints.
-
-Apply domain-specific mappings for actions based on the device’s domain:
-Lights: bright → brightness_pct: 70, dim → brightness_pct: 20, warm → color_temp: 250 (mireds).
-
-Speakers/TV: loud → volume_level: 0.7, soft → volume_level: 0.3.
-
-Underfloor Heating: warm → temperature: 25, hot → temperature: 28.
-
-Blinds: 50%_open → position: 50.
-
-Return the default error response (e.g., {"error": "Invalid command or device"}) if the output cannot be mapped.
+Return {"error": "Invalid command or device"} for unmapped outputs.
 
 Log errors to logs/ using orac.logger.
 
-Step 6: Send Commands to Home Assistant
-Use the post-processed JSON to send a REST API request to Home Assistant (e.g., POST /api/services/light/turn_on with payload {"entity_id": ["light.bedroom_lamp_1", "light.bedroom_ceiling"], "brightness_pct": 70}).
+Send Commands to Home Assistant:
+In orac/ha_client.py, send a REST API request to Home Assistant (e.g., POST /api/services/light/turn_on with {"entity_id": ["light.bedroom_lamp_1", "light.bedroom_ceiling"], "brightness_pct": 70}).
 
-Handle API responses, logging successes and errors to logs/.
+Log API responses (success or error) to logs/.
 
-Return the API response or error to the user via the API endpoint.
+Return the response or error to the user via the FastAPI endpoint.
 
-Step 7: Develop a Web UI for Configuration Management
-Extend orac/api.py to include FastAPI endpoints for:
-Viewing the current grammars.yaml configuration.
+Develop a Web UI for Configuration Management:
+Extend orac/api.py with FastAPI endpoints to:
+View and edit grammars.yaml (devices, actions, locations, synonyms, mappings).
 
-Adding/editing generic devices, actions, locations, synonyms, and mappings.
+Process user commands.
 
-Processing user commands (e.g., “turn on the bedroom light”).
+Save UI changes to data/grammars.yaml, triggering grammar and mapping updates.
 
-Save UI changes to data/grammars.yaml, triggering updates to the grammar and mappings.
+Host the UI at http://jetson-ip:8000/docs.
 
-Host the UI at http://jetson-ip:8000/docs for easy access.
+Optimize for Performance:
+Cache grammars.yaml, mappings, and grammar in memory for <0.05s lookup overhead.
 
-Step 8: Optimize for Performance
-Cache the grammars.yaml config, mappings, and grammar in memory to avoid disk reads during command processing.
+Use dictionary-based lookups in orac/synonym_processor.py for post-processing.
 
-Use dictionary-based lookups for post-processing to keep overhead <0.05s.
+Optimize inference with ORIN_NANO_OPTIMIZATIONS (~0.08–0.12s).
 
-Leverage ORIN_NANO_OPTIMIZATIONS in orac/llama_cpp_client.py for fast inference (~0.08–0.12s with Qwen3 0.6B).
+Ensure total processing time (inference + post-processing + API call) is <0.2s.
 
-Ensure total processing time (inference + post-processing + API call) stays <0.2s.
+Keep memory usage for config and mappings <1MB for the Jetson Orin Nano’s 8GB.
 
-Minimize memory usage (<1MB for config and mappings) to fit within the Jetson’s 8GB.
-
-Step 9: Deploy and Test
-Update the existing Dockerfile and docker-compose.yml in the project root to include dependencies (e.g., pyyaml, pydantic, fastapi, uvicorn, aiohttp).
+Deploy and Test:
+Update Dockerfile and docker-compose.yml with dependencies (pyyaml, pydantic, fastapi, uvicorn, aiohttp).
 
 Mount /Models and /Models/config (mapped to data/) in the Docker container.
 
-Use the NVIDIA Container Toolkit for GPU acceleration.
+Use NVIDIA Container Toolkit for GPU acceleration.
 
-Test the service with sample commands (e.g., “brighten the lounge lamp”, “make the bedroom heating warm”).
+Test with commands like “brighten the lounge lamp” and “make the bedroom heating warm”.
 
-Verify auto-discovery appends entities correctly and preserves manual entries in grammars.yaml.
+Validate auto-discovery, manual entry preservation, grammar generation, post-processing, and API calls in tests/.
 
-Test the web UI for config edits and command processing.
+Verify UI functionality for config edits and command processing.
 
-Step 10: Document and Maintain
-Update README.md with setup instructions, API endpoints, and examples.
+Document and Maintain:
+Update README.md with setup, API endpoints, and examples.
 
-Add tests in tests/ to validate auto-discovery, grammar generation, post-processing, and API calls.
+Add tests in tests/ for auto-discovery, grammar generation, post-processing, and API calls.
 
-Monitor logs in logs/ for debugging.
+Monitor logs/ for debugging.
 
-Periodically re-run auto-discovery to catch new Home Assistant entities.
+Periodically re-run auto-discovery to update grammars.yaml with new Home Assistant entities.
 
-Integration with Existing Project
-Config File: Use data/grammars.yaml for both the JSON grammar and Home Assistant configuration (constraints and mappings), dynamically updated via API or UI.
+Opinion on the Refreshed Approach
+The refreshed approach integrates seamlessly with your project’s structure, leveraging the single data/grammars.yaml file to centralize configuration, which simplifies maintenance and ensures consistency across grammar constraints, synonyms, and mappings. The inclusion of synonym handling (e.g., "activate" for "turn on") and domain-specific mappings (e.g., "bright" → brightness_pct: 70) enhances the system’s ability to process natural language inputs while translating them into precise Home Assistant commands. The web UI is a significant improvement, making the system accessible to non-technical users and reducing configuration errors. The focus on performance optimization (<0.2s total processing time, <1MB memory for config) aligns well with the Jetson Orin Nano’s constraints, and the use of Docker with NVIDIA Container Toolkit ensures efficient deployment.
+Challenges include ensuring robust synonym resolution to handle varied user inputs (e.g., "bedroom light" vs. "bedroom lights"), which may require additional logic or user feedback to disambiguate. The auto-discovery process must carefully merge new entities without overwriting manual entries, possibly using a versioning system or priority flags in grammars.yaml. The Qwen3 0.6B model’s inference time (~0.08–0.12s) is suitable, but heavy loads or complex inputs could push the total processing time beyond 0.2s, necessitating rigorous testing. The approach is robust, scalable, and user-friendly, with the web UI and Docker integration making it practical for real-world use. Thorough testing (as outlined in Step 9) and periodic auto-discovery updates will be critical to maintaining reliability and adaptability to Home Assistant changes.
 
-Modules: Add new files to orac/:
-config_manager.py: Handle loading, validation, and auto-discovery for grammars.yaml.
 
-grammar_generator.py: Generate dynamic grammar from home_automation_constraints.
 
-synonym_processor.py: Post-process model outputs using mappings and synonyms.
 
-ha_client.py: Manage Home Assistant API calls.
 
-API: Extend orac/api.py for web UI endpoints.
-
-Inference: Use existing orac/llama_cpp_client.py for Qwen3 inference.
-
-Tests: Add test cases to tests/ for new functionality.
-
-Scripts: Update scripts/deploy_and_test.sh to include config initialization and UI startup.
-
-Logs: Store logs in logs/ using orac.logger.
-
-Why This Approach
-Single Config File: Storing Home Assistant constraints and mappings in grammars.yaml simplifies configuration management and aligns with the grammar used by the LLM.
-
-Generic Constraints: Using intuitive terms (e.g., "bedroom lights") reduces the LLM’s complexity and improves output consistency.
-
-Post-Processing: Mapping generic terms to specific entity IDs and services in post-processing ensures Home Assistant compatibility without burdening the LLM.
-
-Backwards Compatibility: The JSON grammar remains unchanged, ensuring existing systems work.
-
-Auto-Discovery: Dynamically populates grammars.yaml with Home Assistant data, preserving manual entries.
-
-Web UI: Simplifies config management for non-technical users.
-
-Performance: Keeps processing <0.2s using in-memory caching and GPU acceleration.
-
-Scalability: Supports grouping entities (e.g., multiple lights as "bedroom lights") and future expansions.
-
-Immediate Tasks
-Fix favoriting functionality in the UI (implemented with validation)
-
-Set Qwen3 1.7B as the default model
-
-Optimize Orin GPU performance:
-Enable maximum power mode
-
-Profile GPU utilization
-
-Adjust CUDA/GPU layers settings
-
-Test with different batch sizes
-
-New: Implement auto-discovery to populate home_automation_constraints and mapping sections in data/grammars.yaml using Home Assistant API (/api/states, /api/areas, /api/services).
-
-New: Update grammar_generator.py to dynamically modify the JSON grammar’s string rule based on home_automation_constraints from grammars.yaml.
-
-New: Implement post-processing in synonym_processor.py to map generic LLM outputs to Home Assistant entity IDs and services using the mapping section.
-
-Future Tasks
-Add model performance benchmarks
-
-Create test suite for JSON command parsing
-
-Document model configurations and parameters
-
-Add model-specific error handling
-
-Implement model fallback strategy
-
-Resource Monitoring:
-Monitor server resource usage (CPU, GPU, memory)
-
-Dynamically adjust parameters based on system load
-
-Integrate with psutil for memory monitoring
-
-Implement adaptive resource management
-
-ORAC - Completed Implementation
-High-Level Approach for API-Compatible of orac.llama_cpp_client
-Completed Implementation
- Preserve All Public Method Signatures
-Kept generate(), list_models(), start_server(), and quantize_model() exactly as they are
-
-All parameters, return types, and method names stay identical
-
-External callers don’t need any changes
-
- Internal Server Management
-Added private methods for server lifecycle management
-
-Maintains internal state tracking current model and server status
-
-Handles all server lifecycle management transparently
-
- Smart Server Reuse Strategy
-Checks if server is already running with correct model
-
-Uses existing server via HTTP API if available
-
-Transparently starts new server if needed
-
-Caches server instances per model
-
- Backward Compatible start_server() Method
-Kept existing method signature and return type
-
-Returns wrapper object that mimics subprocess.Popen
-
-Tracks internal server state
-
- Lazy Initialization Pattern
-No servers started in __init__()
-
-Servers only start when generate() is first called
-
-Maintains lightweight initialization behavior
-
- Transparent Error Handling
-Converts HTTP errors back to same exception types/messages
-
-Maintains same timeout behavior and error messages
-
-External code sees no difference in error handling
-
- Resource Management Strategy
-Uses __del__() and weak references to clean up servers
-
-Handles multiple LlamaCppClient instances gracefully
-
-Maintains stateless appearance
-
- Session Management
-Creates aiohttp sessions lazily and reuses them
-
-Cleans up sessions automatically
-
-Handles session errors gracefully
-
-Benefits Achieved
-Zero Breaking Changes: Existing code continues to work unchanged
-
-Performance Gains: Internal efficiency improvements without API disruption
-
-Gradual Migration: Added new optional methods for advanced server control
-
-Risk Mitigation: Persistent server approach working well, with CLI approach as fallback
-
-Model Configuration Tasks
-Completed
-Configured TinyLlama 1.1B for JSON command parsing:
-System prompt with example I/O format
-
-Parameters: temp=0.05, top_p=0.1, top_k=5, max_tokens=50
-
-Configured Qwen3 0.6B for JSON command parsing:
-System prompt with /no_think directive
-
-Parameters: temp=0.1, top_p=0.9, top_k=40, max_tokens=50
-
-Implemented persistent server model with automatic management
-
-Added server reuse strategy with caching
-
-Implemented lazy initialization pattern
-
-Added transparent error handling
-
-Implemented session management with aiohttp
-
-Implemented model selection and settings UI
-
-Added support for model settings persistence
-
-Implemented default model configuration
-
-Added startup model pre-loading
 
 Development Environment Details
 Connection Information
