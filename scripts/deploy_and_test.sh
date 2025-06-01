@@ -90,32 +90,10 @@ ssh "$REMOTE_ALIAS" "\
     git remote set-url origin $SSH_ORIGIN || true; \
     git fetch origin; \
     
-    # Handle configuration files
-    echo '${BLUE}📝 Handling configuration files...${NC}'; \
-    echo 'Preserving existing configuration files...'; \
-    git add data/favorites.json data/model_configs.yaml 2>/dev/null || true; \
-    if git diff --cached --quiet; then \
-        echo 'No changes to commit in config files'; \
-    else \
-        git commit -m 'Update local configuration files' || true; \
-    fi; \
-    
-    # Stash any other local changes
-    echo 'Stashing any other local changes...'; \
-    git stash push -m 'Temporary stash during deployment' || true; \
-    
-    if git show-ref --verify --quiet refs/heads/$DEPLOY_BRANCH; then \
-        git checkout $DEPLOY_BRANCH; \
-    else \
-        git checkout -b $DEPLOY_BRANCH origin/$DEPLOY_BRANCH; \
-    fi; \
-    git pull origin $DEPLOY_BRANCH; \
-    
-    # Restore stashed changes if any
-    if git stash list | grep -q 'Temporary stash during deployment'; then \
-        echo 'Restoring stashed changes...'; \
-        git stash pop || true; \
-    fi; \
+    # Force reset to remote branch, discarding any local changes
+    echo '${BLUE}📝 Resetting to remote state...${NC}'; \
+    git reset --hard origin/$DEPLOY_BRANCH; \
+    git clean -fd; \
     
     echo '${BLUE}🔍 Checking system resources...${NC}'; \
     echo 'Memory:'; \
