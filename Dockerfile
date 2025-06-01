@@ -22,8 +22,12 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Create necessary directories first
+RUN mkdir -p /app/data /app/logs && chmod 777 /app/data /app/logs
+
+# Copy application code and configuration files
 COPY . /app/
+COPY data/grammars.yaml /app/data/grammars.yaml
 
 # Make llama.cpp binaries executable
 RUN chmod +x /app/third_party/llama_cpp/bin/*
@@ -32,12 +36,6 @@ RUN chmod +x /app/third_party/llama_cpp/bin/*
 # TODO: For production deployment, replace with: RUN pip3 install .
 # The -e flag creates an editable install which is only needed during development
 RUN pip3 install -e .
-
-# Create log directory
-RUN mkdir -p /app/logs && chmod 777 /app/logs
-
-# Create data directory for configurations
-RUN mkdir -p /app/data && chmod 777 /app/data
 
 # Create startup script
 RUN echo '#!/bin/sh\nuvicorn orac.api:app --host 0.0.0.0 --port 8000' > /app/start.sh && \
