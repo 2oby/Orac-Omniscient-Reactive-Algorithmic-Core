@@ -93,7 +93,8 @@ ssh "$REMOTE_ALIAS" "\
     # Force reset to remote branch, discarding any local changes
     echo '${BLUE}📝 Resetting to remote state...${NC}'; \
     git reset --hard origin/$DEPLOY_BRANCH; \
-    git clean -fd; \
+    # Clean untracked files but exclude logs directory
+    git clean -fd --exclude=logs/; \
     
     echo '${BLUE}🔍 Checking system resources...${NC}'; \
     echo 'Memory:'; \
