@@ -86,7 +86,7 @@ async def fetch_from_git() -> bool:
 
 async def fetch_from_test_machine(machine: str) -> bool:
     """Pull configuration from test machine."""
-    if machine not in ["orin", "orin2"]:
+    if machine not in ["orin", "orin2", "orin3"]:
         logger.error(f"Invalid machine name: {machine}")
         return False
         
@@ -145,7 +145,7 @@ async def main():
     )
     parser.add_argument(
         "--from-test-machine",
-        choices=["orin", "orin2"],
+        choices=["orin", "orin2", "orin3"],
         help="Pull config from test machine"
     )
     
