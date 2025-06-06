@@ -47,11 +47,17 @@ async def test_homeassistant_data(ha_client):
     # Get services
     print("\nFetching services...")
     services = await ha_client.get_services()
+    print(f"Raw services data: {services}")
     print(f"Found {len(services)} service domains:")
-    for domain, domain_services in services.items():
-        print(f"\n{domain}:")
-        for service in domain_services:
-            print(f"- {service}")
+    if isinstance(services, dict):
+        for domain, domain_services in services.items():
+            print(f"\n{domain}:")
+            for service in domain_services:
+                print(f"- {service}")
+    else:
+        print("Services data is not in expected dictionary format")
+        print(f"Type: {type(services)}")
+        print(f"Content: {services}")
     assert len(services) > 0, "No services found"
     
     # Get areas
