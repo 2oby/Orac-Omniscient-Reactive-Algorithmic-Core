@@ -95,12 +95,12 @@ class HomeAssistantClient:
         return await self._request("GET", API_STATES)
 
     async def get_services(self) -> Dict[str, Any]:
-        """Get all available services from Home Assistant.
-        
-        Returns:
-            Dictionary of services by domain
-        """
-        return await self._request("GET", API_SERVICES)
+        """Get all available services from Home Assistant, normalized to a dict keyed by domain."""
+        data = await self._request("GET", API_SERVICES)
+        # If the response is a list, convert to dict
+        if isinstance(data, list):
+            return {entry['domain']: entry['services'] for entry in data if 'domain' in entry and 'services' in entry}
+        return data
 
     async def get_areas(self) -> List[Dict[str, Any]]:
         """Get all areas from Home Assistant.
