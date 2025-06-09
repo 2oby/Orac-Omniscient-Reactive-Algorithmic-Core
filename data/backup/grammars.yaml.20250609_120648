@@ -1,0 +1,150 @@
+---
+# Grammar configuration file for LLM inference using Qwen3 0.6B
+#
+# Purpose:
+# This file defines the grammar used to constrain the LLM's output to valid JSON for home automation
+# commands. To simplify the LLM's task, the grammar uses generic, user-friendly terms for devices
+# (e.g., "bedroom lights"), actions (e.g., "turn on"), and locations (e.g., "bedroom"). These generic
+# terms are constrained in the grammar to ensure valid outputs. A post-processing step maps these
+# generic terms to specific Home Assistant entity IDs (e.g., "bedroom lights" to "light.bedroom_lamp_1")
+# using a mapping configuration, which can be populated via Home Assistant's API or a user GUI.
+#
+# Structure:
+# - `grammars`: Contains the JSON grammar definition, which enforces structured JSON output for all
+#   LLM responses, including home automation commands. This remains unchanged for backwards compatibility.
+# - `home_automation_constraints`: Lists generic, user-friendly values for devices, actions, and locations.
+#   These are used to constrain the JSON output to valid, intuitive terms (e.g., "bedroom lights" instead
+#   of "light.bedroom_lamp_1").
+# - `mapping`: Defines how generic terms (from `home_automation_constraints`) map to specific Home Assistant
+#   entity IDs or areas. This is used in a post-processing step to convert the LLM's generic output to
+#   precise Home Assistant commands.
+# - Programmatic Integration:
+#   - The `home_automation_constraints` section is populated with generic terms, either statically defined
+#     or derived from Home Assistant data (e.g., grouping entities by room or type).
+#   - The `mapping` section is populated by fetching data from Home Assistant's API (e.g., `/api/states`
+#     for entity IDs, `/api/areas` for locations) or via a user GUI.
+#   - The JSON grammar's `string` rule is dynamically updated to restrict values for "device", "action",
+#     and "location" to the generic terms in `home_automation_constraints`.
+#   - A post-processing script maps the LLM's generic JSON output to specific Home Assistant entity IDs
+#     using the `mapping` section.
+#
+# Usage:
+# - The LLM generates JSON output constrained to generic terms (e.g., {"device": "bedroom lights", "action": "turn on", "location": "bedroom"}).
+# - A post-processing step uses the `mapping` section to convert generic terms to specific entity IDs
+#   (e.g., "bedroom lights" to "light.bedroom_lamp_1"), producing a Home Assistant-compatible command.
+# - This approach simplifies the LLM's grammar, improves user-friendliness, and delegates specificity to
+#   post-processing, making the system flexible and easier to maintain.
+
+grammars:
+  json:
+    description: "Standard JSON grammar for structured output, used for all LLM outputs including home automation commands."
+    grammar: |
+      root ::= object
+      object ::= "{" ws (string ":" ws value ("," ws string ":" ws value)*)? ws "}"
+      value ::= object | array | string | number | boolean | null
+      array ::= "[" ws (value ("," ws value)*)? ws "]"
+      string ::= "\"" ([^"\\] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))* "\""
+      number ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [-+]? [0-9]+)?
+      boolean ::= "true" | "false"
+      null ::= "null"
+      ws ::= [ \t\n\r]*
+    required_keys:
+      - device
+      - action
+      - location
+    # Note: The `string` rule for specific keys (e.g., "device", "action", "location") will be
+    # dynamically updated at runtime to restrict values to those listed in `home_automation_constraints`.
+    # For example, the `string` rule may be modified to:
+    # string ::= "\"device\"" ":" "\"" (valid_device) "\"" | "\"action\"" ":" "\"" (valid_action) "\"" | "\"location\"" ":" "\"" (valid_location) "\"" | ...
+    # where `valid_device`, `valid_action`, and `valid_location` are alternations of generic terms.
+
+home_automation_constraints:
+  description: "Generic, user-friendly constraints for home automation commands, used to limit LLM output to intuitive terms."
+  valid_actions:
+    # Generic actions, kept simple for LLM output. These are mapped to Home Assistant services in post-processing.
+    - "turn on"
+    - "turn off"
+    - "toggle"
+    - "set"
+    - "open"
+    - "close"
+  valid_devices:
+    # Generic device terms, grouped by type or room for user-friendliness. Mapped to specific entity IDs in post-processing.
+    - "bedroom lights"
+    - "kitchen lights"
+    - "living room lights"
+    - "kitchen switch"
+    - "thermostat"
+  valid_locations:
+    # Generic location terms, typically room names. Mapped to Home Assistant areas or inferred from entities in post-processing.
+    - "bedroom"
+    - "kitchen"
+    - "living room"
+    - "bathroom"
+  # Note: These generic terms are either statically defined or derived from Home Assistant data
+  # (e.g., grouping entities by room or type). They are used to constrain the LLM's JSON output.
+
+mapping:
+  description: "Mapping of generic terms to specific Home Assistant entity IDs or areas, used in post-processing."
+  devices:
+    # Maps generic device terms to one or more Home Assistant entity IDs.
+    "bedroom lights":
+      - "light.bedroom_lamp_1"
+      - "light.bedroom_ceiling"
+    "kitchen lights":
+      - "light.kitchen_main"
+    "living room lights":
+      - "light.living_room_lamp"
+    "kitchen switch":
+      - "switch.kitchen_outlet"
+    "thermostat":
+      - "thermostat.living_room"
+  actions:
+    # Maps generic actions to Home Assistant service calls.
+    "turn on":
+      - "light.turn_on"
+      - "switch.turn_on"
+    "turn off":
+      - "light.turn_off"
+      - "switch.turn_off"
+    "toggle":
+      - "light.toggle"
+      - "switch.toggle"
+    "set":
+      - "thermostat.set_temperature"
+    "open":
+      - "cover.open_cover"
+    "close":
+      - "cover.close_cover"
+  locations:
+    # Maps generic locations to Home Assistant area IDs or entity metadata.
+    "bedroom":
+      - "area_bedroom"
+    "kitchen":
+      - "area_kitchen"
+    "living room":
+      - "area_living_room"
+    "bathroom":
+      - "area_bathroom"
+  # Integration Notes:
+  # - Fetch entity IDs from Home Assistant's `/api/states` endpoint (e.g., `light.bedroom_lamp_1`).
+  # - Fetch service calls from `/api/services` endpoint (e.g., `light.turn_on`).
+  # - Fetch area IDs from `/api/areas` endpoint (e.g., `area_bedroom`).
+  # - Group entities into generic terms (e.g., all `light.*` entities in the bedroom become "bedroom lights").
+  # - Update this section dynamically via API or user GUI.
+  # - In post-processing, convert LLM output (e.g., "bedroom lights") to specific entity IDs (e.g., "light.bedroom_lamp_1").
+
+# Workflow:
+# 1. Fetch data from Home Assistant API (e.g., `/api/states`, `/api/services`, `/api/areas`) or user GUI.
+# 2. Populate `home_automation_constraints` with generic terms (e.g., "bedroom lights") derived from entity metadata
+#    or user input.
+# 3. Populate `mapping` with specific entity IDs, service calls, and area IDs from Home Assistant.
+# 4. Update the JSON grammar's `string` rule to restrict "device", "action", and "location" to generic terms
+#    from `home_automation_constraints`.
+# 5. Run the LLM with the updated grammar to generate JSON output with generic terms
+#    (e.g., {"device": "bedroom lights", "action": "turn on", "location": "bedroom"}).
+# 6. In post-processing, use the `mapping` section to convert generic terms to specific Home Assistant
+#    entity IDs and service calls (e.g., {"entity_id": "light.bedroom_lamp_1", "service": "light.turn_on"}).
+#
+# This approach simplifies the LLM's task by using intuitive, generic terms in the grammar and handles
+# Home Assistant-specific details in post-processing, improving flexibility and user experience.

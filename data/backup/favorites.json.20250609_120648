@@ -1,0 +1,22 @@
+{
+  "favorite_models": [
+    "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+    "Qwen3-0.6B-Q4_K_M.gguf",
+    "Qwen3-1.7B-Q4_K_M.gguf"
+  ],
+  "default_model": "Qwen3-0.6B-Q4_K_M.gguf",
+  "default_settings": {
+    "temperature": 0.2,
+    "top_p": 0.8,
+    "top_k": 30,
+    "max_tokens": 60
+  },
+  "favorites": {
+    "models": {
+      "Qwen3-0.6B-Q4_K_M.gguf": {
+        "description": "Lightweight model optimized for Jetson Orin",
+        "priority": 1
+      }
+    }
+  }
+}

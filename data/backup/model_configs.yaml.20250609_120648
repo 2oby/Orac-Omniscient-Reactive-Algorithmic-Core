@@ -1,0 +1,45 @@
+models:
+  Qwen3-0.6B-Q4_K_M.gguf:
+    context_size: 2048
+    gpu_layers: 24
+    temperature: 0.7
+    top_p: 0.95
+    top_k: 40
+    max_tokens: 512
+    # Jetson Orin specific optimizations
+    n_threads: 6
+    n_batch: 512
+    n_ctx: 2048
+    n_gpu_layers: 24
+    # Memory management
+    offload_kqv: true
+    numa: false
+    # Performance settings
+    rope_scaling: null
+    rope_freq_base: 10000
+    rope_freq_scale: 1.0
+    recommended_settings:
+      json_mode: true
+      max_tokens: 50
+      temperature: 0.2
+      top_k: 30
+      top_p: 0.8
+    system_prompt: '/no_think
+
+      You are a JSON-only formatter. For each user input, respond with a single-line
+      JSON object containing the keys: "device", "action", and "location". Do not
+      include any explanations, comments, or additional text. Only output the JSON
+      object.'
+  Qwen3-1.7B-Q4_K_M.gguf:
+    recommended_settings:
+      json_mode: true
+      max_tokens: 50
+      temperature: 0.2
+      top_k: 30
+      top_p: 0.8
+    system_prompt: '/no_think
+
+      You are a JSON-only formatter. For each user input, respond with a single-line
+      JSON object containing the keys: "device", "action", and "location". Do not
+      include any explanations, comments, or additional text. Only output the JSON
+      object.'
