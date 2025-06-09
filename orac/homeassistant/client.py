@@ -12,6 +12,7 @@ handling:
 - Service discovery and execution via /api/services
 - Area/location discovery via /api/areas
 - Error handling and response processing
+- Intelligent caching with filtering and persistence
 
 The client is designed to support the command processing pipeline,
 converting generic commands to specific Home Assistant API calls.
@@ -25,6 +26,7 @@ import logging
 from .config import HomeAssistantConfig
 from .constants import API_STATES, API_SERVICES, API_AREAS
 from .models import HomeAssistantEntity, HomeAssistantService
+from .cache import HomeAssistantCache
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,13 @@ class HomeAssistantClient:
             "Authorization": f"Bearer {config.token}",
             "Content-Type": "application/json",
         }
+        
+        # Initialize cache with persistent storage if configured
+        self._cache = HomeAssistantCache(
+            ttl=config.cache_ttl,
+            max_size=config.cache_max_size,
+            cache_dir=config.cache_dir
+        )
 
     async def __aenter__(self):
         """Create aiohttp session when entering async context."""
@@ -86,29 +95,89 @@ class HomeAssistantClient:
             logger.error(f"API request failed: {e}")
             raise
 
-    async def get_states(self) -> List[Dict[str, Any]]:
+    async def get_states(self, use_cache: bool = True) -> List[Dict[str, Any]]:
         """Get all entity states from Home Assistant.
         
+        Args:
+            use_cache: Whether to use cached data if available (default: True)
+            
         Returns:
             List of entity states
         """
-        return await self._request("GET", API_STATES)
+        # Try to get from cache first
+        if use_cache:
+            cached_entities = self._cache.get_entities()
+            if cached_entities is not None:
+                logger.debug("Using cached entities")
+                return cached_entities
+        
+        # Fetch from API
+        logger.debug("Fetching entities from Home Assistant API")
+        entities = await self._request("GET", API_STATES)
+        
+        # Cache the entities with filtering
+        self._cache.set_entities(entities)
+        
+        return entities
 
-    async def get_services(self) -> Dict[str, Any]:
-        """Get all available services from Home Assistant, normalized to a dict keyed by domain."""
+    async def get_services(self, use_cache: bool = True) -> Dict[str, Any]:
+        """Get all available services from Home Assistant, normalized to a dict keyed by domain.
+        
+        Args:
+            use_cache: Whether to use cached data if available (default: True)
+            
+        Returns:
+            Dictionary of services
+        """
+        # Try to get from cache first
+        if use_cache:
+            cached_services = self._cache.get_services()
+            if cached_services is not None:
+                logger.debug("Using cached services")
+                return cached_services
+        
+        # Fetch from API
+        logger.debug("Fetching services from Home Assistant API")
         data = await self._request("GET", API_SERVICES)
+        
         # If the response is a list, convert to dict
         if isinstance(data, list):
-            return {entry['domain']: entry['services'] for entry in data if 'domain' in entry and 'services' in entry}
-        return data
+            services = {entry['domain']: entry['services'] for entry in data if 'domain' in entry and 'services' in entry}
+        else:
+            services = data
+        
+        # Cache the services with filtering
+        self._cache.set_services(services)
+        
+        return services
 
-    async def get_areas(self) -> List[Dict[str, Any]]:
+    async def get_areas(self, use_cache: bool = True) -> List[Dict[str, Any]]:
         """Get all areas from Home Assistant.
         
+        Args:
+            use_cache: Whether to use cached data if available (default: True)
+            
         Returns:
             List of areas
         """
-        return await self._request("GET", API_AREAS)
+        # Try to get from cache first
+        if use_cache:
+            cached_areas = self._cache.get_areas()
+            if cached_areas is not None:
+                logger.debug("Using cached areas")
+                return cached_areas
+        
+        # Fetch from API
+        logger.debug("Fetching areas from Home Assistant API")
+        try:
+            areas = await self._request("GET", API_AREAS)
+            # Cache the areas
+            self._cache.set_areas(areas)
+            return areas
+        except aiohttp.ClientError as e:
+            logger.warning(f"Failed to fetch areas: {e}")
+            # Return empty list if areas endpoint is not available
+            return []
 
     async def validate_connection(self) -> bool:
         """Validate the connection to Home Assistant.
@@ -118,11 +187,23 @@ class HomeAssistantClient:
         """
         try:
             # Try to get states as a simple connection test
-            await self.get_states()
+            await self.get_states(use_cache=False)
             return True
         except Exception as e:
             logger.error(f"Connection validation failed: {e}")
             return False
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache statistics.
+        
+        Returns:
+            Dictionary containing cache statistics
+        """
+        return self._cache.get_stats()
+
+    def cleanup_cache(self) -> None:
+        """Clean up expired cache entries."""
+        self._cache.cleanup_expired()
 
 async def main():
     """Example usage of the Home Assistant client."""
@@ -142,11 +223,13 @@ async def main():
         
         print("\nEntities:")
         entities = await client.get_states()
+        print(f"Found {len(entities)} entities (filtered for relevance)")
         for entity in entities:
             print(f"- {entity['entity_id']}: {entity['state']}")
             
         print("\nServices:")
         services = await client.get_services()
+        print(f"Found {len(services)} service domains (filtered for relevance)")
         for domain, domain_services in services.items():
             print(f"\n{domain}:")
             for service in domain_services:
@@ -154,9 +237,15 @@ async def main():
                 
         print("\nAreas:")
         areas = await client.get_areas()
+        print(f"Found {len(areas)} areas")
         for area in areas:
             print(f"- {area['name']} ({area['area_id']})")
+        
+        # Show cache statistics
+        print("\nCache Statistics:")
+        stats = client.get_cache_stats()
+        for key, value in stats.items():
+            print(f"- {key}: {value}")
 
 if __name__ == "__main__":
-    # Run the example
     asyncio.run(main())
