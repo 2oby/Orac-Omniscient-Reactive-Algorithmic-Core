@@ -32,6 +32,64 @@ async def test_homeassistant_connection(ha_client):
     assert await ha_client.validate_connection(), "Failed to connect to Home Assistant"
 
 @pytest.mark.asyncio
+async def test_raw_homeassistant_data(ha_client):
+    """Test fetching raw Home Assistant data without any filtering."""
+    print("\n=== Raw Home Assistant Data Test ===")
+    
+    # Get raw entities directly from API (bypass cache and filtering)
+    print("\nFetching raw entities from Home Assistant API...")
+    raw_entities = await ha_client._request("GET", "/api/states")
+    print(f"Total raw entities from Home Assistant: {len(raw_entities)}")
+    
+    print("\nAll raw entities:")
+    for entity in raw_entities:
+        print(f"- {entity['entity_id']}: {entity['state']}")
+    
+    # Show entity domains
+    domains = {}
+    for entity in raw_entities:
+        domain = entity['entity_id'].split('.')[0]
+        domains[domain] = domains.get(domain, 0) + 1
+    
+    print(f"\nEntity domains:")
+    for domain, count in sorted(domains.items()):
+        print(f"- {domain}: {count} entities")
+    
+    # Now show what gets filtered
+    print("\n=== Filtering Analysis ===")
+    from orac.homeassistant.cache import HomeAssistantCache
+    cache = HomeAssistantCache()
+    
+    relevant_entities = []
+    system_entities = []
+    other_entities = []
+    
+    for entity in raw_entities:
+        entity_id = entity['entity_id']
+        if cache._is_relevant_entity(entity_id):
+            relevant_entities.append(entity_id)
+        else:
+            domain = entity_id.split('.')[0] if '.' in entity_id else ''
+            if domain in cache.SYSTEM_ENTITIES:
+                system_entities.append(entity_id)
+            else:
+                other_entities.append(entity_id)
+    
+    print(f"Relevant entities (cached): {len(relevant_entities)}")
+    print(f"System entities (excluded): {len(system_entities)}")
+    print(f"Other entities (excluded): {len(other_entities)}")
+    
+    if system_entities:
+        print(f"\nSystem entities excluded:")
+        for entity_id in system_entities:
+            print(f"- {entity_id}")
+    
+    if other_entities:
+        print(f"\nOther entities excluded:")
+        for entity_id in other_entities:
+            print(f"- {entity_id}")
+
+@pytest.mark.asyncio
 async def test_homeassistant_data(ha_client):
     """Test fetching and processing Home Assistant data with caching."""
     # Get all data
