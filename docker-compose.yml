@@ -9,6 +9,7 @@ services:
       - ./third_party/llama_cpp:/app/third_party/llama_cpp:ro
       - ./logs:/app/logs
       - ./data:/app/data
+      - ./cache:/app/cache
     environment:
       - LOG_LEVEL=INFO
       - LOG_DIR=/app/logs

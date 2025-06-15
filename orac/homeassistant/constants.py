@@ -9,7 +9,7 @@ change during runtime.
 # API Endpoints
 API_STATES = "/api/states"
 API_SERVICES = "/api/services"
-API_AREAS = "/api/areas"
+API_AREAS = "/api/config/areas"
 
 # Grammar Configuration
 GRAMMAR_FILE = "data/grammars.yaml"
