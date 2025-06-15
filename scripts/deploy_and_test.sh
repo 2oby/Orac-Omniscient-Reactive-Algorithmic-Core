@@ -9,7 +9,7 @@ COMMIT_MSG=${1:-"Update ORAC MVP"}
 DEPLOY_BRANCH=${2:-"MVP_HOMEASSISTANT"}   # Default to 'MVP_HOMEASSISTANT' branch if not specified
 SERVICE_NAME=${3:-"orac"}   # Docker Compose service to exec into
 REMOTE_ALIAS="orin3"
-SSH_ORIGIN="git@github.com:2oby/Orac-Omniscient-Reactive-Algorithmic-Core.git"
+SSH_ORIGIN="https://github.com/2oby/Orac-Omniscient-Reactive-Algorithmic-Core.git"
 
 # Terminal colors
 GREEN='\033[0;32m'
