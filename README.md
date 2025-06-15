@@ -102,6 +102,38 @@ ORAC uses environment variables for configuration. Each machine (development, Je
 
 3. The `.env` file is git-ignored and should remain local to each machine.
 
+## Network Configuration
+
+### Device IP Addresses
+- **ORAC (Jetson Orin)**: `192.168.8.191`
+- **Home Assistant (Pi)**: `192.168.8.99:8123`
+- **Development Machine**: `192.168.1.13`
+
+### SSH Access
+- **Orin**: `ssh orin` (aliased in SSH config)
+- **Orin3**: `ssh orin3` (deployment alias)
+
+### Remote Command Execution
+To run commands on the Orin from your development machine, prefix commands with `ssh orin3`:
+
+```bash
+# Check system status on Orin
+ssh orin3 "cd ~/ORAC && python -m orac.cli status"
+
+# View logs on Orin
+ssh orin3 "tail -f ~/ORAC/logs/orac.log"
+
+# Restart ORAC service on Orin
+ssh orin3 "cd ~/ORAC && docker-compose restart"
+
+# Deploy updates to Orin
+./scripts/deploy_and_test.sh "Update description" MVP_HOMEASSISTANT
+```
+
+### Web Interface Access
+- **ORAC Web UI**: http://192.168.8.191:8000
+- **Home Assistant**: http://192.168.8.99:8123
+
 ## License
 
 MIT License
