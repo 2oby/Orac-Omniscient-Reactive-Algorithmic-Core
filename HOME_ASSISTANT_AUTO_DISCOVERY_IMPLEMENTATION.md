@@ -22,24 +22,26 @@ This document outlines the implementation plan for transforming ORAC's Home Assi
 
 ## Implementation Phases
 
-### Phase 1: Core Discovery Infrastructure
+### Phase 1: Core Discovery Infrastructure ✅ **IN PROGRESS**
 **Duration**: 1-2 weeks
 **Goal**: Implement the foundational discovery services
 
-#### 1.1 Enhanced API Client (`orac/homeassistant/client.py`)
-- Add new API endpoints for entity registry and device registry
-- Implement `get_entity_registry()` method
-- Implement `get_devices()` method
-- Update constants to include new endpoints
-- Add error handling for missing endpoints
+#### 1.1 Enhanced API Client (`orac/homeassistant/client.py`) ✅ **COMPLETED**
+- ✅ Add new API endpoints for entity registry and device registry
+- ✅ Implement `get_entity_registry()` method
+- ✅ Implement `get_device_registry()` method
+- ✅ Update constants to include new endpoints
+- ✅ Add error handling for missing endpoints
 
-#### 1.2 Discovery Service (`orac/homeassistant/discovery_service.py`)
+**Status**: All API endpoints implemented and tested. Entity and device registry methods added to client with proper error handling and caching support.
+
+#### 1.2 Discovery Service (`orac/homeassistant/discovery_service.py`) 🔄 **PENDING**
 - Implement `HADiscoveryService` class
 - Add `discover_all()` method for complete discovery process
 - Add individual discovery methods for each API endpoint
 - Implement connection validation and error handling
 
-#### 1.3 Mapping Builder (`orac/homeassistant/mapping_builder.py`)
+#### 1.3 Mapping Builder (`orac/homeassistant/mapping_builder.py`) 🔄 **PENDING**
 - Implement `HAMappingBuilder` class
 - Add domain-to-device-type mapping logic
 - Implement smart location detection algorithms

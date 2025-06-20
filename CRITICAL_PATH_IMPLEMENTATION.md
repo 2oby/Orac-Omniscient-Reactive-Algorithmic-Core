@@ -8,23 +8,23 @@ This document focuses on the three most critical components that must be impleme
 2. **Domain-to-Device Mapping Logic** - Simplification heart
 3. **Location Detection Algorithm** - Multiple fallback strategies
 
-## 1. Entity Registry API Integration
+## 1. Entity Registry API Integration ✅ **COMPLETED**
 
 ### Current State
-- Current client only fetches `/api/states`, `/api/services`, `/api/areas`
-- Missing entity registry and device registry endpoints
-- No area assignment data available
+- ✅ Current client fetches `/api/states`, `/api/services`, `/api/areas`
+- ✅ Added entity registry and device registry endpoints
+- ✅ Area assignment data now available
 
-### Implementation Priority: **HIGHEST**
+### Implementation Priority: **HIGHEST** ✅ **COMPLETED**
 
-#### 1.1 Add New API Endpoints to Constants
+#### 1.1 Add New API Endpoints to Constants ✅ **COMPLETED**
 ```python
 # orac/homeassistant/constants.py
 API_ENTITY_REGISTRY = "/api/config/entity_registry/list"
 API_DEVICE_REGISTRY = "/api/config/device_registry/list"
 ```
 
-#### 1.2 Extend Client with Entity Registry Methods
+#### 1.2 Extend Client with Entity Registry Methods ✅ **COMPLETED**
 ```python
 # orac/homeassistant/client.py
 async def get_entity_registry(self, use_cache: bool = True) -> List[Dict[str, Any]]:
@@ -58,7 +58,7 @@ async def get_device_registry(self, use_cache: bool = True) -> List[Dict[str, An
         return []
 ```
 
-#### 1.3 Add Cache Support for New Endpoints
+#### 1.3 Add Cache Support for New Endpoints ✅ **COMPLETED**
 ```python
 # orac/homeassistant/cache.py
 def set_entity_registry(self, registry: List[Dict[str, Any]]) -> None:
@@ -84,11 +84,11 @@ def get_device_registry(self) -> Optional[List[Dict[str, Any]]]:
     return self._get_cached_data('device_registry')
 ```
 
-### Success Criteria
-- [ ] Entity registry endpoint returns area assignments
-- [ ] Device registry endpoint returns device area mappings
-- [ ] Cache properly stores and retrieves registry data
-- [ ] Error handling for missing endpoints
+### Success Criteria ✅ **ALL COMPLETED**
+- ✅ Entity registry endpoint returns area assignments
+- ✅ Device registry endpoint returns device area mappings
+- ✅ Cache properly stores and retrieves registry data
+- ✅ Error handling for missing endpoints
 
 ## 2. Domain-to-Device Mapping Logic
 
@@ -479,9 +479,31 @@ def validate_location_detection(self, entities: List[Dict[str, Any]], **kwargs) 
 
 ## Implementation Order
 
-1. **Week 1**: Entity Registry API Integration
-2. **Week 2**: Domain-to-Device Mapping Logic
-3. **Week 3**: Location Detection Algorithm
-4. **Week 4**: Integration and Testing
+1. **Week 1**: Entity Registry API Integration ✅ **COMPLETED**
+2. **Week 2**: Domain-to-Device Mapping Logic 🔄 **NEXT**
+3. **Week 3**: Location Detection Algorithm 🔄 **PENDING**
+4. **Week 4**: Integration and Testing 🔄 **PENDING**
+
+## Progress Summary
+
+### ✅ **COMPLETED - Entity Registry API Integration**
+- **Constants Updated**: Added `API_ENTITY_REGISTRY` and `API_DEVICE_REGISTRY` endpoints
+- **Client Enhanced**: Added `get_entity_registry()` and `get_device_registry()` methods with proper error handling
+- **Cache Extended**: Added `set_entity_registry()`, `get_entity_registry()`, `set_device_registry()`, `get_device_registry()` methods
+- **Testing**: Updated `test_connection.py` to test new endpoints
+- **Error Handling**: Graceful fallback when endpoints are not available (404 errors)
+
+### 🔄 **NEXT STEPS - Domain-to-Device Mapping Logic**
+1. Create `orac/homeassistant/domain_mapper.py` with `DomainMapper` class
+2. Implement domain-to-device-type mapping logic
+3. Add smart detection for media players (TV vs Music)
+4. Add smart detection for switches (lights vs generic)
+5. Add action mapping for each device type
+
+### 🔄 **PENDING - Location Detection Algorithm**
+1. Create `orac/homeassistant/location_detector.py` with `LocationDetector` class
+2. Implement multiple fallback strategies for location detection
+3. Add location name normalization
+4. Add validation and reporting capabilities
 
 This focused approach ensures the core functionality works before adding additional features. 
