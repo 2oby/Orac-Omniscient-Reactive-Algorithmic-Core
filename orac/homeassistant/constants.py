@@ -10,6 +10,9 @@ change during runtime.
 API_STATES = "/api/states"
 API_SERVICES = "/api/services"
 API_AREAS = "/api/config/areas"
+API_ZONES = "/api/states"
+API_ENTITY_REGISTRY = "/api/config/entity_registry/list"
+API_DEVICE_REGISTRY = "/api/config/device_registry/list"
 
 # Grammar Configuration
 GRAMMAR_FILE = "data/grammars.yaml"

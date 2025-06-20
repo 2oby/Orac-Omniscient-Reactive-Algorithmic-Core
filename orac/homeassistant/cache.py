@@ -348,4 +348,38 @@ class HomeAssistantCache:
                     logger.warning(f"Removed corrupted cache file: {cache_file}")
         
         if expired_keys:
-            logger.info(f"Cleaned up {len(expired_keys)} expired cache entries") 
+            logger.info(f"Cleaned up {len(expired_keys)} expired cache entries")
+    
+    def set_entity_registry(self, registry: List[Dict[str, Any]]) -> None:
+        """Cache entity registry data.
+        
+        Args:
+            registry: List of entity registry entries from Home Assistant
+        """
+        logger.info(f"Caching {len(registry)} entity registry entries")
+        self.set('entity_registry', registry, persist=True)
+    
+    def get_entity_registry(self) -> Optional[List[Dict[str, Any]]]:
+        """Get cached entity registry data.
+        
+        Returns:
+            List of entity registry entries or None if not cached
+        """
+        return self.get('entity_registry')
+    
+    def set_device_registry(self, devices: List[Dict[str, Any]]) -> None:
+        """Cache device registry data.
+        
+        Args:
+            devices: List of device registry entries from Home Assistant
+        """
+        logger.info(f"Caching {len(devices)} device registry entries")
+        self.set('device_registry', devices, persist=True)
+    
+    def get_device_registry(self) -> Optional[List[Dict[str, Any]]]:
+        """Get cached device registry data.
+        
+        Returns:
+            List of device registry entries or None if not cached
+        """
+        return self.get('device_registry') 

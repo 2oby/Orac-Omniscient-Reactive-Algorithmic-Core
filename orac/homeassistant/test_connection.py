@@ -45,6 +45,14 @@ async def test_connection():
                 areas = await client.get_areas()
                 logger.info(f"Found {len(areas)} areas")
                 
+                # Get entity registry count
+                entity_registry = await client.get_entity_registry()
+                logger.info(f"Found {len(entity_registry)} entity registry entries")
+                
+                # Get device registry count
+                device_registry = await client.get_device_registry()
+                logger.info(f"Found {len(device_registry)} device registry entries")
+                
             else:
                 logger.error("❌ Failed to connect to Home Assistant")
                 

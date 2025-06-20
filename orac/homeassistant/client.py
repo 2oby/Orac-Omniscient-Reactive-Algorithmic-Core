@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Any
 from pathlib import Path
 import logging
 from .config import HomeAssistantConfig
-from .constants import API_STATES, API_SERVICES, API_AREAS
+from .constants import API_STATES, API_SERVICES, API_AREAS, API_ENTITY_REGISTRY, API_DEVICE_REGISTRY
 from .models import HomeAssistantEntity, HomeAssistantService
 from .cache import HomeAssistantCache
 
@@ -179,6 +179,62 @@ class HomeAssistantClient:
             # Return empty list if areas endpoint is not available
             return []
 
+    async def get_entity_registry(self, use_cache: bool = True) -> List[Dict[str, Any]]:
+        """Get entity registry with area assignments from Home Assistant.
+        
+        Args:
+            use_cache: Whether to use cached data if available (default: True)
+            
+        Returns:
+            List of entity registry entries
+        """
+        # Try to get from cache first
+        if use_cache:
+            cached_registry = self._cache.get_entity_registry()
+            if cached_registry is not None:
+                logger.debug("Using cached entity registry")
+                return cached_registry
+        
+        # Fetch from API
+        logger.debug("Fetching entity registry from Home Assistant API")
+        try:
+            registry = await self._request("GET", API_ENTITY_REGISTRY)
+            # Cache the registry
+            self._cache.set_entity_registry(registry)
+            return registry
+        except aiohttp.ClientError as e:
+            logger.warning(f"Failed to fetch entity registry: {e}")
+            # Return empty list if entity registry endpoint is not available
+            return []
+
+    async def get_device_registry(self, use_cache: bool = True) -> List[Dict[str, Any]]:
+        """Get device registry with area assignments from Home Assistant.
+        
+        Args:
+            use_cache: Whether to use cached data if available (default: True)
+            
+        Returns:
+            List of device registry entries
+        """
+        # Try to get from cache first
+        if use_cache:
+            cached_devices = self._cache.get_device_registry()
+            if cached_devices is not None:
+                logger.debug("Using cached device registry")
+                return cached_devices
+        
+        # Fetch from API
+        logger.debug("Fetching device registry from Home Assistant API")
+        try:
+            devices = await self._request("GET", API_DEVICE_REGISTRY)
+            # Cache the devices
+            self._cache.set_device_registry(devices)
+            return devices
+        except aiohttp.ClientError as e:
+            logger.warning(f"Failed to fetch device registry: {e}")
+            # Return empty list if device registry endpoint is not available
+            return []
+
     async def validate_connection(self) -> bool:
         """Validate the connection to Home Assistant.
         
@@ -240,6 +296,22 @@ async def main():
         print(f"Found {len(areas)} areas")
         for area in areas:
             print(f"- {area['name']} ({area['area_id']})")
+        
+        print("\nEntity Registry:")
+        entity_registry = await client.get_entity_registry()
+        print(f"Found {len(entity_registry)} entity registry entries")
+        for entry in entity_registry[:5]:  # Show first 5 entries
+            print(f"- {entry.get('entity_id', 'Unknown')}: {entry.get('name', 'No name')}")
+        if len(entity_registry) > 5:
+            print(f"... and {len(entity_registry) - 5} more entries")
+        
+        print("\nDevice Registry:")
+        device_registry = await client.get_device_registry()
+        print(f"Found {len(device_registry)} device registry entries")
+        for device in device_registry[:5]:  # Show first 5 entries
+            print(f"- {device.get('name', 'Unknown')} ({device.get('device_id', 'No ID')})")
+        if len(device_registry) > 5:
+            print(f"... and {len(device_registry) - 5} more entries")
         
         # Show cache statistics
         print("\nCache Statistics:")

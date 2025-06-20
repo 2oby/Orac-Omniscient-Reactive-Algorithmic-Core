@@ -134,3 +134,66 @@ orac.log.1 (previous)
 
 orac.log.2 (older)
 
+
+
+
+
+
+
+
+Entites in the flat:
+Bedroom
+Bedroom Lights (Philips Hue, helper: light)
+
+Bedroom Blinds (Z-Wave, helper: cover)
+
+Bedroom Scenes (e.g., Good Night, helper: button)
+
+Bedroom Music (Sonos, helper: media_player)
+
+Bedroom Fan (Z-Wave, helper: fan)
+
+Bedroom Thermostat (Z-Wave, helper: climate)
+
+Bathroom
+Bathroom Lights (Philips Hue, helper: light)
+
+Bathroom Underfloor Heating (Z-Wave, helper: climate)
+
+Bathroom Scenes (e.g., Shower, helper: button)
+
+Bathroom Water Leak Sensor (non-interactable, helper: binary_sensor)
+
+Kitchen
+Kitchen Lights (Philips Hue, helper: light)
+
+Kitchen Scenes (e.g., Cooking, helper: button)
+
+Hall
+Hall Lights (Philips Hue, helper: light)
+
+Hall Scenes (e.g., Welcome, helper: button)
+
+Living Room
+Living Room Curtains (Z-Wave, helper: cover)
+
+Living Room Lights (Philips Hue, helper: light)
+
+Living Room Scenes (e.g., Movie, helper: button)
+
+Living Room TV (IR/IP, helper: media_player)
+
+Living Room Music (Sonos, helper: media_player)
+
+Living Room Thermostat (Z-Wave, helper: climate)
+
+Flat
+Flat Lights (group of all lights, helper: light.group)
+
+Flat Scenes (e.g., Absent, helper: button)
+
+Flat Music (group of Sonos, helper: media_player.group)
+
+
+
+
