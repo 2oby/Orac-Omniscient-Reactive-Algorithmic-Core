@@ -136,6 +136,166 @@ def _is_relevant_entity(entity_id: str) -> bool:
             domain in STATUS_ENTITIES)
 ```
 
+## Entity Mapping UI Integration
+
+### **NULL Value Handling**
+
+When auto-discovery finds entities without friendly names, the system generates "NULL" values that require user input to complete the mapping. This requires a UI popup system to prompt users for friendly names.
+
+#### **UI Popup Requirements**
+
+**Trigger Conditions:**
+- Auto-discovery completes and finds entities with "NULL" friendly names
+- User accesses the ORAC application for the first time with new entities
+- Manual refresh of entity mappings reveals new unmapped entities
+
+**Popup Behavior:**
+- **Modal Dialog**: Non-dismissible until all NULL values are resolved
+- **Progressive Disclosure**: Show one entity at a time to avoid overwhelming the user
+- **Smart Suggestions**: Provide intelligent suggestions based on entity_id parsing
+- **Validation**: Ensure friendly names are unique and appropriate
+
+**UI Components Needed:**
+```html
+<!-- Entity Mapping Popup -->
+<div id="entityMappingPopup" class="modal-popup">
+    <div class="popup-content">
+        <h3>Complete Entity Mapping</h3>
+        <p>Found new Home Assistant entities that need friendly names:</p>
+        
+        <div class="entity-mapping-form">
+            <div class="entity-info">
+                <strong>Entity ID:</strong> <span id="currentEntityId"></span>
+                <br>
+                <strong>Device Type:</strong> <span id="currentDeviceType"></span>
+            </div>
+            
+            <div class="friendly-name-input">
+                <label for="friendlyNameInput">Friendly Name:</label>
+                <input type="text" id="friendlyNameInput" placeholder="Enter a friendly name...">
+                <div class="suggestions" id="nameSuggestions"></div>
+            </div>
+            
+            <div class="popup-actions">
+                <button id="skipEntity">Skip</button>
+                <button id="saveEntityMapping">Save & Continue</button>
+            </div>
+        </div>
+        
+        <div class="progress-indicator">
+            <span id="mappingProgress">1 of 3 entities mapped</span>
+        </div>
+    </div>
+</div>
+```
+
+**JavaScript Integration:**
+```javascript
+// Check for NULL mappings on app startup
+async function checkForNullMappings() {
+    const response = await fetch('/api/mapping/check-null');
+    const data = await response.json();
+    
+    if (data.entities_needing_names.length > 0) {
+        showEntityMappingPopup(data.entities_needing_names);
+    }
+}
+
+// Show popup for entity mapping
+function showEntityMappingPopup(entities) {
+    let currentIndex = 0;
+    
+    function showCurrentEntity() {
+        const entity = entities[currentIndex];
+        document.getElementById('currentEntityId').textContent = entity.entity_id;
+        document.getElementById('currentDeviceType').textContent = entity.device_type;
+        document.getElementById('mappingProgress').textContent = 
+            `${currentIndex + 1} of ${entities.length} entities mapped`;
+        
+        // Generate suggestions
+        const suggestions = generateNameSuggestions(entity.entity_id);
+        displaySuggestions(suggestions);
+    }
+    
+    // Handle save action
+    document.getElementById('saveEntityMapping').onclick = async () => {
+        const friendlyName = document.getElementById('friendlyNameInput').value;
+        if (friendlyName.trim()) {
+            await saveEntityMapping(entities[currentIndex].entity_id, friendlyName);
+            currentIndex++;
+            
+            if (currentIndex < entities.length) {
+                showCurrentEntity();
+            } else {
+                hideEntityMappingPopup();
+                location.reload(); // Refresh to use new mappings
+            }
+        }
+    };
+    
+    showCurrentEntity();
+    document.getElementById('entityMappingPopup').style.display = 'block';
+}
+```
+
+#### **API Endpoints Required**
+
+**Check for NULL Mappings:**
+```
+GET /api/mapping/check-null
+Response: {
+    "entities_needing_names": [
+        {
+            "entity_id": "light.living_room_lamp",
+            "device_type": "light",
+            "suggested_name": "living room lamp"
+        }
+    ]
+}
+```
+
+**Save Entity Mapping:**
+```
+POST /api/mapping/save
+Body: {
+    "entity_id": "light.living_room_lamp",
+    "friendly_name": "living room lamp"
+}
+Response: {
+    "success": true,
+    "message": "Mapping saved successfully"
+}
+```
+
+#### **Integration with Auto-Discovery**
+
+The UI popup system integrates seamlessly with the auto-discovery process:
+
+1. **Auto-Discovery Phase**: System discovers entities and generates initial mappings
+2. **NULL Detection**: System identifies entities with "NULL" friendly names
+3. **UI Trigger**: Application startup or manual refresh triggers popup
+4. **User Input**: Users provide friendly names through progressive dialog
+5. **Mapping Update**: New mappings are saved to `entity_mappings.yaml`
+6. **Grammar Update**: LLM grammar constraints are updated with new friendly names
+
+#### **User Experience Flow**
+
+```
+1. User starts ORAC application
+2. System runs auto-discovery in background
+3. If NULL mappings found → Show popup
+4. User provides friendly names one by one
+5. System saves mappings and updates grammar
+6. User can now use natural language commands
+```
+
+#### **Fallback Handling**
+
+- **Skip Option**: Users can skip entities they don't want to control
+- **Batch Import**: Option to import mappings from existing Home Assistant configuration
+- **Manual Edit**: Direct access to `entity_mappings.yaml` for advanced users
+- **Validation**: Ensures friendly names are unique and appropriate
+
 ## Benefits
 
 ### **Performance**

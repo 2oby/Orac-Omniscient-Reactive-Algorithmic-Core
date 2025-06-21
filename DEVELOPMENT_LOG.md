@@ -113,6 +113,170 @@ This document tracks the development progress of ORAC's Home Assistant auto-disc
 - Add device type determination logic
 - Include action mapping for each domain
 
+### 1.5 Entity Mapping and Auto-Discovery System
+
+#### 1.5.1 Entity Mapping Configuration (`orac/homeassistant/mapping_config.py`)
+
+**Goal**: Implement intelligent entity-to-friendly-name mapping system with auto-discovery capabilities.
+
+**Implementation Status**: ✅ **COMPLETED**
+
+**What Was Implemented**:
+- `EntityMappingConfig` class for managing entity mappings
+- YAML-based configuration file (`entity_mappings.yaml`)
+- Auto-discovery integration with Home Assistant client
+- Smart friendly name generation with fallback strategies
+- Bidirectional lookup (entity_id ↔ friendly_name)
+- Mapping validation and summary reporting
+- Preservation of existing mappings during auto-discovery
+
+**What Worked**:
+- ✅ YAML configuration loading and saving works correctly
+- ✅ Auto-discovery successfully fetches entities from Home Assistant
+- ✅ Smart friendly name generation using HA's `friendly_name` attribute
+- ✅ Fallback to entity_id parsing with domain-specific suffixes
+- ✅ Existing mappings are preserved during auto-discovery
+- ✅ Bidirectional lookup functionality works correctly
+- ✅ Mapping summary provides clear statistics
+- ✅ "NULL" values correctly identify entities needing friendly names
+
+**What Didn't Work**:
+- ❌ Initial async client session error (fixed)
+- ❌ Permission issues with cache directory (fixed)
+
+**Test Results** (2025-06-21):
+```
+✅ Auto-discovery: Successfully discovered 7 entities
+✅ Mapping preservation: All existing mappings maintained
+✅ Friendly name generation: All entities have valid friendly names
+✅ Bidirectional lookup: entity_id ↔ friendly_name works correctly
+✅ YAML persistence: Mappings saved correctly to file
+✅ Error handling: Graceful handling of missing config files
+```
+
+**Deployment Verification**:
+- ✅ Container builds successfully
+- ✅ Auto-discovery test runs without errors
+- ✅ Permission issues resolved with proper ownership
+- ✅ Async client session properly managed
+
+#### 1.5.2 Domain Mapper (`orac/homeassistant/domain_mapper.py`)
+
+**Goal**: Implement intelligent domain-to-device-type mapping with smart detection for edge cases.
+
+**Implementation Status**: ✅ **COMPLETED**
+
+**What Was Implemented**:
+- `DomainMapper` class for domain-to-device-type mapping
+- Support for 15+ Home Assistant domains
+- Smart detection for media players (TV vs Music)
+- Smart detection for switches (lights vs generic)
+- Action mapping for each device type
+- Extensible mapping system for new domains
+
+**What Worked**:
+- ✅ All major Home Assistant domains supported
+- ✅ Smart detection correctly identifies device types
+- ✅ Action mapping provides appropriate verbs for each domain
+- ✅ Extensible design allows easy addition of new domains
+- ✅ Integration with auto-discovery system works seamlessly
+
+**What Didn't Work**:
+- ❌ No issues encountered
+
+**Supported Domains**:
+- `light`, `switch`, `media_player`, `climate`, `cover`, `fan`
+- `input_boolean`, `input_button`, `input_select`, `input_text`
+- `sensor`, `binary_sensor`, `camera`, `lock`, `vacuum`
+
+#### 1.5.3 Auto-Discovery Test Script (`test_auto_discovery.py`)
+
+**Goal**: Create comprehensive test script to demonstrate auto-discovery functionality.
+
+**Implementation Status**: ✅ **COMPLETED**
+
+**What Was Implemented**:
+- Complete auto-discovery demonstration script
+- Integration with Home Assistant client and mapping config
+- Step-by-step process demonstration
+- Comprehensive output and reporting
+- Error handling and validation
+
+**What Worked**:
+- ✅ Successfully demonstrates complete auto-discovery process
+- ✅ Shows existing mappings and auto-discovery results
+- ✅ Identifies entities needing friendly names
+- ✅ Demonstrates bidirectional lookup functionality
+- ✅ Provides clear next steps for UI integration
+
+**What Didn't Work**:
+- ❌ Initial async client session error (fixed with `async with`)
+
+**Fix Applied** (2025-06-21):
+- Updated test to use `async with HomeAssistantClient(config) as client:`
+- Fixed "Client session not initialized" error
+- Proper session management ensures clean resource handling
+
+**Test Output Example**:
+```
+=== Home Assistant Entity Auto-Discovery Test ===
+
+1. Existing mappings from YAML file:
+   - Total entities: 7
+   - Entities with friendly names: 7
+   - Entities needing friendly names: 0
+
+2. Running auto-discovery...
+3. Auto-discovery results:
+   - Total entities discovered: 7
+   - Entities with friendly names: 7
+   - Entities needing friendly names: 0
+
+4. Complete mapping list:
+   ✅ light.bedroom_lights -> bedroom lights
+   ✅ light.bathroom_lights -> bathroom lights
+   ✅ light.hall_lights -> hall lights
+   ✅ light.kitchen_lights -> kitchen lights
+   ✅ light.lounge_lights -> lounge lights
+   ✅ input_button.bathroom_scene_good_night -> bathroom good night
+   ✅ input_button.bedroom_scene_good_night -> bedroom good night
+
+5. All entities have friendly names! ✅
+```
+
+#### 1.5.4 Permission and Deployment Fixes
+
+**Goal**: Resolve permission issues and ensure proper deployment on Jetson Orin.
+
+**Implementation Status**: ✅ **COMPLETED**
+
+**What Was Implemented**:
+- Updated Dockerfile to create non-root user `orac` (UID 1000)
+- Changed ownership of app directories to `orac` user
+- Updated docker-compose.yml to run container as non-root user
+- Fixed cache directory permissions on host system
+
+**What Worked**:
+- ✅ Container now runs as non-root user
+- ✅ Cache, data, and logs directories have correct ownership
+- ✅ Auto-discovery test runs without permission errors
+- ✅ Deployment script works correctly
+
+**What Didn't Work**:
+- ❌ Initial permission issues with cache directory (fixed)
+
+**Commands Applied**:
+```bash
+# On Jetson Orin
+sudo chown -R 1000:1000 ~/ORAC/cache ~/ORAC/data ~/ORAC/logs
+sudo chmod -R 755 ~/ORAC/cache ~/ORAC/data ~/ORAC/logs
+```
+
+**Lessons Learned**:
+- Docker containers should run as non-root users for security
+- Cache files created by containers need proper ownership
+- Permission issues can be resolved with proper directory ownership
+
 ## Phase 2: Grammar Manager Overhaul
 
 ### 2.1 Complete Grammar Manager Replacement (`orac/homeassistant/grammar_manager.py`)
@@ -488,6 +652,6 @@ This document tracks the development progress of ORAC's Home Assistant auto-disc
 
 ---
 
-**Last Updated**: 2025-06-20
-**Current Phase**: Phase 1 - Core Discovery Infrastructure
-**Next Milestone**: Domain-to-Device Mapping Logic Implementation 
+**Last Updated**: 2025-06-21
+**Current Phase**: Phase 1 - Core Discovery Infrastructure (Entity Mapping and Auto-Discovery System Completed)
+**Next Milestone**: Grammar Manager Overhaul and Dynamic Grammar Generation 

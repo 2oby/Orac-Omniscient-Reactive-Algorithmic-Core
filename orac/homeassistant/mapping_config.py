@@ -65,7 +65,7 @@ class EntityMappingConfig:
         self._reverse_mappings.clear()
         
         for entity_id, friendly_name in self._mappings.items():
-            if friendly_name and friendly_name.lower() != 'null':
+            if friendly_name:  # All friendly names are now valid (no NULL values)
                 # Normalize friendly name for consistent lookup
                 normalized = self._normalize_friendly_name(friendly_name)
                 if normalized in self._reverse_mappings:
@@ -158,7 +158,7 @@ class EntityMappingConfig:
             entity: Home Assistant entity data
             
         Returns:
-            Generated friendly name or "NULL" if not obvious
+            Generated friendly name or entity_id if no obvious name available
         """
         entity_id = entity['entity_id']
         domain = entity_id.split('.')[0]
@@ -187,8 +187,8 @@ class EntityMappingConfig:
             
             return device_name
         
-        # Strategy 3: Return NULL for unclear cases
-        return "NULL"
+        # Strategy 3: Use entity_id as friendly name for unclear cases
+        return entity_id
     
     def get_friendly_name(self, entity_id: str) -> Optional[str]:
         """Get the friendly name for a given entity ID.
@@ -225,9 +225,9 @@ class EntityMappingConfig:
         """Get all friendly names defined in the configuration.
         
         Returns:
-            Set of all friendly names (excluding NULL values)
+            Set of all friendly names
         """
-        return {name for name in self._mappings.values() if name and name.lower() != 'null'}
+        return set(self._mappings.values())
     
     def get_entities_needing_friendly_names(self) -> List[str]:
         """Get list of entity IDs that need friendly names (have NULL values).
