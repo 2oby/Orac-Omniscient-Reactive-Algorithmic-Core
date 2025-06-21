@@ -16,14 +16,19 @@ RUN --mount=type=cache,target=/var/cache/apt \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Create a non-root user
+RUN groupadd -r orac && useradd -r -g orac -u 1000 orac
+
 # Install Python dependencies
 WORKDIR /app
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install --no-cache-dir -r requirements.txt
 
-# Create necessary directories first
-RUN mkdir -p /app/data /app/logs && chmod 777 /app/data /app/logs
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/data /app/logs /app/cache && \
+    chown -R orac:orac /app/data /app/logs /app/cache && \
+    chmod 755 /app/data /app/logs /app/cache
 
 # Copy application code and configuration files
 COPY . /app/
@@ -40,6 +45,12 @@ RUN pip3 install -e .
 # Create startup script
 RUN echo '#!/bin/sh\nuvicorn orac.api:app --host 0.0.0.0 --port 8000' > /app/start.sh && \
     chmod +x /app/start.sh
+
+# Change ownership of the entire app directory to the orac user
+RUN chown -R orac:orac /app
+
+# Switch to non-root user
+USER orac
 
 # Set the entrypoint
 ENTRYPOINT ["/app/start.sh"]
