@@ -9,6 +9,7 @@ and generates initial mappings with NULL values for missing friendly names.
 import asyncio
 import logging
 from orac.homeassistant.client import HomeAssistantClient
+from orac.homeassistant.config import HomeAssistantConfig
 from orac.homeassistant.mapping_config import EntityMappingConfig
 
 # Set up logging
@@ -18,8 +19,9 @@ logger = logging.getLogger(__name__)
 async def test_auto_discovery():
     """Test the auto-discovery functionality."""
     
-    # Initialize Home Assistant client
-    client = HomeAssistantClient()
+    # Initialize Home Assistant config and client
+    config = HomeAssistantConfig()
+    client = HomeAssistantClient(config)
     
     # Initialize mapping config with client for auto-discovery
     mapping_config = EntityMappingConfig(client=client)
