@@ -20,7 +20,7 @@ async def test_auto_discovery():
     """Test the auto-discovery functionality."""
     
     # Initialize Home Assistant config and client
-    config = HomeAssistantConfig()
+    config = HomeAssistantConfig.from_yaml("orac/homeassistant/config.yaml")
     client = HomeAssistantClient(config)
     
     # Initialize mapping config with client for auto-discovery
