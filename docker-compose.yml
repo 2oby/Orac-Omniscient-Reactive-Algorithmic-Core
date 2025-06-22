@@ -24,10 +24,3 @@ services:
             - driver: nvidia
               capabilities: [gpu]
     restart: unless-stopped
-    networks:
-      - orac-network
-
-networks:
-  orac-network:
-    name: orac-network
-    driver: bridge
