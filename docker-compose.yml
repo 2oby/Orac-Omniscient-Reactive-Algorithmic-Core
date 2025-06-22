@@ -13,7 +13,10 @@ services:
     environment:
       - LOG_LEVEL=INFO
       - LOG_DIR=/app/logs
-    user: "1000:1000"  # Run as orac user (UID 1000)
+      - PYTHONPATH=/app
+      - CACHE_DIR=/app/cache
+      - DATA_DIR=/app/data
+    user: "1000:1000"  # Run as orac user (UID 1000) - matches host toby user
     deploy:
       resources:
         reservations:
