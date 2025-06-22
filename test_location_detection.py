@@ -22,8 +22,8 @@ async def test_location_detection():
     
     print("=== Home Assistant Location Detection Test ===\n")
     
-    # Load configuration
-    config = HomeAssistantConfig()
+    # Load configuration from the correct path
+    config = HomeAssistantConfig(_env_file="/app/orac/homeassistant/config.yaml")
     
     # Initialize client and detector
     async with HomeAssistantClient(config) as client:
