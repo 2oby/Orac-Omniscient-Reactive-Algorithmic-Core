@@ -19,6 +19,32 @@ const generatingIndicator = document.getElementById('generatingIndicator');
 const copyResponse = document.getElementById('copyResponse');
 const favoriteToggle = document.getElementById('favoriteToggle');
 
+// Home Assistant DOM Elements
+const entityMappingModal = document.getElementById('entityMappingModal');
+const closeEntityModal = document.getElementById('closeEntityModal');
+const mappingProgress = document.getElementById('mappingProgress');
+const mappingForm = document.getElementById('mappingForm');
+const mappingComplete = document.getElementById('mappingComplete');
+const currentEntityId = document.getElementById('currentEntityId');
+const currentEntityName = document.getElementById('currentEntityName');
+const friendlyNameInput = document.getElementById('friendlyNameInput');
+const nameSuggestions = document.getElementById('nameSuggestions');
+const skipEntity = document.getElementById('skipEntity');
+const saveEntityMapping = document.getElementById('saveEntityMapping');
+const closeMappingModal = document.getElementById('closeMappingModal');
+const mappingSummary = document.getElementById('mappingSummary');
+
+// Home Assistant Status Panel Elements
+const haStatusPanel = document.getElementById('haStatusPanel');
+const refreshHAStatus = document.getElementById('refreshHAStatus');
+const haConnectionStatus = document.getElementById('haConnectionStatus');
+const haEntityCount = document.getElementById('haEntityCount');
+const haGrammarStatus = document.getElementById('haGrammarStatus');
+const haMappingStatus = document.getElementById('haMappingStatus');
+const checkNullMappings = document.getElementById('checkNullMappings');
+const runAutoDiscovery = document.getElementById('runAutoDiscovery');
+const updateGrammar = document.getElementById('updateGrammar');
+
 // State
 let currentModel = null;
 let favorites = [];
@@ -26,6 +52,15 @@ let modelConfigs = {};
 let defaultSettings = null;
 let defaultModel = null;
 let currentSettings = null;  // Store current settings for cancel functionality
+
+// Home Assistant State
+let nullEntities = [];
+let currentEntityIndex = 0;
+let mappingResults = {
+    saved: 0,
+    skipped: 0,
+    total: 0
+};
 
 // Function to collapse settings panel
 function collapseSettingsPanel() {
@@ -528,4 +563,288 @@ generateButton.addEventListener('click', async () => {
 });
 
 // Initialize
-loadModels(); 
+loadModels();
+
+// Home Assistant Functionality
+
+// Modal Management
+function showModal() {
+    entityMappingModal.classList.remove('hidden');
+}
+
+function hideModal() {
+    entityMappingModal.classList.add('hidden');
+    resetMappingState();
+}
+
+function resetMappingState() {
+    nullEntities = [];
+    currentEntityIndex = 0;
+    mappingResults = { saved: 0, skipped: 0, total: 0 };
+    mappingProgress.classList.remove('hidden');
+    mappingForm.classList.add('hidden');
+    mappingComplete.classList.add('hidden');
+}
+
+// Close modal handlers
+closeEntityModal.addEventListener('click', hideModal);
+closeMappingModal.addEventListener('click', hideModal);
+
+// Click outside modal to close
+entityMappingModal.addEventListener('click', (e) => {
+    if (e.target === entityMappingModal) {
+        hideModal();
+    }
+});
+
+// Home Assistant Status Management
+async function updateHAStatus() {
+    try {
+        // Check connection
+        const statusResponse = await fetch('/v1/status');
+        if (statusResponse.ok) {
+            haConnectionStatus.textContent = 'Connected';
+            haConnectionStatus.className = 'status-value success';
+        } else {
+            haConnectionStatus.textContent = 'Disconnected';
+            haConnectionStatus.className = 'status-value error';
+            return;
+        }
+
+        // Get entity mappings
+        const mappingResponse = await fetch('/v1/homeassistant/mapping/list');
+        if (mappingResponse.ok) {
+            const mappingData = await mappingResponse.json();
+            haMappingStatus.textContent = `${mappingData.entities_with_friendly_names}/${mappingData.total_count}`;
+            haEntityCount.textContent = mappingData.total_count;
+        }
+
+        // Get grammar status
+        const grammarResponse = await fetch('/v1/homeassistant/grammar');
+        if (grammarResponse.ok) {
+            const grammarData = await grammarResponse.json();
+            haGrammarStatus.textContent = `${grammarData.device_count} devices, ${grammarData.action_count} actions`;
+        }
+
+    } catch (error) {
+        console.error('Error updating HA status:', error);
+        haConnectionStatus.textContent = 'Error';
+        haConnectionStatus.className = 'status-value error';
+    }
+}
+
+// Entity Mapping Functions
+async function checkNullMappingsHandler() {
+    try {
+        showModal();
+        
+        const response = await fetch('/v1/homeassistant/mapping/check-null');
+        const data = await response.json();
+        
+        if (data.total_null_count === 0) {
+            // No null mappings found
+            mappingProgress.innerHTML = '<p>✅ All entities have friendly names!</p>';
+            setTimeout(() => {
+                mappingComplete.classList.remove('hidden');
+                mappingProgress.classList.add('hidden');
+            }, 1000);
+            return;
+        }
+        
+        nullEntities = data.null_entities;
+        mappingResults.total = data.total_null_count;
+        
+        // Start processing entities
+        processNextEntity();
+        
+    } catch (error) {
+        console.error('Error checking null mappings:', error);
+        alert('Error checking for entities that need friendly names');
+        hideModal();
+    }
+}
+
+function processNextEntity() {
+    if (currentEntityIndex >= nullEntities.length) {
+        // All entities processed
+        showMappingComplete();
+        return;
+    }
+    
+    const entity = nullEntities[currentEntityIndex];
+    
+    // Update progress
+    const progress = ((currentEntityIndex + 1) / nullEntities.length) * 100;
+    document.getElementById('mappingProgressFill').style.width = `${progress}%`;
+    
+    // Show entity form
+    currentEntityId.textContent = entity.entity_id;
+    currentEntityName.textContent = entity.current_name || 'NULL';
+    friendlyNameInput.value = entity.suggested_name || '';
+    
+    // Generate suggestions
+    generateSuggestions(entity.entity_id);
+    
+    // Show form
+    mappingProgress.classList.add('hidden');
+    mappingForm.classList.remove('hidden');
+    
+    // Focus on input
+    friendlyNameInput.focus();
+}
+
+function generateSuggestions(entityId) {
+    const suggestions = [];
+    
+    // Parse entity ID for suggestions
+    const parts = entityId.split('.');
+    if (parts.length >= 2) {
+        const deviceName = parts[1].replace(/_/g, ' ');
+        suggestions.push(deviceName);
+        
+        // Add domain-specific suggestions
+        const domain = parts[0];
+        if (domain === 'light') {
+            suggestions.push(`${deviceName} lights`);
+            suggestions.push(`${deviceName} light`);
+        } else if (domain === 'switch') {
+            suggestions.push(`${deviceName} switch`);
+        } else if (domain === 'input_button') {
+            if (deviceName.includes('scene')) {
+                suggestions.push(deviceName.replace('scene', '').trim());
+                suggestions.push(`${deviceName} scene`);
+            }
+        }
+    }
+    
+    // Remove duplicates and show suggestions
+    const uniqueSuggestions = [...new Set(suggestions)];
+    nameSuggestions.innerHTML = '';
+    
+    uniqueSuggestions.forEach(suggestion => {
+        const chip = document.createElement('div');
+        chip.className = 'suggestion-chip';
+        chip.textContent = suggestion;
+        chip.addEventListener('click', () => {
+            friendlyNameInput.value = suggestion;
+        });
+        nameSuggestions.appendChild(chip);
+    });
+}
+
+async function saveEntityMappingHandler() {
+    const entity = nullEntities[currentEntityIndex];
+    const friendlyName = friendlyNameInput.value.trim();
+    
+    if (!friendlyName) {
+        alert('Please enter a friendly name');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/v1/homeassistant/mapping/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                entity_id: entity.entity_id,
+                friendly_name: friendlyName
+            })
+        });
+        
+        if (response.ok) {
+            mappingResults.saved++;
+        } else {
+            throw new Error('Failed to save mapping');
+        }
+        
+        // Move to next entity
+        currentEntityIndex++;
+        mappingForm.classList.add('hidden');
+        mappingProgress.classList.remove('hidden');
+        processNextEntity();
+        
+    } catch (error) {
+        console.error('Error saving mapping:', error);
+        alert('Error saving mapping. Please try again.');
+    }
+}
+
+function skipEntityHandler() {
+    mappingResults.skipped++;
+    currentEntityIndex++;
+    mappingForm.classList.add('hidden');
+    mappingProgress.classList.remove('hidden');
+    processNextEntity();
+}
+
+function showMappingComplete() {
+    mappingForm.classList.add('hidden');
+    mappingComplete.classList.remove('hidden');
+    
+    mappingSummary.innerHTML = `
+        <h4>Mapping Complete</h4>
+        <p><strong>Total entities processed:</strong> ${mappingResults.total}</p>
+        <p><strong>Mappings saved:</strong> ${mappingResults.saved}</p>
+        <p><strong>Entities skipped:</strong> ${mappingResults.skipped}</p>
+    `;
+}
+
+// Auto-discovery handler
+async function runAutoDiscoveryHandler() {
+    try {
+        const response = await fetch('/v1/homeassistant/mapping/auto-discover', {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            alert(`Auto-discovery completed!\nTotal mappings: ${data.total_mappings}\nEntities with names: ${data.entities_with_friendly_names}`);
+            updateHAStatus();
+        } else {
+            throw new Error('Auto-discovery failed');
+        }
+    } catch (error) {
+        console.error('Error running auto-discovery:', error);
+        alert('Error running auto-discovery');
+    }
+}
+
+// Update grammar handler
+async function updateGrammarHandler() {
+    try {
+        const response = await fetch('/v1/homeassistant/grammar/update', {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            alert(`Grammar updated successfully!\nDevices: ${data.device_count}\nActions: ${data.action_count}\nLocations: ${data.location_count}`);
+            updateHAStatus();
+        } else {
+            throw new Error('Grammar update failed');
+        }
+    } catch (error) {
+        console.error('Error updating grammar:', error);
+        alert('Error updating grammar');
+    }
+}
+
+// Event listeners
+checkNullMappings.addEventListener('click', checkNullMappingsHandler);
+runAutoDiscovery.addEventListener('click', runAutoDiscoveryHandler);
+updateGrammar.addEventListener('click', updateGrammarHandler);
+refreshHAStatus.addEventListener('click', updateHAStatus);
+saveEntityMapping.addEventListener('click', saveEntityMappingHandler);
+skipEntity.addEventListener('click', skipEntityHandler);
+
+// Enter key in friendly name input
+friendlyNameInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        saveEntityMappingHandler();
+    }
+});
+
+// Initialize Home Assistant status
+updateHAStatus(); 

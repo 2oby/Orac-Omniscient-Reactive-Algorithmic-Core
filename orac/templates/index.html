@@ -77,6 +77,80 @@
             <div id="generatingIndicator" class="hidden">Generating...</div>
             <button id="copyResponse" class="hidden">Copy Response</button>
         </div>
+
+        <!-- Home Assistant Entity Mapping Modal -->
+        <div id="entityMappingModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Home Assistant Entity Mapping</h2>
+                    <span class="close" id="closeEntityModal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div id="mappingProgress">
+                        <p>Checking for entities that need friendly names...</p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="mappingProgressFill"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="mappingForm" class="hidden">
+                        <div class="entity-mapping-item">
+                            <div class="entity-info">
+                                <strong>Entity ID:</strong> <span id="currentEntityId"></span>
+                                <br>
+                                <strong>Current Name:</strong> <span id="currentEntityName"></span>
+                            </div>
+                            <div class="friendly-name-input">
+                                <label for="friendlyNameInput">Friendly Name:</label>
+                                <input type="text" id="friendlyNameInput" placeholder="Enter a friendly name...">
+                                <div class="suggestions" id="nameSuggestions"></div>
+                            </div>
+                            <div class="mapping-actions">
+                                <button id="skipEntity" class="secondary-button">Skip</button>
+                                <button id="saveEntityMapping" class="primary-button">Save & Continue</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="mappingComplete" class="hidden">
+                        <p>✅ All entity mappings have been processed!</p>
+                        <div class="mapping-summary" id="mappingSummary"></div>
+                        <button id="closeMappingModal" class="primary-button">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Home Assistant Status Panel -->
+        <div class="ha-status-panel" id="haStatusPanel">
+            <div class="ha-status-header">
+                <h3>Home Assistant Status</h3>
+                <button id="refreshHAStatus" class="refresh-button">🔄</button>
+            </div>
+            <div class="ha-status-content">
+                <div class="status-item">
+                    <span class="status-label">Connection:</span>
+                    <span id="haConnectionStatus" class="status-value">Checking...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Entities:</span>
+                    <span id="haEntityCount" class="status-value">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Grammar:</span>
+                    <span id="haGrammarStatus" class="status-value">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Mappings:</span>
+                    <span id="haMappingStatus" class="status-value">-</span>
+                </div>
+            </div>
+            <div class="ha-actions">
+                <button id="checkNullMappings" class="secondary-button">Check Mappings</button>
+                <button id="runAutoDiscovery" class="secondary-button">Auto-Discover</button>
+                <button id="updateGrammar" class="primary-button">Update Grammar</button>
+            </div>
+        </div>
     </div>
 
     <script src="{{ url_for('static', path='/js/main.js') }}"></script>

@@ -300,18 +300,38 @@ class EntityMappingConfig:
         """Get a summary of the current mappings.
         
         Returns:
-            Dictionary with mapping statistics
+            Dictionary containing mapping statistics
         """
         total_entities = len(self._mappings)
-        entities_with_names = len([name for name in self._mappings.values() 
-                                 if name and name.lower() != 'null'])
+        entities_with_names = len([name for name in self._mappings.values() if name and name.lower() != 'null'])
         entities_needing_names = total_entities - entities_with_names
         
         return {
-            'total_entities': total_entities,
-            'entities_with_friendly_names': entities_with_names,
-            'entities_needing_friendly_names': entities_needing_names,
-            'entities_with_mappings': list(self._mappings.keys()),
-            'friendly_names': list(self._mappings.values()),
-            'entities_needing_names': self.get_entities_needing_friendly_names()
-        } 
+            "total_entities": total_entities,
+            "entities_with_friendly_names": entities_with_names,
+            "entities_needing_friendly_names": entities_needing_names,
+            "config_file": str(self.config_path),
+            "config_file_exists": self.config_path.exists()
+        }
+
+    def get_version(self) -> str:
+        """Get a version string for the current mapping configuration.
+        
+        Returns:
+            Version string based on file modification time and content hash
+        """
+        try:
+            if not self.config_path.exists():
+                return "no-file"
+            
+            # Get file modification time
+            mtime = self.config_path.stat().st_mtime
+            
+            # Simple hash of mappings content
+            content_hash = hash(str(sorted(self._mappings.items())))
+            
+            return f"{mtime}-{content_hash}"
+            
+        except Exception as e:
+            logger.warning(f"Error generating version: {e}")
+            return "error" 

@@ -28,6 +28,12 @@ from orac.models import (
     ModelUnloadResponse, GenerationRequest, GenerationResponse
 )
 
+# Add Home Assistant imports
+from orac.homeassistant.client import HomeAssistantClient
+from orac.homeassistant.config import load_config
+from orac.homeassistant.mapping_config import EntityMappingConfig
+from orac.homeassistant.grammar_manager import HomeAssistantGrammarManager
+
 # Configure logger
 logger = get_logger(__name__)
 
@@ -64,6 +70,11 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 # Global client instance
 client = None
 
+# Global Home Assistant components
+ha_client = None
+ha_mapping_config = None
+ha_grammar_manager = None
+
 async def get_client() -> LlamaCppClient:
     """Get or create the llama.cpp client instance."""
     global client
@@ -73,6 +84,34 @@ async def get_client() -> LlamaCppClient:
         model_path = os.getenv("ORAC_MODELS_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "models/gguf"))
         client = LlamaCppClient(model_path=model_path)
     return client
+
+async def get_ha_client() -> HomeAssistantClient:
+    """Get or create the Home Assistant client instance."""
+    global ha_client
+    if ha_client is None:
+        logger.info("Initializing Home Assistant client")
+        config = load_config()
+        ha_client = HomeAssistantClient(config)
+    return ha_client
+
+async def get_ha_mapping_config() -> EntityMappingConfig:
+    """Get or create the Home Assistant mapping config instance."""
+    global ha_mapping_config
+    if ha_mapping_config is None:
+        logger.info("Initializing Home Assistant mapping config")
+        client = await get_ha_client()
+        ha_mapping_config = EntityMappingConfig(client=client)
+    return ha_mapping_config
+
+async def get_ha_grammar_manager() -> HomeAssistantGrammarManager:
+    """Get or create the Home Assistant grammar manager instance."""
+    global ha_grammar_manager
+    if ha_grammar_manager is None:
+        logger.info("Initializing Home Assistant grammar manager")
+        client = await get_ha_client()
+        mapping_config = await get_ha_mapping_config()
+        ha_grammar_manager = HomeAssistantGrammarManager(client=client, mapping_config=mapping_config)
+    return ha_grammar_manager
 
 @app.get("/v1/status", tags=["System"])
 async def get_status() -> Dict[str, Any]:
@@ -261,26 +300,170 @@ async def create_homeassistant_cache() -> Dict[str, Any]:
 async def get_homeassistant_cache_stats() -> Dict[str, Any]:
     """Get Home Assistant cache statistics."""
     try:
-        from orac.homeassistant.client import HomeAssistantClient
-        from orac.homeassistant.config import HomeAssistantConfig
-        import os
+        client = await get_ha_client()
+        cache = client.cache
         
-        # Load configuration
-        config_path = os.path.join(os.path.dirname(__file__), "homeassistant", "config.yaml")
-        config = HomeAssistantConfig.from_yaml(config_path)
+        # Get cache statistics
+        stats = cache.get_stats()
         
-        # Create client and get cache stats
-        async with HomeAssistantClient(config) as client:
-            cache_stats = client.get_cache_stats()
-            
-            return {
-                "status": "success",
-                "cache_stats": cache_stats,
-                "cache_directory": str(config.cache_dir) if config.cache_dir else None
-            }
-            
+        return {
+            "status": "success",
+            "cache_stats": stats,
+            "cache_enabled": cache.is_enabled(),
+            "cache_directory": cache.cache_dir if hasattr(cache, 'cache_dir') else None
+        }
     except Exception as e:
         logger.error(f"Error getting Home Assistant cache stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# New Home Assistant Mapping API Endpoints
+
+@app.get("/v1/homeassistant/mapping/list", tags=["Home Assistant"])
+async def list_entity_mappings() -> Dict[str, Any]:
+    """List all entity mappings."""
+    try:
+        mapping_config = await get_ha_mapping_config()
+        mappings = mapping_config.get_all_mappings()
+        
+        return {
+            "status": "success",
+            "mappings": mappings,
+            "total_count": len(mappings),
+            "entities_with_friendly_names": len([m for m in mappings.values() if m and m.lower() != 'null']),
+            "entities_needing_names": len([m for m in mappings.values() if not m or m.lower() == 'null'])
+        }
+    except Exception as e:
+        logger.error(f"Error listing entity mappings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/v1/homeassistant/mapping/check-null", tags=["Home Assistant"])
+async def check_null_mappings() -> Dict[str, Any]:
+    """Check for entities that need friendly names (NULL mappings)."""
+    try:
+        mapping_config = await get_ha_mapping_config()
+        mappings = mapping_config.get_all_mappings()
+        
+        null_entities = []
+        for entity_id, friendly_name in mappings.items():
+            if not friendly_name or friendly_name.lower() == 'null':
+                null_entities.append({
+                    "entity_id": entity_id,
+                    "current_name": friendly_name,
+                    "suggested_name": entity_id.replace('_', ' ').replace('.', ' ')
+                })
+        
+        return {
+            "status": "success",
+            "null_entities": null_entities,
+            "total_null_count": len(null_entities),
+            "total_entities": len(mappings)
+        }
+    except Exception as e:
+        logger.error(f"Error checking null mappings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/v1/homeassistant/mapping/save", tags=["Home Assistant"])
+async def save_entity_mapping(entity_id: str, friendly_name: str) -> Dict[str, Any]:
+    """Save a single entity mapping."""
+    try:
+        mapping_config = await get_ha_mapping_config()
+        mapping_config.add_mapping(entity_id, friendly_name)
+        await mapping_config.save_mappings()
+        
+        return {
+            "status": "success",
+            "message": f"Mapping saved: {entity_id} -> {friendly_name}",
+            "entity_id": entity_id,
+            "friendly_name": friendly_name
+        }
+    except Exception as e:
+        logger.error(f"Error saving entity mapping: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/v1/homeassistant/mapping/update", tags=["Home Assistant"])
+async def update_entity_mappings(mappings: Dict[str, str]) -> Dict[str, Any]:
+    """Update multiple entity mappings."""
+    try:
+        mapping_config = await get_ha_mapping_config()
+        
+        updated_count = 0
+        for entity_id, friendly_name in mappings.items():
+            mapping_config.add_mapping(entity_id, friendly_name)
+            updated_count += 1
+        
+        await mapping_config.save_mappings()
+        
+        return {
+            "status": "success",
+            "message": f"Updated {updated_count} mappings",
+            "updated_count": updated_count,
+            "mappings": mappings
+        }
+    except Exception as e:
+        logger.error(f"Error updating entity mappings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/v1/homeassistant/mapping/auto-discover", tags=["Home Assistant"])
+async def run_auto_discovery() -> Dict[str, Any]:
+    """Run auto-discovery to find and map new entities."""
+    try:
+        mapping_config = await get_ha_mapping_config()
+        
+        # Run auto-discovery
+        await mapping_config.auto_discover_entities()
+        
+        # Get updated mappings
+        mappings = mapping_config.get_all_mappings()
+        
+        return {
+            "status": "success",
+            "message": "Auto-discovery completed",
+            "total_mappings": len(mappings),
+            "entities_with_friendly_names": len([m for m in mappings.values() if m and m.lower() != 'null']),
+            "entities_needing_names": len([m for m in mappings.values() if not m or m.lower() == 'null'])
+        }
+    except Exception as e:
+        logger.error(f"Error running auto-discovery: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/v1/homeassistant/grammar", tags=["Home Assistant"])
+async def get_grammar() -> Dict[str, Any]:
+    """Get current grammar rules."""
+    try:
+        grammar_manager = await get_ha_grammar_manager()
+        grammar = await grammar_manager.generate_grammar()
+        
+        return {
+            "status": "success",
+            "grammar": grammar,
+            "device_count": len(grammar.get("properties", {}).get("device", {}).get("enum", [])),
+            "action_count": len(grammar.get("properties", {}).get("action", {}).get("enum", [])),
+            "location_count": len(grammar.get("properties", {}).get("location", {}).get("enum", []))
+        }
+    except Exception as e:
+        logger.error(f"Error getting grammar: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/v1/homeassistant/grammar/update", tags=["Home Assistant"])
+async def update_grammar() -> Dict[str, Any]:
+    """Update grammar rules with latest Home Assistant data."""
+    try:
+        grammar_manager = await get_ha_grammar_manager()
+        await grammar_manager.update_grammar()
+        
+        # Get updated grammar
+        grammar = await grammar_manager.generate_grammar()
+        
+        return {
+            "status": "success",
+            "message": "Grammar updated successfully",
+            "grammar": grammar,
+            "device_count": len(grammar.get("properties", {}).get("device", {}).get("enum", [])),
+            "action_count": len(grammar.get("properties", {}).get("action", {}).get("enum", [])),
+            "location_count": len(grammar.get("properties", {}).get("location", {}).get("enum", []))
+        }
+    except Exception as e:
+        logger.error(f"Error updating grammar: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.on_event("startup")

@@ -393,9 +393,41 @@ class HomeAssistantCache:
         self.set('device_registry', devices, persist=True)
     
     def get_device_registry(self) -> Optional[List[Dict[str, Any]]]:
-        """Get cached device registry data.
+        """Get device registry from cache.
         
         Returns:
             List of device registry entries or None if not cached
         """
-        return self.get('device_registry') 
+        return self.get('device_registry')
+
+    def get_version(self) -> str:
+        """Get a version string for the current cache state.
+        
+        Returns:
+            Version string based on cache content and modification times
+        """
+        try:
+            # Get cache statistics
+            stats = self.get_stats()
+            
+            # Create version based on cache content
+            memory_count = stats.get('memory_entries', 0)
+            persistent_count = stats.get('persistent_files', 0)
+            
+            # Simple hash of cache state
+            cache_state = f"{memory_count}-{persistent_count}-{self._ttl}-{self._max_size}"
+            content_hash = hash(cache_state)
+            
+            return f"{content_hash}"
+            
+        except Exception as e:
+            logger.warning(f"Error generating cache version: {e}")
+            return "error"
+
+    def is_enabled(self) -> bool:
+        """Check if the cache is enabled and operational.
+        
+        Returns:
+            True if cache is enabled, False otherwise
+        """
+        return self._cache_dir is not None or len(self._cache) > 0 

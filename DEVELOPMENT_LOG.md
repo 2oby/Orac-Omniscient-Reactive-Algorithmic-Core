@@ -91,6 +91,84 @@ This document tracks the development progress of ORAC's Home Assistant auto-disc
 - **Performance**: Disk space issues resolved, preventing future problems
 - **User Experience**: Seamless operation even when cache directory unavailable
 
+### 2.2 Final Cache Permission Issue Resolution
+
+**Goal**: Permanently resolve cache directory permission issues that persisted despite previous fixes.
+
+**Implementation Status**: ✅ **COMPLETED** (2025-06-22)
+
+**Root Cause Discovery**:
+- **Deployment Script Issue**: `git clean -fd --exclude=logs/` was cleaning the cache directory during deployments
+- **Directory Recreation**: Cache directory was being deleted and recreated by container as root user
+- **Volume Mount Override**: Host directory ownership was being overridden by container-created directories
+- **Permission Persistence**: Manual permission fixes were being undone by deployment process
+
+**What Was Implemented**:
+
+#### 2.2.1 Deployment Script Fix (`scripts/deploy_and_test.sh`)
+- **Problem**: `git clean -fd --exclude=logs/` was cleaning cache directory
+- **Solution**: Changed to `git clean -fd --exclude=logs/ --exclude=cache/`
+- **Impact**: Cache directory now preserved during deployments
+- **Prevention**: Directory permissions maintained across deployments
+
+#### 2.2.2 Manual Permission Fix (One-time)
+- **Command**: `sudo chown -R 1000:1000 cache/`
+- **Result**: Cache directory ownership changed from `root:root` to `toby:toby`
+- **Verification**: Directory now accessible by container user (UID 1000)
+
+**What Worked**:
+- ✅ **Deployment Script Fix**: Cache directory no longer cleaned during deployments
+- ✅ **Permission Preservation**: Directory ownership maintained across container restarts
+- ✅ **Persistent Cache**: Cache now operates with disk persistence instead of memory-only mode
+- ✅ **Container Integration**: Cache directory accessible by container user
+- ✅ **Grammar Generation**: Full functionality restored with persistent storage
+
+**What Didn't Work**:
+- ❌ **Previous Manual Fixes**: Permissions were being reset by deployment process
+- ❌ **Container-Only Solutions**: Volume mount made host directory ownership critical
+- ❌ **Temporary Workarounds**: Memory-only mode was functional but not optimal
+
+**Test Results** (2025-06-22):
+```
+✅ Cache Directory: /app/cache/homeassistant accessible
+✅ Persistent Cache: Writing to disk successfully
+✅ Grammar Generation: 5 devices, 28 actions, 5 locations
+✅ Auto-Discovery: 5 entities mapped successfully
+✅ Container Deployment: No permission errors
+✅ Core Tests: All passing
+```
+
+**Deployment Verification**:
+- ✅ Cache directory preserved during `git clean` operations
+- ✅ Directory ownership maintained as `toby:toby` (UID 1000)
+- ✅ Container can create subdirectories in cache directory
+- ✅ Persistent cache files written successfully
+- ✅ No more "Permission denied" errors in logs
+
+**Lessons Learned**:
+1. **Deployment scripts can override manual fixes** - `git clean` operations must exclude critical directories
+2. **Volume mounts require host directory permissions** - container user must have access to host directories
+3. **Permission issues can be masked by graceful fallbacks** - memory-only mode hid the underlying problem
+4. **Root cause analysis requires tracing the full deployment cycle** - not just the container startup
+5. **Prevention is better than repeated fixes** - deployment script changes prevent future issues
+
+**Files Modified**:
+- `scripts/deploy_and_test.sh` - Added `--exclude=cache/` to git clean command
+- Cache directory ownership - Changed from `root:root` to `toby:toby`
+
+**Impact**:
+- **Reliability**: Cache directory permissions now stable across deployments
+- **Performance**: Persistent cache provides better performance than memory-only mode
+- **Maintainability**: No more manual permission fixes required
+- **User Experience**: System operates at full capacity with persistent storage
+
+**Final Status**:
+- ✅ **Cache Permission Issue**: RESOLVED
+- ✅ **Persistent Storage**: WORKING
+- ✅ **Grammar Generation**: FULLY FUNCTIONAL
+- ✅ **Auto-Discovery**: WORKING
+- ✅ **System Ready**: Phase 2 implementation can proceed
+
 ## Phase 1: Core Discovery Infrastructure
 
 ### 1.1 Enhanced API Client (`orac/homeassistant/client.py`)

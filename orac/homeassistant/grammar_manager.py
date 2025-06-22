@@ -19,6 +19,8 @@ Home Assistant commands while maintaining user-friendly terminology.
 """
 
 import logging
+import json
+import os
 from typing import Dict, List, Any, Optional
 from .client import HomeAssistantClient
 from .models import HomeAssistantEntity, HomeAssistantService
@@ -34,17 +36,97 @@ class HomeAssistantGrammarManager:
     integrating with entity mappings and auto-discovery.
     """
     
-    def __init__(self, client: HomeAssistantClient, mapping_config: Optional[EntityMappingConfig] = None):
+    def __init__(self, client: HomeAssistantClient, mapping_config: Optional[EntityMappingConfig] = None, 
+                 grammar_file: Optional[str] = None):
         """Initialize the grammar manager.
         
         Args:
             client: HomeAssistantClient instance for API access
             mapping_config: EntityMappingConfig instance for entity mappings
+            grammar_file: Path to grammar file for persistence (optional)
         """
         self.client = client
         self.mapping_config = mapping_config or EntityMappingConfig(client=client)
         self.domain_mapper = DomainMapper()
-        logger.info("HomeAssistantGrammarManager initialized")
+        
+        # Grammar persistence
+        if grammar_file:
+            self.grammar_file = grammar_file
+        else:
+            # Default to data directory
+            data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
+            os.makedirs(data_dir, exist_ok=True)
+            self.grammar_file = os.path.join(data_dir, "grammar.json")
+        
+        # Cache for generated grammar
+        self._cached_grammar = None
+        self._grammar_version = None
+        
+        logger.info(f"HomeAssistantGrammarManager initialized with grammar file: {self.grammar_file}")
+
+    def _get_grammar_version(self) -> str:
+        """Generate a version string for the current grammar state.
+        
+        Returns:
+            Version string based on mapping config and client state
+        """
+        # Get mapping config version
+        mapping_version = self.mapping_config.get_version() if self.mapping_config else "unknown"
+        
+        # Get client cache version
+        client_version = self.client.cache.get_version() if hasattr(self.client, 'cache') else "unknown"
+        
+        return f"{mapping_version}-{client_version}"
+
+    def _load_grammar_from_file(self) -> Optional[Dict[str, Any]]:
+        """Load grammar from file if it exists and is valid.
+        
+        Returns:
+            Grammar dictionary or None if file doesn't exist or is invalid
+        """
+        try:
+            if not os.path.exists(self.grammar_file):
+                return None
+            
+            with open(self.grammar_file, 'r') as f:
+                data = json.load(f)
+            
+            # Check if version matches
+            if data.get('version') == self._grammar_version:
+                logger.info("Loaded grammar from cache file")
+                return data.get('grammar')
+            else:
+                logger.info("Grammar cache version mismatch, regenerating")
+                return None
+                
+        except Exception as e:
+            logger.warning(f"Error loading grammar from file: {e}")
+            return None
+
+    def _save_grammar_to_file(self, grammar: Dict[str, Any]) -> None:
+        """Save grammar to file with version information.
+        
+        Args:
+            grammar: Grammar dictionary to save
+        """
+        try:
+            data = {
+                'version': self._grammar_version,
+                'grammar': grammar,
+                'metadata': {
+                    'device_count': len(grammar.get("properties", {}).get("device", {}).get("enum", [])),
+                    'action_count': len(grammar.get("properties", {}).get("action", {}).get("enum", [])),
+                    'location_count': len(grammar.get("properties", {}).get("location", {}).get("enum", []))
+                }
+            }
+            
+            with open(self.grammar_file, 'w') as f:
+                json.dump(data, f, indent=2)
+            
+            logger.info(f"Saved grammar to file: {self.grammar_file}")
+            
+        except Exception as e:
+            logger.error(f"Error saving grammar to file: {e}")
 
     def _get_friendly_name_with_fallback(self, entity_id: str) -> str:
         """Get friendly name for an entity, using entity_id as fallback if NULL.
@@ -64,12 +146,30 @@ class HomeAssistantGrammarManager:
             return entity_id
         return friendly_name
 
-    async def generate_grammar(self) -> Dict[str, Any]:
+    async def generate_grammar(self, force_regenerate: bool = False) -> Dict[str, Any]:
         """Generate grammar rules from Home Assistant entities and services.
         
+        Args:
+            force_regenerate: Force regeneration even if cached version exists
+            
         Returns:
             Dictionary containing grammar rules for LLM constraint
         """
+        # Check if we have a cached version
+        current_version = self._get_grammar_version()
+        
+        if not force_regenerate and self._cached_grammar and self._grammar_version == current_version:
+            logger.info("Using cached grammar")
+            return self._cached_grammar
+        
+        # Try to load from file first
+        if not force_regenerate:
+            cached_grammar = self._load_grammar_from_file()
+            if cached_grammar:
+                self._cached_grammar = cached_grammar
+                self._grammar_version = current_version
+                return cached_grammar
+        
         logger.info("Generating grammar rules from Home Assistant data...")
         
         try:
@@ -96,6 +196,13 @@ class HomeAssistantGrammarManager:
                 },
                 "required": ["device", "action"]
             }
+            
+            # Cache the grammar
+            self._cached_grammar = grammar
+            self._grammar_version = current_version
+            
+            # Save to file
+            self._save_grammar_to_file(grammar)
             
             logger.info(f"Generated grammar with {len(grammar['properties']['device']['enum'])} devices, "
                        f"{len(grammar['properties']['action']['enum'])} actions")
@@ -204,27 +311,57 @@ class HomeAssistantGrammarManager:
         
         return sorted(list(locations))
 
-    async def update_grammar(self) -> None:
-        """Update grammar rules with latest Home Assistant data."""
+    async def update_grammar(self, run_auto_discovery: bool = True) -> None:
+        """Update grammar rules with latest Home Assistant data.
+        
+        Args:
+            run_auto_discovery: Whether to run auto-discovery before updating
+        """
         logger.info("Updating grammar rules...")
         
         # Run auto-discovery to get latest mappings
-        if self.mapping_config:
+        if run_auto_discovery and self.mapping_config:
             await self.mapping_config.auto_discover_entities()
         
-        # Generate new grammar
-        grammar = await self.generate_grammar()
+        # Generate new grammar (force regeneration)
+        grammar = await self.generate_grammar(force_regenerate=True)
         
-        # TODO: Save grammar to file or database
         logger.info("Grammar update complete")
 
-    async def get_grammar(self) -> Dict[str, Any]:
+    async def get_grammar(self, force_regenerate: bool = False) -> Dict[str, Any]:
         """Get current grammar rules.
         
+        Args:
+            force_regenerate: Force regeneration even if cached version exists
+            
         Returns:
             Dictionary containing current grammar rules
         """
-        return await self.generate_grammar()
+        return await self.generate_grammar(force_regenerate=force_regenerate)
+
+    def get_grammar_stats(self) -> Dict[str, Any]:
+        """Get statistics about the current grammar.
+        
+        Returns:
+            Dictionary containing grammar statistics
+        """
+        if not self._cached_grammar:
+            return {
+                "cached": False,
+                "grammar_file": self.grammar_file,
+                "grammar_file_exists": os.path.exists(self.grammar_file)
+            }
+        
+        grammar = self._cached_grammar
+        return {
+            "cached": True,
+            "grammar_file": self.grammar_file,
+            "grammar_file_exists": os.path.exists(self.grammar_file),
+            "device_count": len(grammar.get("properties", {}).get("device", {}).get("enum", [])),
+            "action_count": len(grammar.get("properties", {}).get("action", {}).get("enum", [])),
+            "location_count": len(grammar.get("properties", {}).get("location", {}).get("enum", [])),
+            "version": self._grammar_version
+        }
 
     async def discover_and_log_data(self) -> None:
         """Discover and log all Home Assistant data (for debugging).
