@@ -11,4 +11,4 @@ timeout: 10
 # Cache Settings
 cache_ttl: 300  # 5 minutes
 cache_max_size: 1000
-cache_dir: "cache/homeassistant"  # Optional: directory for persistent cache 
+cache_dir: "/app/cache/homeassistant"  # Absolute path for Docker container 

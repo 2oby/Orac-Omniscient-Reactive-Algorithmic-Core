@@ -78,18 +78,17 @@ class HomeAssistantCache:
                 # Create parent directories if they don't exist
                 self._cache_dir.mkdir(parents=True, exist_ok=True)
             except Exception as e:
-                print(f"[ORAC ERROR] Failed to create cache directory '{self._cache_dir}': {e}")
-                print(f"Please fix the permissions on the host, e.g.:")
-                print(f"  sudo chown -R $(id -u):$(id -g) {self._cache_dir.parent}")
-                print(f"  sudo chmod -R 755 {self._cache_dir.parent}")
-                print(f"  mkdir -p {self._cache_dir}")
-                sys.exit(1)
+                logger.error(f"Failed to create cache directory '{self._cache_dir}': {e}")
+                logger.error(f"Cache will operate in memory-only mode")
+                # Don't exit the application, just disable persistent cache
+                self._cache_dir = None
+                return
             if not os.access(self._cache_dir, os.W_OK):
-                print(f"[ORAC ERROR] Cache directory '{self._cache_dir}' is not writable by user {os.getuid()}.")
-                print(f"Please fix the permissions on the host, e.g.:")
-                print(f"  sudo chown -R $(id -u):$(id -g) {self._cache_dir}")
-                print(f"  sudo chmod -R 755 {self._cache_dir}")
-                sys.exit(1)
+                logger.error(f"Cache directory '{self._cache_dir}' is not writable by user {os.getuid()}.")
+                logger.error(f"Cache will operate in memory-only mode")
+                # Don't exit the application, just disable persistent cache
+                self._cache_dir = None
+                return
             logger.info(f"Persistent cache directory: {self._cache_dir}")
         # --- End permission check ---
         
