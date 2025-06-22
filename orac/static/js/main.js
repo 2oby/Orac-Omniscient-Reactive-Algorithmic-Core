@@ -53,7 +53,7 @@ let defaultSettings = null;
 let defaultModel = null;
 let currentSettings = null;  // Store current settings for cancel functionality
 
-// Home Assistant State
+// Home Assistant State - Improved State Management
 let nullEntities = [];
 let currentEntityIndex = 0;
 let mappingResults = {
@@ -61,6 +61,24 @@ let mappingResults = {
     skipped: 0,
     total: 0
 };
+
+// Modal State Machine
+const ModalState = {
+    CLOSED: 'closed',
+    LOADING: 'loading',
+    FORM: 'form',
+    COMPLETE: 'complete',
+    ERROR: 'error'
+};
+
+let modalState = ModalState.CLOSED;
+let previousFocusElement = null; // Store element that had focus before modal opened
+let modalEventListeners = []; // Track event listeners for cleanup
+
+// Error handling state
+let isProcessing = false; // Prevent multiple simultaneous operations
+let retryCount = 0;
+const MAX_RETRIES = 3;
 
 // Function to collapse settings panel
 function collapseSettingsPanel() {
@@ -567,37 +585,202 @@ loadModels();
 
 // Home Assistant Functionality
 
-// Modal Management
+// Modal Management - Improved State Machine Implementation
 function showModal() {
+    if (modalState !== ModalState.CLOSED) {
+        console.warn('Modal is already open, ignoring showModal call');
+        return;
+    }
+    
+    // Store current focus element
+    previousFocusElement = document.activeElement;
+    
+    // Update state
+    modalState = ModalState.LOADING;
+    
+    // Show modal
     entityMappingModal.classList.remove('hidden');
+    
+    // Set up focus trap
+    setupFocusTrap();
+    
+    // Add event listeners
+    addModalEventListeners();
+    
+    // Focus first focusable element
+    setTimeout(() => {
+        const firstFocusable = entityMappingModal.querySelector('button, input, select, textarea');
+        if (firstFocusable) {
+            firstFocusable.focus();
+        }
+    }, 100);
 }
 
 function hideModal() {
+    if (modalState === ModalState.CLOSED) {
+        return;
+    }
+    
+    // Update state
+    modalState = ModalState.CLOSED;
+    
+    // Hide modal
     entityMappingModal.classList.add('hidden');
+    
+    // Clean up event listeners
+    removeModalEventListeners();
+    
+    // Remove focus trap
+    removeFocusTrap();
+    
+    // Restore previous focus
+    if (previousFocusElement && previousFocusElement.focus) {
+        previousFocusElement.focus();
+    }
+    
+    // Reset state
     resetMappingState();
+}
+
+function setModalState(newState) {
+    const previousState = modalState;
+    modalState = newState;
+    
+    // Update UI based on state
+    switch (newState) {
+        case ModalState.LOADING:
+            mappingProgress.classList.remove('hidden');
+            mappingForm.classList.add('hidden');
+            mappingComplete.classList.add('hidden');
+            break;
+            
+        case ModalState.FORM:
+            mappingProgress.classList.add('hidden');
+            mappingForm.classList.remove('hidden');
+            mappingComplete.classList.add('hidden');
+            // Focus the input field
+            setTimeout(() => {
+                if (friendlyNameInput) {
+                    friendlyNameInput.focus();
+                }
+            }, 100);
+            break;
+            
+        case ModalState.COMPLETE:
+            mappingProgress.classList.add('hidden');
+            mappingForm.classList.add('hidden');
+            mappingComplete.classList.remove('hidden');
+            break;
+            
+        case ModalState.ERROR:
+            // Show error state - could add error display element
+            console.error('Modal error state');
+            break;
+            
+        case ModalState.CLOSED:
+            hideModal();
+            return;
+    }
+    
+    console.log(`Modal state changed: ${previousState} -> ${newState}`);
+}
+
+function setupFocusTrap() {
+    const focusableElements = entityMappingModal.querySelectorAll(
+        'button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    
+    if (focusableElements.length === 0) return;
+    
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    
+    const handleTabKey = (e) => {
+        if (e.key === 'Tab') {
+            if (e.shiftKey) {
+                if (document.activeElement === firstElement) {
+                    e.preventDefault();
+                    lastElement.focus();
+                }
+            } else {
+                if (document.activeElement === lastElement) {
+                    e.preventDefault();
+                    firstElement.focus();
+                }
+            }
+        }
+    };
+    
+    entityMappingModal.addEventListener('keydown', handleTabKey);
+    modalEventListeners.push({ element: entityMappingModal, event: 'keydown', handler: handleTabKey });
+}
+
+function removeFocusTrap() {
+    // Focus trap cleanup is handled by removeModalEventListeners
+}
+
+function addModalEventListeners() {
+    // Escape key to close modal
+    const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+            hideModal();
+        }
+    };
+    
+    document.addEventListener('keydown', handleEscape);
+    modalEventListeners.push({ element: document, event: 'keydown', handler: handleEscape });
+    
+    // Click outside modal to close
+    const handleOutsideClick = (e) => {
+        if (e.target === entityMappingModal) {
+            hideModal();
+        }
+    };
+    
+    entityMappingModal.addEventListener('click', handleOutsideClick);
+    modalEventListeners.push({ element: entityMappingModal, event: 'click', handler: handleOutsideClick });
+}
+
+function removeModalEventListeners() {
+    modalEventListeners.forEach(({ element, event, handler }) => {
+        element.removeEventListener(event, handler);
+    });
+    modalEventListeners = [];
 }
 
 function resetMappingState() {
     nullEntities = [];
     currentEntityIndex = 0;
     mappingResults = { saved: 0, skipped: 0, total: 0 };
-    mappingProgress.classList.remove('hidden');
-    mappingForm.classList.add('hidden');
-    mappingComplete.classList.add('hidden');
+    retryCount = 0;
+    isProcessing = false;
+    
+    // Reset UI elements
+    if (mappingProgress) mappingProgress.classList.remove('hidden');
+    if (mappingForm) mappingForm.classList.add('hidden');
+    if (mappingComplete) mappingComplete.classList.add('hidden');
+    
+    // Clear form fields
+    if (friendlyNameInput) friendlyNameInput.value = '';
+    if (nameSuggestions) nameSuggestions.innerHTML = '';
+    
+    // Reset progress bar
+    const progressFill = document.getElementById('mappingProgressFill');
+    if (progressFill) progressFill.style.width = '0%';
 }
 
-// Close modal handlers
+// Close modal handlers - Updated to use new state machine
 closeEntityModal.addEventListener('click', hideModal);
 closeMappingModal.addEventListener('click', hideModal);
 
-// Click outside modal to close
-entityMappingModal.addEventListener('click', (e) => {
-    if (e.target === entityMappingModal) {
-        hideModal();
-    }
-});
+// Remove the old click outside modal handler since it's now handled in addModalEventListeners
+// entityMappingModal.addEventListener('click', (e) => {
+//     if (e.target === entityMappingModal) {
+//         hideModal();
+//     }
+// });
 
-// Home Assistant Status Management
+// Home Assistant Status Management - Improved Error Handling
 async function updateHAStatus() {
     try {
         // Check connection
@@ -611,42 +794,72 @@ async function updateHAStatus() {
             return;
         }
 
-        // Get entity mappings
-        const mappingResponse = await fetch('/v1/homeassistant/mapping/list');
-        if (mappingResponse.ok) {
-            const mappingData = await mappingResponse.json();
-            haMappingStatus.textContent = `${mappingData.entities_with_friendly_names}/${mappingData.total_count}`;
-            haEntityCount.textContent = mappingData.total_count;
+        // Get entity mappings with error handling
+        try {
+            const mappingResponse = await fetch('/v1/homeassistant/mapping/list');
+            if (mappingResponse.ok) {
+                const mappingData = await mappingResponse.json();
+                haMappingStatus.textContent = `${mappingData.entities_with_friendly_names}/${mappingData.total_count}`;
+                haEntityCount.textContent = mappingData.total_count;
+            } else {
+                haMappingStatus.textContent = 'Error';
+                haEntityCount.textContent = '-';
+                console.warn('Failed to fetch mapping data:', mappingResponse.status);
+            }
+        } catch (mappingError) {
+            haMappingStatus.textContent = 'Error';
+            haEntityCount.textContent = '-';
+            console.warn('Error fetching mapping data:', mappingError);
         }
 
-        // Get grammar status
-        const grammarResponse = await fetch('/v1/homeassistant/grammar');
-        if (grammarResponse.ok) {
-            const grammarData = await grammarResponse.json();
-            haGrammarStatus.textContent = `${grammarData.device_count} devices, ${grammarData.action_count} actions`;
+        // Get grammar status with error handling
+        try {
+            const grammarResponse = await fetch('/v1/homeassistant/grammar');
+            if (grammarResponse.ok) {
+                const grammarData = await grammarResponse.json();
+                haGrammarStatus.textContent = `${grammarData.device_count} devices, ${grammarData.action_count} actions`;
+            } else {
+                haGrammarStatus.textContent = 'Error';
+                console.warn('Failed to fetch grammar data:', grammarResponse.status);
+            }
+        } catch (grammarError) {
+            haGrammarStatus.textContent = 'Error';
+            console.warn('Error fetching grammar data:', grammarError);
         }
 
     } catch (error) {
         console.error('Error updating HA status:', error);
         haConnectionStatus.textContent = 'Error';
         haConnectionStatus.className = 'status-value error';
+        haMappingStatus.textContent = 'Error';
+        haEntityCount.textContent = '-';
+        haGrammarStatus.textContent = 'Error';
     }
 }
 
-// Entity Mapping Functions
+// Entity Mapping Functions - Improved Error Handling and State Management
 async function checkNullMappingsHandler() {
+    if (isProcessing) {
+        console.warn('Already processing, ignoring request');
+        return;
+    }
+    
+    isProcessing = true;
+    retryCount = 0;
+    
     try {
         showModal();
+        setModalState(ModalState.LOADING);
+        clearModalError(); // Clear any previous errors
         
-        const response = await fetch('/v1/homeassistant/mapping/check-null');
+        const response = await fetchWithRetry('/v1/homeassistant/mapping/check-null');
         const data = await response.json();
         
         if (data.total_null_count === 0) {
             // No null mappings found
             mappingProgress.innerHTML = '<p>✅ All entities have friendly names!</p>';
             setTimeout(() => {
-                mappingComplete.classList.remove('hidden');
-                mappingProgress.classList.add('hidden');
+                setModalState(ModalState.COMPLETE);
             }, 1000);
             return;
         }
@@ -659,9 +872,132 @@ async function checkNullMappingsHandler() {
         
     } catch (error) {
         console.error('Error checking null mappings:', error);
-        alert('Error checking for entities that need friendly names');
-        hideModal();
+        setModalState(ModalState.ERROR);
+        showModalError(`Error checking for entities that need friendly names: ${error.message}. Please try again.`);
+        setTimeout(() => {
+            hideModal();
+        }, 5000); // Give user more time to read the error
+    } finally {
+        isProcessing = false;
     }
+}
+
+// Utility function for fetch with retry logic
+async function fetchWithRetry(url, options = {}, maxRetries = MAX_RETRIES) {
+    let lastError;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: AbortSignal.timeout(30000) // 30 second timeout
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            return response;
+        } catch (error) {
+            lastError = error;
+            
+            if (attempt === maxRetries) {
+                throw error;
+            }
+            
+            // Wait before retrying (exponential backoff)
+            const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
+            console.warn(`Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    
+    throw lastError;
+}
+
+// Error message display function
+function showErrorMessage(message, duration = 5000) {
+    // Remove existing error messages
+    const existingErrors = document.querySelectorAll('.error-message');
+    existingErrors.forEach(error => error.remove());
+    
+    // Create error message element
+    const errorElement = document.createElement('div');
+    errorElement.className = 'error-message';
+    errorElement.textContent = message;
+    errorElement.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: var(--error-color);
+        color: white;
+        padding: 1rem;
+        border-radius: 4px;
+        z-index: 10000;
+        max-width: 400px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    `;
+    
+    document.body.appendChild(errorElement);
+    
+    // Auto-remove after duration
+    setTimeout(() => {
+        if (errorElement.parentNode) {
+            errorElement.parentNode.removeChild(errorElement);
+        }
+    }, duration);
+}
+
+// Modal error display function
+function showModalError(message) {
+    const modalError = document.getElementById('modalError');
+    if (modalError) {
+        modalError.textContent = message;
+        modalError.classList.remove('hidden');
+        modalError.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+// Clear modal error function
+function clearModalError() {
+    const modalError = document.getElementById('modalError');
+    if (modalError) {
+        modalError.classList.add('hidden');
+        modalError.textContent = '';
+    }
+}
+
+// Success message display function
+function showSuccessMessage(message, duration = 3000) {
+    // Remove existing success messages
+    const existingSuccess = document.querySelectorAll('.success-message');
+    existingSuccess.forEach(success => success.remove());
+    
+    // Create success message element
+    const successElement = document.createElement('div');
+    successElement.className = 'success-message';
+    successElement.textContent = message;
+    successElement.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: var(--success-color);
+        color: black;
+        padding: 1rem;
+        border-radius: 4px;
+        z-index: 10000;
+        max-width: 400px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    `;
+    
+    document.body.appendChild(successElement);
+    
+    // Auto-remove after duration
+    setTimeout(() => {
+        if (successElement.parentNode) {
+            successElement.parentNode.removeChild(successElement);
+        }
+    }, duration);
 }
 
 function processNextEntity() {
@@ -673,27 +1009,43 @@ function processNextEntity() {
     
     const entity = nullEntities[currentEntityIndex];
     
-    // Update progress
-    const progress = ((currentEntityIndex + 1) / nullEntities.length) * 100;
-    document.getElementById('mappingProgressFill').style.width = `${progress}%`;
+    // Update progress with proper ARIA attributes
+    updateProgressBar();
     
     // Show entity form
-    currentEntityId.textContent = entity.entity_id;
-    currentEntityName.textContent = entity.current_name || 'NULL';
-    friendlyNameInput.value = entity.suggested_name || '';
+    if (currentEntityId) currentEntityId.textContent = entity.entity_id;
+    if (currentEntityName) currentEntityName.textContent = entity.current_name || 'NULL';
+    if (friendlyNameInput) {
+        friendlyNameInput.value = entity.suggested_name || '';
+        // Clear any validation errors
+        friendlyNameInput.classList.remove('error');
+    }
     
     // Generate suggestions
     generateSuggestions(entity.entity_id);
     
-    // Show form
-    mappingProgress.classList.add('hidden');
-    mappingForm.classList.remove('hidden');
+    // Update modal state
+    setModalState(ModalState.FORM);
+}
+
+// Function to update progress bar with ARIA attributes
+function updateProgressBar() {
+    const progressFill = document.getElementById('mappingProgressFill');
+    const progressBar = document.querySelector('.progress-bar');
     
-    // Focus on input
-    friendlyNameInput.focus();
+    if (progressFill && progressBar) {
+        const progress = ((currentEntityIndex + 1) / nullEntities.length) * 100;
+        progressFill.style.width = `${progress}%`;
+        
+        // Update ARIA attributes
+        progressBar.setAttribute('aria-valuenow', Math.round(progress));
+        progressBar.setAttribute('aria-valuetext', `${currentEntityIndex + 1} of ${nullEntities.length} entities processed`);
+    }
 }
 
 function generateSuggestions(entityId) {
+    if (!nameSuggestions) return;
+    
     const suggestions = [];
     
     // Parse entity ID for suggestions
@@ -721,28 +1073,103 @@ function generateSuggestions(entityId) {
     const uniqueSuggestions = [...new Set(suggestions)];
     nameSuggestions.innerHTML = '';
     
-    uniqueSuggestions.forEach(suggestion => {
+    uniqueSuggestions.forEach((suggestion, index) => {
         const chip = document.createElement('div');
         chip.className = 'suggestion-chip';
         chip.textContent = suggestion;
+        chip.setAttribute('role', 'option');
+        chip.setAttribute('tabindex', '0');
+        chip.setAttribute('aria-selected', 'false');
+        
+        // Click handler
         chip.addEventListener('click', () => {
-            friendlyNameInput.value = suggestion;
+            selectSuggestion(suggestion);
         });
+        
+        // Keyboard navigation
+        chip.addEventListener('keydown', (e) => {
+            switch (e.key) {
+                case 'Enter':
+                case ' ':
+                    e.preventDefault();
+                    selectSuggestion(suggestion);
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    const nextChip = chip.nextElementSibling;
+                    if (nextChip) {
+                        nextChip.focus();
+                    }
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    const prevChip = chip.previousElementSibling;
+                    if (prevChip) {
+                        prevChip.focus();
+                    }
+                    break;
+            }
+        });
+        
+        // Focus/blur handlers for ARIA
+        chip.addEventListener('focus', () => {
+            chip.setAttribute('aria-selected', 'true');
+        });
+        
+        chip.addEventListener('blur', () => {
+            chip.setAttribute('aria-selected', 'false');
+        });
+        
         nameSuggestions.appendChild(chip);
     });
 }
 
+// Function to select a suggestion
+function selectSuggestion(suggestion) {
+    if (friendlyNameInput) {
+        friendlyNameInput.value = suggestion;
+        friendlyNameInput.focus();
+        // Clear any validation errors
+        friendlyNameInput.classList.remove('error');
+        clearModalError();
+    }
+}
+
 async function saveEntityMappingHandler() {
-    const entity = nullEntities[currentEntityIndex];
-    const friendlyName = friendlyNameInput.value.trim();
-    
-    if (!friendlyName) {
-        alert('Please enter a friendly name');
+    if (isProcessing) {
+        console.warn('Already processing, ignoring save request');
         return;
     }
     
+    const entity = nullEntities[currentEntityIndex];
+    const friendlyName = friendlyNameInput ? friendlyNameInput.value.trim() : '';
+    
+    // Clear any previous errors
+    clearModalError();
+    
+    // Client-side validation
+    if (!friendlyName) {
+        showModalError('Please enter a friendly name');
+        if (friendlyNameInput) {
+            friendlyNameInput.classList.add('error');
+            friendlyNameInput.focus();
+        }
+        return;
+    }
+    
+    if (friendlyName.length < 2) {
+        showModalError('Friendly name must be at least 2 characters long');
+        if (friendlyNameInput) {
+            friendlyNameInput.classList.add('error');
+            friendlyNameInput.focus();
+        }
+        return;
+    }
+    
+    isProcessing = true;
+    
     try {
-        const response = await fetch('/v1/homeassistant/mapping/save', {
+        const response = await fetchWithRetry('/v1/homeassistant/mapping/save', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -755,79 +1182,110 @@ async function saveEntityMappingHandler() {
         
         if (response.ok) {
             mappingResults.saved++;
+            showSuccessMessage(`Saved mapping for ${entity.entity_id}`);
         } else {
-            throw new Error('Failed to save mapping');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || 'Failed to save mapping');
         }
         
         // Move to next entity
         currentEntityIndex++;
-        mappingForm.classList.add('hidden');
-        mappingProgress.classList.remove('hidden');
+        setModalState(ModalState.LOADING);
         processNextEntity();
         
     } catch (error) {
         console.error('Error saving mapping:', error);
-        alert('Error saving mapping. Please try again.');
+        showModalError(`Error saving mapping: ${error.message}. Please try again.`);
+    } finally {
+        isProcessing = false;
     }
 }
 
 function skipEntityHandler() {
+    if (isProcessing) {
+        console.warn('Already processing, ignoring skip request');
+        return;
+    }
+    
     mappingResults.skipped++;
     currentEntityIndex++;
-    mappingForm.classList.add('hidden');
-    mappingProgress.classList.remove('hidden');
+    setModalState(ModalState.LOADING);
     processNextEntity();
 }
 
 function showMappingComplete() {
-    mappingForm.classList.add('hidden');
-    mappingComplete.classList.remove('hidden');
+    setModalState(ModalState.COMPLETE);
     
-    mappingSummary.innerHTML = `
-        <h4>Mapping Complete</h4>
-        <p><strong>Total entities processed:</strong> ${mappingResults.total}</p>
-        <p><strong>Mappings saved:</strong> ${mappingResults.saved}</p>
-        <p><strong>Entities skipped:</strong> ${mappingResults.skipped}</p>
-    `;
+    if (mappingSummary) {
+        mappingSummary.innerHTML = `
+            <h4>Mapping Complete</h4>
+            <p><strong>Total entities processed:</strong> ${mappingResults.total}</p>
+            <p><strong>Mappings saved:</strong> ${mappingResults.saved}</p>
+            <p><strong>Entities skipped:</strong> ${mappingResults.skipped}</p>
+        `;
+    }
+    
+    // Show success message
+    showSuccessMessage(`Mapping complete! Saved ${mappingResults.saved} mappings.`);
 }
 
-// Auto-discovery handler
+// Auto-discovery handler - Improved error handling
 async function runAutoDiscoveryHandler() {
+    if (isProcessing) {
+        console.warn('Already processing, ignoring auto-discovery request');
+        return;
+    }
+    
+    isProcessing = true;
+    
     try {
-        const response = await fetch('/v1/homeassistant/mapping/auto-discover', {
+        const response = await fetchWithRetry('/v1/homeassistant/mapping/auto-discover', {
             method: 'POST'
         });
         
         if (response.ok) {
             const data = await response.json();
-            alert(`Auto-discovery completed!\nTotal mappings: ${data.total_mappings}\nEntities with names: ${data.entities_with_friendly_names}`);
+            showSuccessMessage(`Auto-discovery completed! Total mappings: ${data.total_mappings}, Entities with names: ${data.entities_with_friendly_names}`);
             updateHAStatus();
         } else {
-            throw new Error('Auto-discovery failed');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || 'Auto-discovery failed');
         }
     } catch (error) {
         console.error('Error running auto-discovery:', error);
-        alert('Error running auto-discovery');
+        showErrorMessage(`Error running auto-discovery: ${error.message}`);
+    } finally {
+        isProcessing = false;
     }
 }
 
-// Update grammar handler
+// Update grammar handler - Improved error handling
 async function updateGrammarHandler() {
+    if (isProcessing) {
+        console.warn('Already processing, ignoring grammar update request');
+        return;
+    }
+    
+    isProcessing = true;
+    
     try {
-        const response = await fetch('/v1/homeassistant/grammar/update', {
+        const response = await fetchWithRetry('/v1/homeassistant/grammar/update', {
             method: 'POST'
         });
         
         if (response.ok) {
             const data = await response.json();
-            alert(`Grammar updated successfully!\nDevices: ${data.device_count}\nActions: ${data.action_count}\nLocations: ${data.location_count}`);
+            showSuccessMessage(`Grammar updated successfully! Devices: ${data.device_count}, Actions: ${data.action_count}, Locations: ${data.location_count}`);
             updateHAStatus();
         } else {
-            throw new Error('Grammar update failed');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || 'Grammar update failed');
         }
     } catch (error) {
         console.error('Error updating grammar:', error);
-        alert('Error updating grammar');
+        showErrorMessage(`Error updating grammar: ${error.message}`);
+    } finally {
+        isProcessing = false;
     }
 }
 
@@ -843,6 +1301,17 @@ skipEntity.addEventListener('click', skipEntityHandler);
 friendlyNameInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         saveEntityMappingHandler();
+    }
+});
+
+// Real-time validation for friendly name input
+friendlyNameInput.addEventListener('input', (e) => {
+    const value = e.target.value.trim();
+    
+    // Clear error state if input becomes valid
+    if (value.length >= 2) {
+        e.target.classList.remove('error');
+        clearModalError();
     }
 });
 
