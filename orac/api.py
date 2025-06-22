@@ -324,14 +324,15 @@ async def list_entity_mappings() -> Dict[str, Any]:
     """List all entity mappings."""
     try:
         mapping_config = await get_ha_mapping_config()
-        mappings = mapping_config.get_all_mappings()
+        summary = mapping_config.get_mapping_summary()
+        
+        # Get the actual mappings from the internal attribute
+        mappings = mapping_config._mappings
         
         return {
             "status": "success",
             "mappings": mappings,
-            "total_count": len(mappings),
-            "entities_with_friendly_names": len([m for m in mappings.values() if m and m.lower() != 'null']),
-            "entities_needing_names": len([m for m in mappings.values() if not m or m.lower() == 'null'])
+            "summary": summary
         }
     except Exception as e:
         logger.error(f"Error listing entity mappings: {e}")
@@ -342,7 +343,7 @@ async def check_null_mappings() -> Dict[str, Any]:
     """Check for entities that need friendly names (NULL mappings)."""
     try:
         mapping_config = await get_ha_mapping_config()
-        mappings = mapping_config.get_all_mappings()
+        mappings = mapping_config._mappings
         
         null_entities = []
         for entity_id, friendly_name in mappings.items():
