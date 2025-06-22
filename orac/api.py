@@ -30,7 +30,7 @@ from orac.models import (
 
 # Add Home Assistant imports
 from orac.homeassistant.client import HomeAssistantClient
-from orac.homeassistant.config import load_config
+from orac.homeassistant.config import HomeAssistantConfig
 from orac.homeassistant.mapping_config import EntityMappingConfig
 from orac.homeassistant.grammar_manager import HomeAssistantGrammarManager
 
@@ -90,7 +90,8 @@ async def get_ha_client() -> HomeAssistantClient:
     global ha_client
     if ha_client is None:
         logger.info("Initializing Home Assistant client")
-        config = load_config()
+        config_path = os.path.join(os.path.dirname(__file__), "homeassistant", "config.yaml")
+        config = HomeAssistantConfig.from_yaml(config_path)
         ha_client = HomeAssistantClient(config)
     return ha_client
 
