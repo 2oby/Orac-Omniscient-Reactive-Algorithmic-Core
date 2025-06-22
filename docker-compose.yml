@@ -17,12 +17,6 @@ services:
       - CACHE_DIR=/app/cache
       - DATA_DIR=/app/data
     user: "1000:1000"  # Run as orac user (UID 1000) - matches host toby user
-    command: >
-      sh -c "
-        mkdir -p /app/cache/homeassistant &&
-        chmod 755 /app/cache/homeassistant &&
-        uvicorn orac.api:app --host 0.0.0.0 --port 8000
-      "
     deploy:
       resources:
         reservations:
