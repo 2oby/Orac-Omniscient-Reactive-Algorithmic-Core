@@ -737,8 +737,84 @@ sudo chmod -R 755 ~/ORAC/cache ~/ORAC/data ~/ORAC/logs
    - **Impact**: Deployment script failures
    - **Solution**: Fixed with `sudo chown` command
 
+## Phase 2.2: Docker Disk Space Monitoring
+
+### 2.2.1 Docker Disk Space Monitoring Implementation
+
+**Goal**: Implement proactive monitoring to prevent Docker disk space issues that previously consumed 773GB of 915GB total space.
+
+**Implementation Status**: 🔄 **PENDING**
+
+**Root Cause Analysis**:
+- **Docker Overlay2**: Docker's overlay2 storage driver can accumulate massive amounts of data
+- **Build Cache**: Docker build cache can grow indefinitely without cleanup
+- **Log Accumulation**: Container logs can accumulate rapidly without rotation
+- **Volume Mounts**: Large data volumes can consume significant space
+- **Model Files**: GGUF model files are large (100MB-1.8GB each)
+
+**What Needs to Be Implemented**:
+
+#### 2.2.1.1 Disk Space Monitoring Script (`scripts/monitor_disk_space.sh`)
+- Add disk space monitoring to deployment script
+- Set up alerts when disk usage exceeds 80%
+- Implement automatic cleanup triggers
+- Monitor Docker-specific directories
+
+#### 2.2.1.2 Docker Cleanup Automation (`scripts/docker_cleanup.sh`)
+- Implement `docker system prune` automation
+- Add build cache cleanup
+- Add unused volume cleanup
+- Add dangling image cleanup
+- Preserve essential data and models
+
+#### 2.2.1.3 Log Rotation Configuration (`docker-compose.yml`)
+- Ensure log rotation is properly configured
+- Set reasonable log size limits
+- Implement log retention policies
+- Monitor log directory sizes
+
+#### 2.2.1.4 Model Management Strategy
+- Implement model cleanup for unused models
+- Add model usage tracking
+- Set up model retention policies
+- Monitor model directory sizes
+
+**Current Status**:
+- ✅ Docker log rotation configured in `/etc/docker/daemon.json`
+- ✅ Basic disk space monitoring in deploy script
+- 🔄 Automated cleanup scripts not implemented
+- 🔄 Proactive monitoring not implemented
+- 🔄 Model management strategy not implemented
+
+**Next Steps**:
+1. Create `scripts/monitor_disk_space.sh` for proactive monitoring
+2. Create `scripts/docker_cleanup.sh` for automated cleanup
+3. Add disk space checks to deployment script
+4. Implement model usage tracking
+5. Set up automated cleanup schedules
+
+**Success Criteria**:
+- Disk usage stays below 80% of total capacity
+- Docker overlay2 directories don't exceed 50GB
+- Log directories don't exceed 1GB
+- Model directory doesn't exceed 10GB
+- Automated cleanup prevents space issues
+
+**Files to Create/Modify**:
+- `scripts/monitor_disk_space.sh` - New monitoring script
+- `scripts/docker_cleanup.sh` - New cleanup script
+- `scripts/deploy_and_test.sh` - Add disk space checks
+- `docker-compose.yml` - Ensure log rotation
+- `README.md` - Add disk space management documentation
+
+**Impact**:
+- **Reliability**: Prevents deployment failures due to disk space
+- **Performance**: Maintains optimal system performance
+- **Maintainability**: Reduces manual cleanup requirements
+- **Cost**: Prevents need for storage expansion
+
 ---
 
-**Last Updated**: 2025-06-21
+**Last Updated**: 2025-06-22
 **Current Phase**: Phase 1 - Core Discovery Infrastructure (Entity Mapping and Auto-Discovery System Completed)
 **Next Milestone**: Grammar Manager Overhaul and Dynamic Grammar Generation 
