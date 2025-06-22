@@ -17,6 +17,7 @@ data consistency through periodic updates.
 import time
 import json
 import os
+import sys
 from typing import Any, Dict, Optional, List, Set
 from pathlib import Path
 from loguru import logger
@@ -71,10 +72,24 @@ class HomeAssistantCache:
         self._max_size = max_size
         self._cache_dir = cache_dir
         
-        # Create cache directory if specified
+        # --- Robust permission check for cache directory ---
         if self._cache_dir:
-            self._cache_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                self._cache_dir.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                print(f"[ORAC ERROR] Failed to create cache directory '{self._cache_dir}': {e}")
+                print(f"Please fix the permissions on the host, e.g.:")
+                print(f"  sudo chown -R $(id -u):$(id -g) {self._cache_dir}")
+                print(f"  sudo chmod -R 755 {self._cache_dir}")
+                sys.exit(1)
+            if not os.access(self._cache_dir, os.W_OK):
+                print(f"[ORAC ERROR] Cache directory '{self._cache_dir}' is not writable by user {os.getuid()}.")
+                print(f"Please fix the permissions on the host, e.g.:")
+                print(f"  sudo chown -R $(id -u):$(id -g) {self._cache_dir}")
+                print(f"  sudo chmod -R 755 {self._cache_dir}")
+                sys.exit(1)
             logger.info(f"Persistent cache directory: {self._cache_dir}")
+        # --- End permission check ---
         
         logger.debug(f"Initialized HomeAssistantCache with TTL={ttl}s, max_size={max_size}")
     
