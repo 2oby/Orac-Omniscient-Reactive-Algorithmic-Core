@@ -587,6 +587,8 @@ loadModels();
 
 // Modal Management - Improved State Machine Implementation
 function showModal() {
+    console.log('showModal called, current state:', modalState);
+    
     if (modalState !== ModalState.CLOSED) {
         console.warn('Modal is already open, ignoring showModal call');
         return;
@@ -594,12 +596,15 @@ function showModal() {
     
     // Store current focus element
     previousFocusElement = document.activeElement;
+    console.log('Stored previous focus element:', previousFocusElement);
     
     // Update state
     modalState = ModalState.LOADING;
+    console.log('Modal state set to LOADING');
     
     // Show modal
     entityMappingModal.classList.remove('hidden');
+    console.log('Modal hidden class removed, modal should be visible');
     
     // Set up focus trap
     setupFocusTrap();
@@ -614,6 +619,8 @@ function showModal() {
             firstFocusable.focus();
         }
     }, 100);
+    
+    console.log('showModal completed');
 }
 
 function hideModal() {
@@ -858,6 +865,7 @@ async function updateHAStatus() {
 // Entity Mapping Functions - Improved Error Handling and State Management
 async function checkNullMappingsHandler() {
     console.log('checkNullMappingsHandler called');
+    console.log('Current modal state before opening:', modalState);
     
     if (isProcessing) {
         console.warn('Already processing, ignoring request');
@@ -881,7 +889,9 @@ async function checkNullMappingsHandler() {
     }, 30000); // 30 second timeout
     
     try {
+        console.log('Calling showModal()...');
         showModal();
+        console.log('Modal state after showModal():', modalState);
         setModalState(ModalState.LOADING);
         clearModalError(); // Clear any previous errors
         
