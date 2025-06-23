@@ -93,6 +93,8 @@ async def get_ha_client() -> HomeAssistantClient:
         config_path = os.path.join(os.path.dirname(__file__), "homeassistant", "config.yaml")
         config = HomeAssistantConfig.from_yaml(config_path)
         ha_client = HomeAssistantClient(config)
+        # Initialize the async context manager
+        await ha_client.__aenter__()
     return ha_client
 
 async def get_ha_mapping_config() -> EntityMappingConfig:
@@ -500,12 +502,19 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources on shutdown."""
-    global client
+    global client, ha_client
     if client:
         try:
             await client.cleanup()
         except Exception as e:
             logger.error(f"Error during shutdown: {e}")
+    
+    # Clean up Home Assistant client
+    if ha_client:
+        try:
+            await ha_client.__aexit__(None, None, None)
+        except Exception as e:
+            logger.error(f"Error during HA client shutdown: {e}")
 
 # Web interface routes
 @app.get("/", response_class=HTMLResponse)

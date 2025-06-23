@@ -770,15 +770,24 @@ function resetMappingState() {
 }
 
 // Close modal handlers - Updated to use new state machine
-closeEntityModal.addEventListener('click', hideModal);
-closeMappingModal.addEventListener('click', hideModal);
+closeEntityModal.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    hideModal();
+});
 
-// Remove the old click outside modal handler since it's now handled in addModalEventListeners
-// entityMappingModal.addEventListener('click', (e) => {
-//     if (e.target === entityMappingModal) {
-//         hideModal();
-//     }
-// });
+closeMappingModal.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    hideModal();
+});
+
+// Add keyboard event listener for Escape key at document level
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modalState !== ModalState.CLOSED) {
+        hideModal();
+    }
+});
 
 // Home Assistant Status Management - Improved Error Handling
 async function updateHAStatus() {
@@ -847,6 +856,18 @@ async function checkNullMappingsHandler() {
     isProcessing = true;
     retryCount = 0;
     
+    // Add timeout to prevent infinite hanging
+    const timeoutId = setTimeout(() => {
+        if (isProcessing) {
+            console.error('Modal operation timed out');
+            showModalError('Operation timed out. Please try again.');
+            isProcessing = false;
+            setTimeout(() => {
+                hideModal();
+            }, 2000);
+        }
+    }, 30000); // 30 second timeout
+    
     try {
         showModal();
         setModalState(ModalState.LOADING);
@@ -854,6 +875,8 @@ async function checkNullMappingsHandler() {
         
         const response = await fetchWithRetry('/v1/homeassistant/mapping/check-null');
         const data = await response.json();
+        
+        clearTimeout(timeoutId); // Clear timeout on success
         
         if (data.total_null_count === 0) {
             // No null mappings found
@@ -871,6 +894,7 @@ async function checkNullMappingsHandler() {
         processNextEntity();
         
     } catch (error) {
+        clearTimeout(timeoutId); // Clear timeout on error
         console.error('Error checking null mappings:', error);
         setModalState(ModalState.ERROR);
         showModalError(`Error checking for entities that need friendly names: ${error.message}. Please try again.`);
