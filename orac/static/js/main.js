@@ -848,11 +848,14 @@ async function updateHAStatus() {
 
 // Entity Mapping Functions - Improved Error Handling and State Management
 async function checkNullMappingsHandler() {
+    console.log('checkNullMappingsHandler called');
+    
     if (isProcessing) {
         console.warn('Already processing, ignoring request');
         return;
     }
     
+    console.log('Starting check null mappings process...');
     isProcessing = true;
     retryCount = 0;
     
@@ -880,6 +883,7 @@ async function checkNullMappingsHandler() {
         
         if (data.total_null_count === 0) {
             // No null mappings found
+            console.log('No null entities found, showing completion message');
             mappingProgress.innerHTML = '<p>✅ All entities have friendly names!</p>';
             setTimeout(() => {
                 setModalState(ModalState.COMPLETE);
@@ -889,6 +893,13 @@ async function checkNullMappingsHandler() {
         
         nullEntities = data.null_entities;
         mappingResults.total = data.total_null_count;
+        
+        console.log('Found', nullEntities.length, 'null entities to process');
+        
+        // Reset state before starting
+        currentEntityIndex = 0;
+        mappingResults.saved = 0;
+        mappingResults.skipped = 0;
         
         // Start processing entities
         processNextEntity();
@@ -1025,13 +1036,30 @@ function showSuccessMessage(message, duration = 3000) {
 }
 
 function processNextEntity() {
+    console.log('processNextEntity called - currentEntityIndex:', currentEntityIndex, 'nullEntities.length:', nullEntities.length);
+    
+    // Safety check for empty entities array
+    if (!nullEntities || nullEntities.length === 0) {
+        console.log('No entities to process, showing completion');
+        showMappingComplete();
+        return;
+    }
+    
+    // Safety check for invalid index
+    if (currentEntityIndex < 0) {
+        console.log('Invalid entity index, resetting to 0');
+        currentEntityIndex = 0;
+    }
+    
     if (currentEntityIndex >= nullEntities.length) {
         // All entities processed
+        console.log('All entities processed, showing completion');
         showMappingComplete();
         return;
     }
     
     const entity = nullEntities[currentEntityIndex];
+    console.log('Processing entity:', entity.entity_id);
     
     // Update progress with proper ARIA attributes
     updateProgressBar();
@@ -1058,6 +1086,14 @@ function updateProgressBar() {
     const progressBar = document.querySelector('.progress-bar');
     
     if (progressFill && progressBar) {
+        // Prevent division by zero
+        if (nullEntities.length === 0) {
+            progressFill.style.width = '100%';
+            progressBar.setAttribute('aria-valuenow', 100);
+            progressBar.setAttribute('aria-valuetext', 'No entities to process');
+            return;
+        }
+        
         const progress = ((currentEntityIndex + 1) / nullEntities.length) * 100;
         progressFill.style.width = `${progress}%`;
         
@@ -1314,7 +1350,14 @@ async function updateGrammarHandler() {
 }
 
 // Event listeners
-checkNullMappings.addEventListener('click', checkNullMappingsHandler);
+console.log('Setting up event listeners...');
+console.log('checkNullMappings element:', checkNullMappings);
+
+checkNullMappings.addEventListener('click', (e) => {
+    console.log('Check Null Mappings button clicked!');
+    checkNullMappingsHandler();
+});
+
 runAutoDiscovery.addEventListener('click', runAutoDiscoveryHandler);
 updateGrammar.addEventListener('click', updateGrammarHandler);
 refreshHAStatus.addEventListener('click', updateHAStatus);
