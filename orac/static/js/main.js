@@ -587,7 +587,11 @@ loadModels();
 
 // Modal Management - Improved State Machine Implementation
 function showModal() {
-    console.log('showModal called, current state:', modalState);
+    console.log('=== showModal called ===');
+    console.log('Current modal state:', modalState);
+    console.log('Modal element:', entityMappingModal);
+    console.log('Modal computed display before:', window.getComputedStyle(entityMappingModal).display);
+    console.log('Modal has hidden class before:', entityMappingModal.classList.contains('hidden'));
     
     if (modalState !== ModalState.CLOSED) {
         console.warn('Modal is already open, ignoring showModal call');
@@ -602,9 +606,18 @@ function showModal() {
     modalState = ModalState.LOADING;
     console.log('Modal state set to LOADING');
     
-    // Show modal
+    // Show modal - clear any inline styles that might interfere
     entityMappingModal.classList.remove('hidden');
-    console.log('Modal hidden class removed, modal should be visible');
+    entityMappingModal.style.display = ''; // Clear inline display
+    entityMappingModal.style.visibility = ''; // Clear inline visibility
+    entityMappingModal.style.opacity = ''; // Clear inline opacity
+    entityMappingModal.style.pointerEvents = ''; // Clear inline pointer events
+    
+    console.log('Modal hidden class removed');
+    console.log('Modal has hidden class after:', entityMappingModal.classList.contains('hidden'));
+    console.log('Modal computed display after:', window.getComputedStyle(entityMappingModal).display);
+    console.log('Modal inline display style cleared:', entityMappingModal.style.display);
+    console.log('Modal should be visible now');
     
     // Set up focus trap
     setupFocusTrap();
@@ -620,11 +633,15 @@ function showModal() {
         }
     }, 100);
     
-    console.log('showModal completed');
+    console.log('=== showModal completed ===');
 }
 
 function hideModal() {
-    console.log('hideModal called, current state:', modalState);
+    console.log('=== hideModal called ===');
+    console.log('Current modal state:', modalState);
+    console.log('Modal element:', entityMappingModal);
+    console.log('Modal computed display before:', window.getComputedStyle(entityMappingModal).display);
+    console.log('Modal has hidden class before:', entityMappingModal.classList.contains('hidden'));
     
     if (modalState === ModalState.CLOSED) {
         console.log('Modal already closed, returning');
@@ -635,9 +652,20 @@ function hideModal() {
     modalState = ModalState.CLOSED;
     console.log('Modal state set to CLOSED');
     
-    // Hide modal
+    // Hide modal - more robust approach
     entityMappingModal.classList.add('hidden');
-    console.log('Modal hidden with CSS class');
+    
+    // Force hide with inline styles as backup
+    entityMappingModal.style.display = 'none';
+    entityMappingModal.style.visibility = 'hidden';
+    entityMappingModal.style.opacity = '0';
+    entityMappingModal.style.pointerEvents = 'none';
+    
+    console.log('Modal hidden class added');
+    console.log('Modal has hidden class after:', entityMappingModal.classList.contains('hidden'));
+    console.log('Modal computed display after:', window.getComputedStyle(entityMappingModal).display);
+    console.log('Modal inline display style:', entityMappingModal.style.display);
+    console.log('Modal should be hidden now');
     
     // Clean up event listeners
     removeModalEventListeners();
@@ -652,7 +680,7 @@ function hideModal() {
     
     // Reset state
     resetMappingState();
-    console.log('Modal fully closed and reset');
+    console.log('=== Modal fully closed and reset ===');
 }
 
 function setModalState(newState) {
@@ -792,14 +820,26 @@ function resetMappingState() {
 
 // Close modal handlers - Updated to use new state machine
 closeEntityModal.addEventListener('click', (e) => {
-    console.log('Close entity modal button clicked');
+    console.log('=== Close entity modal button clicked ===');
+    console.log('Event:', e);
+    console.log('Current modal state:', modalState);
+    console.log('Modal element:', entityMappingModal);
+    console.log('Modal computed display:', window.getComputedStyle(entityMappingModal).display);
+    console.log('Modal has hidden class:', entityMappingModal.classList.contains('hidden'));
+    inspectModalState(); // Full state inspection
     e.preventDefault();
     e.stopPropagation();
     hideModal();
 });
 
 closeMappingModal.addEventListener('click', (e) => {
-    console.log('Close mapping modal button clicked');
+    console.log('=== Close mapping modal button clicked ===');
+    console.log('Event:', e);
+    console.log('Current modal state:', modalState);
+    console.log('Modal element:', entityMappingModal);
+    console.log('Modal computed display:', window.getComputedStyle(entityMappingModal).display);
+    console.log('Modal has hidden class:', entityMappingModal.classList.contains('hidden'));
+    inspectModalState(); // Full state inspection
     e.preventDefault();
     e.stopPropagation();
     hideModal();
@@ -864,8 +904,11 @@ async function updateHAStatus() {
 
 // Entity Mapping Functions - Improved Error Handling and State Management
 async function checkNullMappingsHandler() {
-    console.log('checkNullMappingsHandler called');
+    console.log('=== checkNullMappingsHandler called ===');
     console.log('Current modal state before opening:', modalState);
+    console.log('Modal element:', entityMappingModal);
+    console.log('Modal computed display before:', window.getComputedStyle(entityMappingModal).display);
+    console.log('Modal has hidden class before:', entityMappingModal.classList.contains('hidden'));
     
     if (isProcessing) {
         console.warn('Already processing, ignoring request');
@@ -886,12 +929,14 @@ async function checkNullMappingsHandler() {
                 hideModal();
             }, 2000);
         }
-    }, 30000); // 30 second timeout
+    }, 30000);
     
     try {
         console.log('Calling showModal()...');
         showModal();
         console.log('Modal state after showModal():', modalState);
+        console.log('Modal computed display after showModal():', window.getComputedStyle(entityMappingModal).display);
+        console.log('Modal has hidden class after showModal():', entityMappingModal.classList.contains('hidden'));
         setModalState(ModalState.LOADING);
         clearModalError(); // Clear any previous errors
         
@@ -1402,4 +1447,28 @@ friendlyNameInput.addEventListener('input', (e) => {
 });
 
 // Initialize Home Assistant status
-updateHAStatus(); 
+updateHAStatus();
+
+// Utility function to inspect modal state
+function inspectModalState() {
+    console.log('=== Modal State Inspection ===');
+    console.log('Modal element:', entityMappingModal);
+    console.log('Modal state variable:', modalState);
+    console.log('Modal classes:', entityMappingModal.classList.toString());
+    console.log('Modal has hidden class:', entityMappingModal.classList.contains('hidden'));
+    console.log('Modal computed display:', window.getComputedStyle(entityMappingModal).display);
+    console.log('Modal computed visibility:', window.getComputedStyle(entityMappingModal).visibility);
+    console.log('Modal computed opacity:', window.getComputedStyle(entityMappingModal).opacity);
+    console.log('Modal computed z-index:', window.getComputedStyle(entityMappingModal).zIndex);
+    console.log('Modal offsetParent:', entityMappingModal.offsetParent);
+    console.log('Modal offsetWidth:', entityMappingModal.offsetWidth);
+    console.log('Modal offsetHeight:', entityMappingModal.offsetHeight);
+    console.log('Modal clientWidth:', entityMappingModal.clientWidth);
+    console.log('Modal clientHeight:', entityMappingModal.clientHeight);
+    console.log('Modal getBoundingClientRect:', entityMappingModal.getBoundingClientRect());
+    console.log('=== End Modal State Inspection ===');
+}
+
+// Make inspection function globally available for debugging
+window.inspectModalState = inspectModalState;
+window.inspectModal = inspectModalState; // Alias for convenience 
