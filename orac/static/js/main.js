@@ -606,17 +606,12 @@ function showModal() {
     modalState = ModalState.LOADING;
     console.log('Modal state set to LOADING');
     
-    // Show modal - clear any inline styles that might interfere
+    // Show modal - CSS specificity issue now fixed
     entityMappingModal.classList.remove('hidden');
-    entityMappingModal.style.display = ''; // Clear inline display
-    entityMappingModal.style.visibility = ''; // Clear inline visibility
-    entityMappingModal.style.opacity = ''; // Clear inline opacity
-    entityMappingModal.style.pointerEvents = ''; // Clear inline pointer events
     
     console.log('Modal hidden class removed');
     console.log('Modal has hidden class after:', entityMappingModal.classList.contains('hidden'));
     console.log('Modal computed display after:', window.getComputedStyle(entityMappingModal).display);
-    console.log('Modal inline display style cleared:', entityMappingModal.style.display);
     console.log('Modal should be visible now');
     
     // Set up focus trap
@@ -652,19 +647,12 @@ function hideModal() {
     modalState = ModalState.CLOSED;
     console.log('Modal state set to CLOSED');
     
-    // Hide modal - more robust approach
+    // Hide modal - CSS specificity issue now fixed
     entityMappingModal.classList.add('hidden');
-    
-    // Force hide with inline styles as backup
-    entityMappingModal.style.display = 'none';
-    entityMappingModal.style.visibility = 'hidden';
-    entityMappingModal.style.opacity = '0';
-    entityMappingModal.style.pointerEvents = 'none';
     
     console.log('Modal hidden class added');
     console.log('Modal has hidden class after:', entityMappingModal.classList.contains('hidden'));
     console.log('Modal computed display after:', window.getComputedStyle(entityMappingModal).display);
-    console.log('Modal inline display style:', entityMappingModal.style.display);
     console.log('Modal should be hidden now');
     
     // Clean up event listeners
