@@ -617,15 +617,20 @@ function showModal() {
 }
 
 function hideModal() {
+    console.log('hideModal called, current state:', modalState);
+    
     if (modalState === ModalState.CLOSED) {
+        console.log('Modal already closed, returning');
         return;
     }
     
     // Update state
     modalState = ModalState.CLOSED;
+    console.log('Modal state set to CLOSED');
     
     // Hide modal
     entityMappingModal.classList.add('hidden');
+    console.log('Modal hidden with CSS class');
     
     // Clean up event listeners
     removeModalEventListeners();
@@ -640,14 +645,20 @@ function hideModal() {
     
     // Reset state
     resetMappingState();
+    console.log('Modal fully closed and reset');
 }
 
 function setModalState(newState) {
     const previousState = modalState;
     
-    // Prevent recursive calls
+    // Prevent recursive calls - if trying to set CLOSED state, just call hideModal directly
     if (newState === ModalState.CLOSED) {
         hideModal();
+        return;
+    }
+    
+    // Prevent setting same state multiple times
+    if (newState === modalState) {
         return;
     }
     
@@ -774,12 +785,14 @@ function resetMappingState() {
 
 // Close modal handlers - Updated to use new state machine
 closeEntityModal.addEventListener('click', (e) => {
+    console.log('Close entity modal button clicked');
     e.preventDefault();
     e.stopPropagation();
     hideModal();
 });
 
 closeMappingModal.addEventListener('click', (e) => {
+    console.log('Close mapping modal button clicked');
     e.preventDefault();
     e.stopPropagation();
     hideModal();
