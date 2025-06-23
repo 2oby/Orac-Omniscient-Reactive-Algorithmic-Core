@@ -644,6 +644,13 @@ function hideModal() {
 
 function setModalState(newState) {
     const previousState = modalState;
+    
+    // Prevent recursive calls
+    if (newState === ModalState.CLOSED) {
+        hideModal();
+        return;
+    }
+    
     modalState = newState;
     
     // Update UI based on state
@@ -676,10 +683,6 @@ function setModalState(newState) {
             // Show error state - could add error display element
             console.error('Modal error state');
             break;
-            
-        case ModalState.CLOSED:
-            hideModal();
-            return;
     }
     
     console.log(`Modal state changed: ${previousState} -> ${newState}`);
@@ -780,13 +783,6 @@ closeMappingModal.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
     hideModal();
-});
-
-// Add keyboard event listener for Escape key at document level
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modalState !== ModalState.CLOSED) {
-        hideModal();
-    }
 });
 
 // Home Assistant Status Management - Improved Error Handling
