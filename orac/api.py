@@ -345,25 +345,38 @@ async def check_null_mappings() -> Dict[str, Any]:
     """Check for entities that need friendly names (NULL mappings)."""
     try:
         mapping_config = await get_ha_mapping_config()
-        mappings = mapping_config._mappings
-        
-        null_entities = []
-        for entity_id, friendly_name in mappings.items():
-            if not friendly_name or friendly_name.lower() == 'null':
-                null_entities.append({
-                    "entity_id": entity_id,
-                    "current_name": friendly_name,
-                    "suggested_name": entity_id.replace('_', ' ').replace('.', ' ')
-                })
+        null_entities = mapping_config.get_new_entities_needing_names()
         
         return {
             "status": "success",
             "null_entities": null_entities,
             "total_null_count": len(null_entities),
-            "total_entities": len(mappings)
+            "total_entities": len(mapping_config._mappings)
         }
     except Exception as e:
         logger.error(f"Error checking null mappings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/v1/homeassistant/mapping/new-entities", tags=["Home Assistant"])
+async def get_new_entities() -> Dict[str, Any]:
+    """Get new entities that were discovered but need friendly names."""
+    try:
+        mapping_config = await get_ha_mapping_config()
+        
+        # Run auto-discovery to find new entities
+        await mapping_config.auto_discover_entities()
+        
+        # Get entities that need friendly names
+        new_entities = mapping_config.get_new_entities_needing_names()
+        
+        return {
+            "status": "success",
+            "new_entities": new_entities,
+            "total_new_count": len(new_entities),
+            "total_entities": len(mapping_config._mappings)
+        }
+    except Exception as e:
+        logger.error(f"Error getting new entities: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/v1/homeassistant/mapping/save", tags=["Home Assistant"])

@@ -288,7 +288,7 @@ class HomeAssistantGrammarManager:
         """
         locations = set()
         
-        # Extract locations from entity attributes
+        # Extract locations from entity attributes and friendly names
         for entity in entities:
             attributes = entity.get('attributes', {})
             
@@ -299,11 +299,21 @@ class HomeAssistantGrammarManager:
             # Check for room information in friendly_name
             friendly_name = attributes.get('friendly_name', '')
             if friendly_name:
-                # Simple room extraction (could be enhanced)
+                # Simple room extraction (enhanced with more locations)
                 words = friendly_name.lower().split()
                 for word in words:
-                    if word in ['bedroom', 'bathroom', 'kitchen', 'living', 'lounge', 'hall', 'office']:
+                    if word in ['bedroom', 'bathroom', 'kitchen', 'living', 'lounge', 'hall', 'office', 'toilet', 'garage', 'basement', 'attic']:
                         locations.add(word)
+            
+            # Also check entity_id for location hints
+            entity_id = entity.get('entity_id', '')
+            if entity_id:
+                parts = entity_id.split('.')
+                if len(parts) >= 2:
+                    device_name = parts[1].lower()
+                    for location in ['bedroom', 'bathroom', 'kitchen', 'living', 'lounge', 'hall', 'office', 'toilet', 'garage', 'basement', 'attic']:
+                        if location in device_name:
+                            locations.add(location)
         
         # Add common locations if none found
         if not locations:

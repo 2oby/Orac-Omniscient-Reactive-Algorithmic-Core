@@ -42,6 +42,7 @@ const haEntityCount = document.getElementById('haEntityCount');
 const haGrammarStatus = document.getElementById('haGrammarStatus');
 const haMappingStatus = document.getElementById('haMappingStatus');
 const checkNullMappings = document.getElementById('checkNullMappings');
+const checkNewEntities = document.getElementById('checkNewEntities');
 const runAutoDiscovery = document.getElementById('runAutoDiscovery');
 const updateGrammar = document.getElementById('updateGrammar');
 
@@ -899,78 +900,98 @@ async function updateHAStatus() {
 
 // Entity Mapping Functions - Improved Error Handling and State Management
 async function checkNullMappingsHandler() {
-    console.log('=== checkNullMappingsHandler called ===');
-    console.log('Current modal state before opening:', modalState);
-    console.log('Modal element:', entityMappingModal);
-    console.log('Modal computed display before:', window.getComputedStyle(entityMappingModal).display);
-    console.log('Modal has hidden class before:', entityMappingModal.classList.contains('hidden'));
-    
     if (isProcessing) {
-        console.warn('Already processing, ignoring request');
+        showErrorMessage('Another operation is in progress. Please wait.');
         return;
     }
     
-    console.log('Starting check null mappings process...');
     isProcessing = true;
-    retryCount = 0;
-    
-    // Add timeout to prevent infinite hanging
-    const timeoutId = setTimeout(() => {
-        if (isProcessing) {
-            console.error('Modal operation timed out');
-            showModalError('Operation timed out. Please try again.');
-            isProcessing = false;
-            setTimeout(() => {
-                hideModal();
-            }, 2000);
-        }
-    }, 30000);
+    setModalState(ModalState.LOADING);
     
     try {
-        console.log('Calling showModal()...');
-        showModal();
-        console.log('Modal state after showModal():', modalState);
-        console.log('Modal computed display after showModal():', window.getComputedStyle(entityMappingModal).display);
-        console.log('Modal has hidden class after showModal():', entityMappingModal.classList.contains('hidden'));
-        setModalState(ModalState.LOADING);
-        clearModalError(); // Clear any previous errors
-        
         const response = await fetchWithRetry('/v1/homeassistant/mapping/check-null');
-        const data = await response.json();
         
-        clearTimeout(timeoutId); // Clear timeout on success
-        
-        if (data.total_null_count === 0) {
-            // No null mappings found
-            console.log('No null entities found, showing completion message');
-            mappingProgress.innerHTML = '<p>✅ All entities have friendly names!</p>';
-            setTimeout(() => {
-                setModalState(ModalState.COMPLETE);
-            }, 1000);
-            return;
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        nullEntities = data.null_entities;
-        mappingResults.total = data.total_null_count;
+        const data = await response.json();
         
-        console.log('Found', nullEntities.length, 'null entities to process');
-        
-        // Reset state before starting
-        currentEntityIndex = 0;
-        mappingResults.saved = 0;
-        mappingResults.skipped = 0;
-        
-        // Start processing entities
-        processNextEntity();
-        
+        if (data.status === 'success') {
+            nullEntities = data.null_entities || [];
+            
+            if (nullEntities.length === 0) {
+                showSuccessMessage('All entities have friendly names! ✅');
+                setModalState(ModalState.CLOSED);
+                return;
+            }
+            
+            // Start processing entities
+            currentEntityIndex = 0;
+            mappingResults = {
+                saved: 0,
+                skipped: 0,
+                total: nullEntities.length
+            };
+            
+            setModalState(ModalState.FORM);
+            processNextEntity();
+        } else {
+            throw new Error(data.message || 'Unknown error');
+        }
     } catch (error) {
-        clearTimeout(timeoutId); // Clear timeout on error
         console.error('Error checking null mappings:', error);
+        showModalError(`Failed to check mappings: ${error.message}`);
         setModalState(ModalState.ERROR);
-        showModalError(`Error checking for entities that need friendly names: ${error.message}. Please try again.`);
-        setTimeout(() => {
-            hideModal();
-        }, 5000); // Give user more time to read the error
+    } finally {
+        isProcessing = false;
+    }
+}
+
+async function checkNewEntitiesHandler() {
+    if (isProcessing) {
+        showErrorMessage('Another operation is in progress. Please wait.');
+        return;
+    }
+    
+    isProcessing = true;
+    setModalState(ModalState.LOADING);
+    
+    try {
+        const response = await fetchWithRetry('/v1/homeassistant/mapping/new-entities');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            nullEntities = data.new_entities || [];
+            
+            if (nullEntities.length === 0) {
+                showSuccessMessage('No new entities found! ✅');
+                setModalState(ModalState.CLOSED);
+                return;
+            }
+            
+            // Start processing entities
+            currentEntityIndex = 0;
+            mappingResults = {
+                saved: 0,
+                skipped: 0,
+                total: nullEntities.length
+            };
+            
+            setModalState(ModalState.FORM);
+            processNextEntity();
+        } else {
+            throw new Error(data.message || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Error checking new entities:', error);
+        showModalError(`Failed to check new entities: ${error.message}`);
+        setModalState(ModalState.ERROR);
     } finally {
         isProcessing = false;
     }
@@ -1466,4 +1487,30 @@ function inspectModalState() {
 
 // Make inspection function globally available for debugging
 window.inspectModalState = inspectModalState;
-window.inspectModal = inspectModalState; // Alias for convenience 
+window.inspectModal = inspectModalState; // Alias for convenience
+
+// Event Listeners
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadModels();
+    await updateHAStatus();
+    
+    // Set up periodic status updates
+    setInterval(updateHAStatus, 30000); // Update every 30 seconds
+    
+    // Set up Home Assistant event listeners
+    if (checkNullMappings) {
+        checkNullMappings.addEventListener('click', checkNullMappingsHandler);
+    }
+    if (checkNewEntities) {
+        checkNewEntities.addEventListener('click', checkNewEntitiesHandler);
+    }
+    if (runAutoDiscovery) {
+        runAutoDiscovery.addEventListener('click', runAutoDiscoveryHandler);
+    }
+    if (updateGrammar) {
+        updateGrammar.addEventListener('click', updateGrammarHandler);
+    }
+    if (refreshHAStatus) {
+        refreshHAStatus.addEventListener('click', updateHAStatus);
+    }
+}); 

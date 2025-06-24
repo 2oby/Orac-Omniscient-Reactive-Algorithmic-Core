@@ -93,7 +93,8 @@ class EntityMappingConfig:
         2. Filters for relevant entities using DomainMapper
         3. Generates initial friendly names (or NULL if not obvious)
         4. Preserves existing mappings from YAML file
-        5. Returns the complete mapping dictionary
+        5. Saves new mappings to YAML file
+        6. Returns the complete mapping dictionary
         
         Returns:
             Dictionary mapping entity_id -> friendly_name (with NULL for missing names)
@@ -128,6 +129,8 @@ class EntityMappingConfig:
             
             # Generate initial mappings
             auto_mappings = {}
+            new_entities = []
+            
             for entity in relevant_entities:
                 entity_id = entity['entity_id']
                 
@@ -136,6 +139,9 @@ class EntityMappingConfig:
                     auto_mappings[entity_id] = self._mappings[entity_id]
                     continue
                 
+                # This is a new entity
+                new_entities.append(entity_id)
+                
                 # Generate initial friendly name
                 friendly_name = self._generate_initial_friendly_name(entity)
                 auto_mappings[entity_id] = friendly_name
@@ -143,6 +149,11 @@ class EntityMappingConfig:
             # Update internal mappings
             self._mappings = auto_mappings
             self._build_reverse_mappings()
+            
+            # Save new mappings to file if we found new entities
+            if new_entities:
+                logger.info(f"Found {len(new_entities)} new entities, saving to mapping file")
+                self.save_mappings()
             
             logger.info(f"Auto-discovery complete. Generated {len(auto_mappings)} mappings")
             return auto_mappings.copy()
@@ -334,4 +345,52 @@ class EntityMappingConfig:
             
         except Exception as e:
             logger.warning(f"Error generating version: {e}")
-            return "error" 
+            return "error"
+    
+    def get_new_entities_needing_names(self) -> List[Dict[str, Any]]:
+        """Get list of new entities that need friendly names.
+        
+        Returns:
+            List of dictionaries with entity_id, current_name, and suggested_name
+        """
+        new_entities = []
+        
+        for entity_id, friendly_name in self._mappings.items():
+            # Check if this entity needs a friendly name (NULL or entity_id as name)
+            if not friendly_name or friendly_name.lower() == 'null' or friendly_name == entity_id:
+                # Generate a suggested name
+                suggested_name = self._generate_suggested_name(entity_id)
+                
+                new_entities.append({
+                    "entity_id": entity_id,
+                    "current_name": friendly_name,
+                    "suggested_name": suggested_name
+                })
+        
+        return new_entities
+    
+    def _generate_suggested_name(self, entity_id: str) -> str:
+        """Generate a suggested friendly name from entity_id.
+        
+        Args:
+            entity_id: The Home Assistant entity ID
+            
+        Returns:
+            Suggested friendly name
+        """
+        domain = entity_id.split('.')[0]
+        device_name = entity_id.split('.', 1)[1] if '.' in entity_id else entity_id
+        
+        # Replace underscores with spaces
+        device_name = device_name.replace('_', ' ')
+        
+        # Add domain-specific suffixes
+        if domain == 'light':
+            if not device_name.endswith('lights') and not device_name.endswith('light'):
+                device_name += ' lights'
+        elif domain == 'input_button':
+            if 'scene' in device_name:
+                device_name = device_name.replace('scene_', '').replace('_scene', '')
+                device_name += ' scene'
+        
+        return device_name 
