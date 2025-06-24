@@ -1541,7 +1541,7 @@ function stopAutoPopupChecking() {
 }
 
 // Toggle auto-popup
-function toggleAutoPopup() {
+function toggleAutoPopupHandler() {
     autoPopupEnabled = !autoPopupEnabled;
     
     if (autoPopupEnabled) {
@@ -1635,7 +1635,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (toggleAutoPopup) {
             toggleAutoPopup.addEventListener('click', () => {
-                toggleAutoPopup();
+                toggleAutoPopupHandler();
                 // Update button text
                 toggleAutoPopup.textContent = `Auto-Popup: ${autoPopupEnabled ? 'ON' : 'OFF'}`;
             });
