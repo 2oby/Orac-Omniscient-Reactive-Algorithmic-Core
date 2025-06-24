@@ -432,18 +432,22 @@ favoriteToggle.addEventListener('click', toggleFavorite);
 // Load models and favorites
 async function loadModels() {
     try {
+        console.log('=== loadModels function started ===');
         console.log('Loading models...');
         // Load models
         const response = await fetch('/v1/models');
+        console.log('Models API response status:', response.status);
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         const data = await response.json();
         console.log('Models loaded:', data);
+        console.log('Number of models:', data.models ? data.models.length : 0);
         
         // Load favorites
         console.log('Loading favorites...');
         const favResponse = await fetch('/v1/config/favorites');
+        console.log('Favorites API response status:', favResponse.status);
         if (!favResponse.ok) {
             throw new Error(`HTTP ${favResponse.status}: ${favResponse.statusText}`);
         }
@@ -461,6 +465,7 @@ async function loadModels() {
         // Load model configs
         console.log('Loading model configs...');
         const configResponse = await fetch('/v1/config/models');
+        console.log('Config API response status:', configResponse.status);
         if (!configResponse.ok) {
             throw new Error(`HTTP ${configResponse.status}: ${configResponse.statusText}`);
         }
@@ -469,6 +474,7 @@ async function loadModels() {
         modelConfigs = configData.models || {};
 
         // Clear existing options
+        console.log('Clearing existing dropdown options...');
         modelSelect.innerHTML = '<option value="">Select a model...</option>';
 
         // Add favorite models first
@@ -478,19 +484,24 @@ async function loadModels() {
         console.log('Other models:', otherModels);
 
         // Add favorite models to dropdown
+        console.log('Adding favorite models to dropdown...');
         favoriteModels.forEach(model => {
             const option = createModelOption(model, true);
             modelSelect.appendChild(option);
+            console.log('Added favorite model option:', model.name);
         });
 
         // Add other models to dropdown
+        console.log('Adding other models to dropdown...');
         otherModels.forEach(model => {
             const option = createModelOption(model, false);
             modelSelect.appendChild(option);
+            console.log('Added other model option:', model.name);
         });
 
         // Select default model if set
         if (defaultModel) {
+            console.log('Setting default model:', defaultModel);
             modelSelect.value = defaultModel;
             currentModel = defaultModel;
             updateFavoriteButtonState(defaultModel);
@@ -498,7 +509,9 @@ async function loadModels() {
         }
         
         console.log('Dropdown populated with', modelSelect.options.length - 1, 'models');
+        console.log('=== loadModels function completed successfully ===');
     } catch (error) {
+        console.error('=== loadModels function failed ===');
         console.error('Error loading models:', error);
         // Show error message to user
         const errorDiv = document.createElement('div');
@@ -1581,70 +1594,83 @@ window.inspectModal = inspectModalState; // Alias for convenience
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('DOMContentLoaded event fired - initializing application...');
+    console.log('=== DOMContentLoaded event fired - initializing application... ===');
+    console.log('Document ready state:', document.readyState);
+    console.log('Model select element:', modelSelect);
+    console.log('Model select element exists:', !!modelSelect);
     
-    await loadModels();
-    await updateHAStatus();
-    
-    // Set up periodic status updates
-    setInterval(updateHAStatus, 30000); // Update every 30 seconds
-    
-    // Start auto-popup checking
-    startAutoPopupChecking();
-    
-    // Update auto-popup button text
-    updateAutoPopupButtonText();
-    
-    // Set up Home Assistant event listeners
-    if (checkNullMappings) {
-        checkNullMappings.addEventListener('click', checkNullMappingsHandler);
-    }
-    if (checkNewEntities) {
-        checkNewEntities.addEventListener('click', checkNewEntitiesHandler);
-    }
-    if (runAutoDiscovery) {
-        runAutoDiscovery.addEventListener('click', runAutoDiscoveryHandler);
-    }
-    if (updateGrammar) {
-        updateGrammar.addEventListener('click', updateGrammarHandler);
-    }
-    if (refreshHAStatus) {
-        refreshHAStatus.addEventListener('click', updateHAStatus);
-    }
-    if (toggleAutoPopup) {
-        toggleAutoPopup.addEventListener('click', () => {
-            toggleAutoPopup();
-            // Update button text
-            toggleAutoPopup.textContent = `Auto-Popup: ${autoPopupEnabled ? 'ON' : 'OFF'}`;
-        });
-    }
-    
-    // Set up additional event listeners
-    if (saveEntityMapping) {
-        saveEntityMapping.addEventListener('click', saveEntityMappingHandler);
-    }
-    if (skipEntity) {
-        skipEntity.addEventListener('click', skipEntityHandler);
-    }
-    if (friendlyNameInput) {
-        // Enter key in friendly name input
-        friendlyNameInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                saveEntityMappingHandler();
-            }
-        });
+    try {
+        console.log('Calling loadModels()...');
+        await loadModels();
+        console.log('loadModels() completed');
+        
+        console.log('Calling updateHAStatus()...');
+        await updateHAStatus();
+        console.log('updateHAStatus() completed');
+        
+        // Set up periodic status updates
+        setInterval(updateHAStatus, 30000); // Update every 30 seconds
+        
+        // Start auto-popup checking
+        startAutoPopupChecking();
+        
+        // Update auto-popup button text
+        updateAutoPopupButtonText();
+        
+        // Set up Home Assistant event listeners
+        if (checkNullMappings) {
+            checkNullMappings.addEventListener('click', checkNullMappingsHandler);
+        }
+        if (checkNewEntities) {
+            checkNewEntities.addEventListener('click', checkNewEntitiesHandler);
+        }
+        if (runAutoDiscovery) {
+            runAutoDiscovery.addEventListener('click', runAutoDiscoveryHandler);
+        }
+        if (updateGrammar) {
+            updateGrammar.addEventListener('click', updateGrammarHandler);
+        }
+        if (refreshHAStatus) {
+            refreshHAStatus.addEventListener('click', updateHAStatus);
+        }
+        if (toggleAutoPopup) {
+            toggleAutoPopup.addEventListener('click', () => {
+                toggleAutoPopup();
+                // Update button text
+                toggleAutoPopup.textContent = `Auto-Popup: ${autoPopupEnabled ? 'ON' : 'OFF'}`;
+            });
+        }
+        
+        // Set up additional event listeners
+        if (saveEntityMapping) {
+            saveEntityMapping.addEventListener('click', saveEntityMappingHandler);
+        }
+        if (skipEntity) {
+            skipEntity.addEventListener('click', skipEntityHandler);
+        }
+        if (friendlyNameInput) {
+            // Enter key in friendly name input
+            friendlyNameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    saveEntityMappingHandler();
+                }
+            });
 
-        // Real-time validation for friendly name input
-        friendlyNameInput.addEventListener('input', (e) => {
-            const value = e.target.value.trim();
-            
-            // Clear error state if input becomes valid
-            if (value.length >= 2) {
-                e.target.classList.remove('error');
-                clearModalError();
-            }
-        });
+            // Real-time validation for friendly name input
+            friendlyNameInput.addEventListener('input', (e) => {
+                const value = e.target.value.trim();
+                
+                // Clear error state if input becomes valid
+                if (value.length >= 2) {
+                    e.target.classList.remove('error');
+                    clearModalError();
+                }
+            });
+        }
+        
+        console.log('=== Application initialization complete ===');
+    } catch (error) {
+        console.error('=== Application initialization failed ===');
+        console.error('Error during initialization:', error);
     }
-    
-    console.log('Application initialization complete');
 }); 
