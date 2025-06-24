@@ -409,3 +409,101 @@ class HomeAssistantGrammarManager:
         except Exception as e:
             logger.error(f"Error discovering Home Assistant data: {e}")
             raise
+
+    def generate_gbnf_grammar(self, grammar_dict: Optional[Dict[str, Any]] = None) -> str:
+        """Generate a GBNF grammar string from the grammar dictionary.
+        
+        Args:
+            grammar_dict: Grammar dictionary (if None, uses cached grammar)
+            
+        Returns:
+            GBNF grammar string for llama.cpp
+        """
+        if grammar_dict is None:
+            grammar_dict = self._cached_grammar
+        
+        if not grammar_dict:
+            # Fallback to basic JSON grammar if no grammar available
+            return self._get_basic_json_grammar()
+        
+        # Extract vocabulary from grammar
+        device_vocab = grammar_dict.get("properties", {}).get("device", {}).get("enum", [])
+        action_vocab = grammar_dict.get("properties", {}).get("action", {}).get("enum", [])
+        location_vocab = grammar_dict.get("properties", {}).get("location", {}).get("enum", [])
+        
+        # Generate GBNF grammar
+        gbnf_grammar = f"""root ::= object
+
+object ::= "{{" ws (string ":" ws value ("," ws string ":" ws value)*)? ws "}}"
+
+value ::= object | array | string | number | boolean | null
+
+array ::= "[" ws (value ("," ws value)*)? ws "]"
+
+string ::= device_string | action_string | location_string | generic_string
+
+device_string ::= "\\"device\\"" ":" ws "\\"" device_value "\\""
+action_string ::= "\\"action\\"" ":" ws "\\"" action_value "\\""
+location_string ::= "\\"location\\"" ":" ws "\\"" location_value "\\""
+generic_string ::= "\\"" ([^"\\\\] | "\\\\" (["\\\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))* "\\""
+
+device_value ::= {self._generate_alternation(device_vocab)}
+action_value ::= {self._generate_alternation(action_vocab)}
+location_value ::= {self._generate_alternation(location_vocab)}
+
+number ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [-+]? [0-9]+)?
+
+boolean ::= "true" | "false"
+
+null ::= "null"
+
+ws ::= [ \\t\\n\\r]*
+"""
+        
+        return gbnf_grammar
+
+    def _generate_alternation(self, values: List[str]) -> str:
+        """Generate an alternation rule for GBNF grammar.
+        
+        Args:
+            values: List of string values to alternate between
+            
+        Returns:
+            GBNF alternation string
+        """
+        if not values:
+            return '""'  # Empty string if no values
+        
+        # Escape quotes and create alternation
+        escaped_values = []
+        for value in values:
+            # Escape quotes and backslashes
+            escaped = value.replace('\\', '\\\\').replace('"', '\\"')
+            escaped_values.append(f'"{escaped}"')
+        
+        return " | ".join(escaped_values)
+
+    def _get_basic_json_grammar(self) -> str:
+        """Get a basic JSON grammar as fallback.
+        
+        Returns:
+            Basic GBNF JSON grammar string
+        """
+        return """root ::= object
+
+object ::= "{" ws (string ":" ws value ("," ws string ":" ws value)*)? ws "}"
+
+value ::= object | array | string | number | boolean | null
+
+array ::= "[" ws (value ("," ws value)*)? ws "]"
+
+string ::= "\"" ([^"\\] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))* "\""
+
+number ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [-+]? [0-9]+)?
+
+boolean ::= "true" | "false"
+
+null ::= "null"
+
+ws ::= [ \t\n\r]*
+"""

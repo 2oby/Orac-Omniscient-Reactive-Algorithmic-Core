@@ -746,4 +746,206 @@ class LlamaCppClient:
         """Get additional information about a grammar from the cached grammars."""
         if grammar_name not in self.grammars:
             raise ValueError(f"Grammar '{grammar_name}' not found in configuration")
-        return self.grammars[grammar_name] 
+        return self.grammars[grammar_name]
+
+    async def generate_with_custom_grammar(
+        self,
+        prompt: str,
+        model: str,
+        custom_grammar: str,
+        temperature: float = 0.7,
+        top_p: float = 0.7,
+        top_k: int = 40,
+        max_tokens: Optional[int] = None,
+        verbose: bool = False,
+        timeout: int = 30,
+        system_prompt: Optional[str] = None,
+        stream: bool = False
+    ) -> PromptResponse:
+        """
+        Generate a response from the model using a custom grammar string.
+        
+        Args:
+            prompt: Text prompt
+            model: Model name
+            custom_grammar: Custom grammar string to use instead of the default
+            temperature: Sampling temperature
+            top_p: Top-p sampling parameter
+            top_k: Top-k sampling parameter
+            max_tokens: Maximum tokens to generate
+            verbose: Whether to run in verbose mode
+            timeout: Maximum time in seconds to wait for generation
+            system_prompt: Optional system prompt to override the model's default
+            stream: Whether to stream the response (not currently implemented)
+            
+        Returns:
+            PromptResponse with generated text and metadata
+        """
+        if not prompt.strip():
+            raise ValueError("Prompt cannot be empty")
+
+        start_time = asyncio.get_event_loop().time()
+        
+        try:
+            # Get model configuration from cache
+            model_config = self.model_configs.get("models", {}).get(model, {})
+            
+            # Get the prompt format template and system prompt
+            prompt_format = model_config.get("prompt_format", {})
+            template = prompt_format.get("template", "{system_prompt}\n\n{user_prompt}")
+            default_system_prompt = model_config.get("system_prompt", "")
+            
+            # Use provided system prompt or fall back to model's default
+            system_prompt = system_prompt or default_system_prompt
+            
+            # Format the prompt using the template
+            formatted_prompt = template.format(
+                system_prompt=system_prompt,
+                user_prompt=prompt
+            )
+            
+            # Get model's recommended settings
+            recommended_settings = model_config.get("recommended_settings", {})
+            
+            # Use model recommendations as fallback for default values
+            if temperature == 0.7:  # User didn't override default
+                temperature = recommended_settings.get("temperature", 0.7)
+            if top_p == 0.7:  # User didn't override default
+                top_p = recommended_settings.get("top_p", 0.7)
+            if top_k == 40:  # User didn't override default
+                top_k = recommended_settings.get("top_k", 40)
+            
+            max_tokens = max_tokens or recommended_settings.get("max_tokens", 512)
+            
+            # Ensure we have a server running for this model (with custom grammar)
+            server = await self._ensure_server_running_with_custom_grammar(
+                model=model,
+                temperature=temperature,
+                top_p=top_p,
+                top_k=top_k,
+                custom_grammar=custom_grammar
+            )
+            
+            # Prepare request data
+            request_data = {
+                "prompt": formatted_prompt,
+                "temperature": temperature,
+                "top_p": top_p,
+                "top_k": top_k,
+                "max_tokens": max_tokens,
+                "stop": ["<|im_end|>", "<|im_start|>", "<think>", "</think>"],
+                "grammar": custom_grammar.strip()
+            }
+            
+            # Make request to server
+            async with self._get_session() as session:
+                async with session.post(
+                    f"http://{server.host}:{server.port}/completion",
+                    json=request_data
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        raise Exception(f"Server error: {error_text}")
+                    
+                    result = await response.json()
+                    response_text = result.get("content", "")
+                    
+                    # Clean up the response
+                    response_text = response_text.strip()
+
+                    # JSON mode: validate and clean JSON response
+                    try:
+                        # Attempt to parse as JSON to validate structure
+                        parsed_json = json.loads(response_text)
+                        # If successful, use the original response (preserves formatting)
+                        response_text = response_text
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"Invalid JSON response from model: {e}")
+                        # Try to extract JSON from response if wrapped in other text
+                        import re
+                        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                        if json_match:
+                            try:
+                                parsed_json = json.loads(json_match.group())
+                                response_text = json_match.group()
+                            except json.JSONDecodeError:
+                                # Fallback: return structured error as valid JSON
+                                response_text = '{"error": "Invalid JSON generated by model", "raw_response": "' + response_text.replace('"', '\\"') + '"}'
+                        else:
+                            # No JSON found, return error response
+                            response_text = '{"error": "No JSON found in model response", "raw_response": "' + response_text.replace('"', '\\"') + '"}'
+                    
+                    if not response_text:
+                        logger.warning("Empty response from model")
+                        response_text = "No response generated"
+                    
+                    return PromptResponse(
+                        text=response_text,
+                        model=model,
+                        temperature=temperature,
+                        top_p=top_p,
+                        top_k=top_k,
+                        max_tokens=max_tokens,
+                        json_mode=True,  # Always JSON mode for custom grammar
+                        system_prompt=system_prompt,
+                        prompt=prompt,
+                        generated_at=start_time,
+                        response_time=asyncio.get_event_loop().time() - start_time
+                    )
+                    
+        except Exception as e:
+            logger.error(f"Generation error: {str(e)}")
+            raise
+
+    async def _ensure_server_running_with_custom_grammar(
+        self,
+        model: str,
+        temperature: float = 0.7,
+        top_p: float = 0.7,
+        top_k: int = 40,
+        custom_grammar: str = ""
+    ) -> ServerState:
+        """
+        Ensure a server is running for the given model with custom grammar.
+        
+        Args:
+            model: Model name
+            temperature: Sampling temperature
+            top_p: Top-p sampling parameter
+            top_k: Top-k sampling parameter
+            custom_grammar: Custom grammar string to use
+            
+        Returns:
+            ServerState for the running server
+        """
+        # For custom grammar, we need to start a new server each time
+        # since the grammar is passed in the request, not at server startup
+        # Check if we already have a server for this model
+        if model in self._servers:
+            server = self._servers[model]
+            if server.process.poll() is None:  # Server is still running
+                server.last_used = asyncio.get_event_loop().time()
+                return server
+            else:
+                # Server died, clean it up
+                await self._stop_server(model)
+        
+        # Find an available port
+        port = DEFAULT_PORT
+        while port in self._server_ports:
+            port += 1
+        
+        # Start a new server (without grammar, since we'll pass it in the request)
+        server = await self._start_internal_server(
+            model=model,
+            host=DEFAULT_HOST,
+            port=port,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            json_mode=False  # Don't add grammar at server level
+        )
+        
+        self._servers[model] = server
+        self._server_ports.add(port)
+        return server 

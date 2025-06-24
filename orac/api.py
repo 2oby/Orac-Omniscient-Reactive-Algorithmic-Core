@@ -19,6 +19,8 @@ from fastapi.responses import HTMLResponse
 from typing import List, Dict, Any
 import os
 import asyncio
+import json
+from pydantic import BaseModel
 
 from orac.logger import get_logger
 from orac.llama_cpp_client import LlamaCppClient
@@ -74,6 +76,9 @@ client = None
 ha_client = None
 ha_mapping_config = None
 ha_grammar_manager = None
+
+class HomeAssistantCommandRequest(BaseModel):
+    command: str
 
 async def get_client() -> LlamaCppClient:
     """Get or create the llama.cpp client instance."""
@@ -481,6 +486,140 @@ async def update_grammar() -> Dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"Error updating grammar: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/v1/homeassistant/mapping/check-auto-popup", tags=["Home Assistant"])
+async def check_auto_popup() -> Dict[str, Any]:
+    """Check if there are new entities that need friendly names and should trigger popup."""
+    try:
+        mapping_config = await get_ha_mapping_config()
+        
+        # Run auto-discovery to find new entities
+        await mapping_config.auto_discover_entities()
+        
+        # Get entities that need friendly names
+        new_entities = mapping_config.get_new_entities_needing_names()
+        
+        # Check if we should show popup
+        should_show_popup = len(new_entities) > 0
+        
+        return {
+            "status": "success",
+            "should_show_popup": should_show_popup,
+            "new_entities": new_entities,
+            "total_new_count": len(new_entities),
+            "total_entities": len(mapping_config._mappings),
+            "popup_message": f"Found {len(new_entities)} new entities that need friendly names" if should_show_popup else "All entities have friendly names"
+        }
+    except Exception as e:
+        logger.error(f"Error checking auto popup: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/v1/homeassistant/command", tags=["Home Assistant"])
+async def process_homeassistant_command(request: HomeAssistantCommandRequest) -> Dict[str, Any]:
+    """Process a Home Assistant command using dynamic grammar constraints."""
+    try:
+        command = request.command
+        
+        # Get the grammar manager to ensure we have the latest grammar
+        grammar_manager = await get_ha_grammar_manager()
+        
+        # Get the current grammar with all discovered entities
+        grammar_dict = await grammar_manager.generate_grammar()
+        
+        # Generate GBNF grammar string for llama.cpp
+        gbnf_grammar = grammar_manager.generate_gbnf_grammar(grammar_dict)
+        
+        # Get the LLM client
+        client = await get_client()
+        
+        # Create a system prompt for Home Assistant commands
+        system_prompt = """You are a Home Assistant command processor. You must respond with valid JSON only in the format:
+{"device": "device_name", "action": "action_name", "location": "location_name"}
+
+The device, action, and location must be from the allowed vocabulary in the grammar constraints.
+Do not include any explanations, thinking, or commentary outside the JSON structure."""
+
+        # Generate response with dynamic grammar
+        response = await client.generate_with_custom_grammar(
+            prompt=command,
+            model="Qwen3-0.6B-Q4_K_M.gguf",  # Use the default model
+            custom_grammar=gbnf_grammar,
+            system_prompt=system_prompt,
+            temperature=0.2,  # Low temperature for consistent output
+            top_p=0.8,
+            top_k=30,
+            max_tokens=100
+        )
+        
+        # Parse the response
+        try:
+            parsed_response = json.loads(response.text)
+            
+            # Validate that the response contains required fields
+            required_fields = ["device", "action"]
+            for field in required_fields:
+                if field not in parsed_response:
+                    raise ValueError(f"Missing required field: {field}")
+            
+            # Get the grammar constraints for validation
+            device_vocab = grammar_dict.get("properties", {}).get("device", {}).get("enum", [])
+            action_vocab = grammar_dict.get("properties", {}).get("action", {}).get("enum", [])
+            location_vocab = grammar_dict.get("properties", {}).get("location", {}).get("enum", [])
+            
+            # Validate against grammar constraints
+            validation_errors = []
+            
+            if parsed_response.get("device") not in device_vocab:
+                validation_errors.append(f"Device '{parsed_response.get('device')}' not in vocabulary: {device_vocab}")
+            
+            if parsed_response.get("action") not in action_vocab:
+                validation_errors.append(f"Action '{parsed_response.get('action')}' not in vocabulary: {action_vocab}")
+            
+            if "location" in parsed_response and parsed_response.get("location") not in location_vocab:
+                validation_errors.append(f"Location '{parsed_response.get('location')}' not in vocabulary: {location_vocab}")
+            
+            if validation_errors:
+                return {
+                    "status": "error",
+                    "message": "Response violates grammar constraints",
+                    "errors": validation_errors,
+                    "raw_response": response.text,
+                    "grammar_constraints": {
+                        "devices": device_vocab,
+                        "actions": action_vocab,
+                        "locations": location_vocab
+                    }
+                }
+            
+            return {
+                "status": "success",
+                "command": command,
+                "response": parsed_response,
+                "grammar_constraints": {
+                    "devices": device_vocab,
+                    "actions": action_vocab,
+                    "locations": location_vocab
+                },
+                "elapsed_ms": response.response_time * 1000
+            }
+            
+        except json.JSONDecodeError as e:
+            return {
+                "status": "error",
+                "message": "Invalid JSON response from LLM",
+                "error": str(e),
+                "raw_response": response.text
+            }
+        except ValueError as e:
+            return {
+                "status": "error",
+                "message": str(e),
+                "raw_response": response.text
+            }
+            
+    except Exception as e:
+        logger.error(f"Error processing Home Assistant command: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.on_event("startup")

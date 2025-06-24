@@ -45,6 +45,7 @@ const checkNullMappings = document.getElementById('checkNullMappings');
 const checkNewEntities = document.getElementById('checkNewEntities');
 const runAutoDiscovery = document.getElementById('runAutoDiscovery');
 const updateGrammar = document.getElementById('updateGrammar');
+const toggleAutoPopup = document.getElementById('toggleAutoPopup');
 
 // State
 let currentModel = null;
@@ -62,6 +63,13 @@ let mappingResults = {
     skipped: 0,
     total: 0
 };
+
+// Auto-popup state
+let autoPopupEnabled = true;
+let autoPopupCheckInterval = null;
+let lastPopupCheck = 0;
+const POPUP_CHECK_INTERVAL = 30000; // Check every 30 seconds
+const POPUP_COOLDOWN = 300000; // Don't show popup again for 5 minutes after dismissal
 
 // Modal State Machine
 const ModalState = {
@@ -1429,6 +1437,92 @@ async function updateGrammarHandler() {
     }
 }
 
+// Auto-popup functionality
+async function checkAutoPopup() {
+    // Don't check if popup is already open or if we're in cooldown
+    if (modalState !== ModalState.CLOSED || !autoPopupEnabled) {
+        return;
+    }
+    
+    // Check cooldown
+    const now = Date.now();
+    if (now - lastPopupCheck < POPUP_COOLDOWN) {
+        return;
+    }
+    
+    lastPopupCheck = now;
+    
+    try {
+        const response = await fetchWithRetry('/v1/homeassistant/mapping/check-auto-popup');
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            if (data.status === 'success' && data.should_show_popup) {
+                console.log('Auto-popup triggered:', data.popup_message);
+                
+                // Show a notification first
+                showSuccessMessage(data.popup_message + ' - Opening popup...', 3000);
+                
+                // Wait a moment then show the popup
+                setTimeout(() => {
+                    if (modalState === ModalState.CLOSED) {
+                        // Use the existing checkNewEntitiesHandler to show the popup
+                        checkNewEntitiesHandler();
+                    }
+                }, 2000);
+            }
+        }
+    } catch (error) {
+        console.error('Error checking auto popup:', error);
+        // Don't show error to user for auto-popup checks
+    }
+}
+
+// Start auto-popup checking
+function startAutoPopupChecking() {
+    if (autoPopupCheckInterval) {
+        clearInterval(autoPopupCheckInterval);
+    }
+    
+    autoPopupCheckInterval = setInterval(checkAutoPopup, POPUP_CHECK_INTERVAL);
+    console.log('Auto-popup checking started (every', POPUP_CHECK_INTERVAL / 1000, 'seconds)');
+}
+
+// Stop auto-popup checking
+function stopAutoPopupChecking() {
+    if (autoPopupCheckInterval) {
+        clearInterval(autoPopupCheckInterval);
+        autoPopupCheckInterval = null;
+        console.log('Auto-popup checking stopped');
+    }
+}
+
+// Toggle auto-popup
+function toggleAutoPopup() {
+    autoPopupEnabled = !autoPopupEnabled;
+    
+    if (autoPopupEnabled) {
+        startAutoPopupChecking();
+        showSuccessMessage('Auto-popup enabled - will check for new entities every 30 seconds');
+    } else {
+        stopAutoPopupChecking();
+        showSuccessMessage('Auto-popup disabled');
+    }
+    
+    // Update button text
+    if (toggleAutoPopup) {
+        toggleAutoPopup.textContent = `Auto-Popup: ${autoPopupEnabled ? 'ON' : 'OFF'}`;
+    }
+}
+
+// Update auto-popup button text
+function updateAutoPopupButtonText() {
+    if (toggleAutoPopup) {
+        toggleAutoPopup.textContent = `Auto-Popup: ${autoPopupEnabled ? 'ON' : 'OFF'}`;
+    }
+}
+
 // Event listeners
 console.log('Setting up event listeners...');
 console.log('checkNullMappings element:', checkNullMappings);
@@ -1443,6 +1537,15 @@ updateGrammar.addEventListener('click', updateGrammarHandler);
 refreshHAStatus.addEventListener('click', updateHAStatus);
 saveEntityMapping.addEventListener('click', saveEntityMappingHandler);
 skipEntity.addEventListener('click', skipEntityHandler);
+
+// Auto-popup toggle
+if (toggleAutoPopup) {
+    toggleAutoPopup.addEventListener('click', () => {
+        toggleAutoPopup();
+        // Update button text
+        toggleAutoPopup.textContent = `Auto-Popup: ${autoPopupEnabled ? 'ON' : 'OFF'}`;
+    });
+}
 
 // Enter key in friendly name input
 friendlyNameInput.addEventListener('keypress', (e) => {
@@ -1497,6 +1600,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Set up periodic status updates
     setInterval(updateHAStatus, 30000); // Update every 30 seconds
     
+    // Start auto-popup checking
+    startAutoPopupChecking();
+    
+    // Update auto-popup button text
+    updateAutoPopupButtonText();
+    
     // Set up Home Assistant event listeners
     if (checkNullMappings) {
         checkNullMappings.addEventListener('click', checkNullMappingsHandler);
@@ -1512,5 +1621,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (refreshHAStatus) {
         refreshHAStatus.addEventListener('click', updateHAStatus);
+    }
+    if (toggleAutoPopup) {
+        toggleAutoPopup.addEventListener('click', () => {
+            toggleAutoPopup();
+            // Update button text
+            toggleAutoPopup.textContent = `Auto-Popup: ${autoPopupEnabled ? 'ON' : 'OFF'}`;
+        });
     }
 }); 
