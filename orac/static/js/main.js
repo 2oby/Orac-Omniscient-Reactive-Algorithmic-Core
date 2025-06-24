@@ -650,9 +650,16 @@ function hideModal() {
     // Hide modal - CSS specificity issue now fixed
     entityMappingModal.classList.add('hidden');
     
+    // Force hide with inline styles as backup (in case CSS doesn't work)
+    entityMappingModal.style.setProperty('display', 'none', 'important');
+    entityMappingModal.style.setProperty('visibility', 'hidden', 'important');
+    entityMappingModal.style.setProperty('opacity', '0', 'important');
+    entityMappingModal.style.setProperty('pointer-events', 'none', 'important');
+    
     console.log('Modal hidden class added');
     console.log('Modal has hidden class after:', entityMappingModal.classList.contains('hidden'));
     console.log('Modal computed display after:', window.getComputedStyle(entityMappingModal).display);
+    console.log('Modal inline display style:', entityMappingModal.style.display);
     console.log('Modal should be hidden now');
     
     // Clean up event listeners

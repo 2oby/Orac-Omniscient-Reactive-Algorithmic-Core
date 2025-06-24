@@ -325,6 +325,14 @@ button:hover {
     pointer-events: none !important;
 }
 
+/* Additional specificity for the specific modal element */
+#entityMappingModal.hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
 .modal-content {
     background-color: var(--input-bg);
     border: 1px solid var(--border-color);
