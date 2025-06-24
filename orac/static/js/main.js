@@ -435,12 +435,18 @@ async function loadModels() {
         console.log('Loading models...');
         // Load models
         const response = await fetch('/v1/models');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         const data = await response.json();
         console.log('Models loaded:', data);
         
         // Load favorites
         console.log('Loading favorites...');
         const favResponse = await fetch('/v1/config/favorites');
+        if (!favResponse.ok) {
+            throw new Error(`HTTP ${favResponse.status}: ${favResponse.statusText}`);
+        }
         const favData = await favResponse.json();
         console.log('Favorites loaded:', favData);
         favorites = favData.favorite_models || [];
@@ -455,6 +461,9 @@ async function loadModels() {
         // Load model configs
         console.log('Loading model configs...');
         const configResponse = await fetch('/v1/config/models');
+        if (!configResponse.ok) {
+            throw new Error(`HTTP ${configResponse.status}: ${configResponse.statusText}`);
+        }
         const configData = await configResponse.json();
         console.log('Model configs loaded:', configData);
         modelConfigs = configData.models || {};
@@ -491,6 +500,29 @@ async function loadModels() {
         console.log('Dropdown populated with', modelSelect.options.length - 1, 'models');
     } catch (error) {
         console.error('Error loading models:', error);
+        // Show error message to user
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = `Failed to load models: ${error.message}`;
+        errorDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #ff4444;
+            color: white;
+            padding: 1rem;
+            border-radius: 4px;
+            z-index: 10000;
+            max-width: 400px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        `;
+        document.body.appendChild(errorDiv);
+        
+        setTimeout(() => {
+            if (errorDiv.parentNode) {
+                errorDiv.parentNode.removeChild(errorDiv);
+            }
+        }, 5000);
     }
 }
 
@@ -588,9 +620,6 @@ generateButton.addEventListener('click', async () => {
         generateButton.disabled = false;
     }
 });
-
-// Initialize
-loadModels();
 
 // Home Assistant Functionality
 
@@ -1523,48 +1552,6 @@ function updateAutoPopupButtonText() {
     }
 }
 
-// Event listeners
-console.log('Setting up event listeners...');
-console.log('checkNullMappings element:', checkNullMappings);
-
-checkNullMappings.addEventListener('click', (e) => {
-    console.log('Check Null Mappings button clicked!');
-    checkNullMappingsHandler();
-});
-
-runAutoDiscovery.addEventListener('click', runAutoDiscoveryHandler);
-updateGrammar.addEventListener('click', updateGrammarHandler);
-refreshHAStatus.addEventListener('click', updateHAStatus);
-saveEntityMapping.addEventListener('click', saveEntityMappingHandler);
-skipEntity.addEventListener('click', skipEntityHandler);
-
-// Auto-popup toggle
-if (toggleAutoPopup) {
-    toggleAutoPopup.addEventListener('click', () => {
-        toggleAutoPopup();
-        // Update button text
-        toggleAutoPopup.textContent = `Auto-Popup: ${autoPopupEnabled ? 'ON' : 'OFF'}`;
-    });
-}
-
-// Enter key in friendly name input
-friendlyNameInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        saveEntityMappingHandler();
-    }
-});
-
-// Real-time validation for friendly name input
-friendlyNameInput.addEventListener('input', (e) => {
-    const value = e.target.value.trim();
-    
-    // Clear error state if input becomes valid
-    if (value.length >= 2) {
-        e.target.classList.remove('error');
-        clearModalError();
-    }
-});
-
 // Initialize Home Assistant status
 updateHAStatus();
 
@@ -1594,6 +1581,8 @@ window.inspectModal = inspectModalState; // Alias for convenience
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOMContentLoaded event fired - initializing application...');
+    
     await loadModels();
     await updateHAStatus();
     
@@ -1629,4 +1618,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             toggleAutoPopup.textContent = `Auto-Popup: ${autoPopupEnabled ? 'ON' : 'OFF'}`;
         });
     }
+    
+    // Set up additional event listeners
+    if (saveEntityMapping) {
+        saveEntityMapping.addEventListener('click', saveEntityMappingHandler);
+    }
+    if (skipEntity) {
+        skipEntity.addEventListener('click', skipEntityHandler);
+    }
+    if (friendlyNameInput) {
+        // Enter key in friendly name input
+        friendlyNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                saveEntityMappingHandler();
+            }
+        });
+
+        // Real-time validation for friendly name input
+        friendlyNameInput.addEventListener('input', (e) => {
+            const value = e.target.value.trim();
+            
+            // Clear error state if input becomes valid
+            if (value.length >= 2) {
+                e.target.classList.remove('error');
+                clearModalError();
+            }
+        });
+    }
+    
+    console.log('Application initialization complete');
 }); 
