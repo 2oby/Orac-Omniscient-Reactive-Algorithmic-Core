@@ -34,10 +34,10 @@ async def test_auto_discovery():
         print(f"   - Entities with friendly names: {existing_mappings['entities_with_friendly_names']}")
         print(f"   - Entities needing friendly names: {existing_mappings['entities_needing_friendly_names']}")
         
-        if existing_mappings['entities_with_mappings']:
+        # Show existing mappings if any
+        if existing_mappings['total_entities'] > 0:
             print("   - Existing mappings:")
-            for entity_id in existing_mappings['entities_with_mappings']:
-                friendly_name = mapping_config.get_friendly_name(entity_id)
+            for entity_id, friendly_name in mapping_config._mappings.items():
                 print(f"     {entity_id} -> {friendly_name}")
         print()
         
