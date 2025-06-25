@@ -7,6 +7,7 @@ import asyncio
 import subprocess
 import sys
 import os
+import tempfile
 
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -40,25 +41,39 @@ async def test_grammar_with_llama():
             print("First 200 chars of grammar:")
             print(repr(gbnf_grammar[:200]))
             
-            # Test with llama-cli
+            # Write grammar to temporary file
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.gbnf', delete=False) as f:
+                f.write(gbnf_grammar)
+                temp_file = f.name
+            
+            print(f"Grammar written to temporary file: {temp_file}")
+            
+            # Test with llama-cli using file path
             print("\nTesting with llama-cli...")
             
             cmd = [
                 "/app/third_party/llama_cpp/bin/llama-cli",
                 "-m", "/app/models/gguf/distilgpt2.Q4_0.gguf",
                 "-p", '{"device": "bedroom lights", "action": "turn on"}',
-                "--grammar", gbnf_grammar,
+                "--grammar", temp_file,
                 "-n", "1",
                 "--temp", "0.1"
             ]
             
-            print(f"Command: {' '.join(cmd[:6])} [GRAMMAR] {' '.join(cmd[7:])}")
+            print(f"Command: {' '.join(cmd[:6])} [GRAMMAR_FILE] {' '.join(cmd[7:])}")
             
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             
             print(f"Return code: {result.returncode}")
             print(f"STDOUT:\n{result.stdout}")
             print(f"STDERR:\n{result.stderr}")
+            
+            # Clean up temporary file
+            try:
+                os.unlink(temp_file)
+                print(f"Cleaned up temporary file: {temp_file}")
+            except:
+                pass
             
             if result.returncode == 0:
                 print("✅ Grammar test PASSED!")
