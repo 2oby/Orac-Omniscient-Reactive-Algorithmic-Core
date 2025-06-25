@@ -7,6 +7,7 @@ import asyncio
 import json
 import sys
 import os
+import subprocess
 
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -163,5 +164,62 @@ ws ::= [ \\t\\n\\r]*
         import traceback
         traceback.print_exc()
 
+def write_and_test_simplified_grammar():
+    simplified_grammar = '''
+root ::= object
+
+object ::= "{" ws (string ":" ws value ("," ws string ":" ws value)*)? ws "}"
+
+value ::= object | array | string | number | boolean | null
+
+array ::= "[" ws (value ("," ws value)*)? ws "]"
+
+string ::= device_string | action_string | location_string | generic_string
+
+device_string ::= "\"device\"" ":" ws "\"" device_value "\""
+action_string ::= "\"action\"" ":" ws "\"" action_value "\""
+location_string ::= "\"location\"" ":" ws "\"" location_value "\""
+generic_string ::= "\"" ([^"\\] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))* "\""
+
+device_value ::= "bedroom lights" | "bathroom lights"
+action_value ::= "turn on" | "turn off"
+location_value ::= "bedroom" | "bathroom"
+
+number ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [-+]? [0-9]+)?
+
+boolean ::= "true" | "false"
+
+null ::= "null"
+
+ws ::= [ \t\n\r]*
+'''
+    with open("/app/data/simplified_grammar.gbnf", "w") as f:
+        f.write(simplified_grammar)
+    print("\nWrote simplified grammar to /app/data/simplified_grammar.gbnf\n")
+
+    # Run llama-cli with the grammar
+    llama_cli_path = "/app/third_party/llama_cpp/bin/llama-cli"
+    model_path = "/app/models/gguf/distilgpt2.Q4_0.gguf"  # Use a small model for test
+    prompt = '{"device": "'  # Should only allow valid device completions
+    grammar_path = "/app/data/simplified_grammar.gbnf"
+    cmd = [
+        llama_cli_path,
+        "-m", model_path,
+        "-p", prompt,
+        "--grammar", grammar_path,
+        "-n", "40",
+        "--log-disable"
+    ]
+    print(f"Running: {' '.join(cmd)}\n")
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        print("llama-cli stdout:\n", result.stdout)
+        print("llama-cli stderr:\n", result.stderr)
+    except Exception as e:
+        print(f"Error running llama-cli: {e}")
+
 if __name__ == "__main__":
-    asyncio.run(debug_gbnf()) 
+    asyncio.run(debug_gbnf())
+    print("\n=== llama.cpp Simplified Grammar Test ===\n")
+    write_and_test_simplified_grammar()
+    print("\n=== End llama.cpp Simplified Grammar Test ===\n") 
