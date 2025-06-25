@@ -77,11 +77,13 @@ async def debug_gbnf():
                     issues.append(f"Location '{location}' contains unescaped quotes")
             
             # Check for very long alternation rules
-            device_rule = f'device_value ::= {" | ".join([f\'"{d}"\' for d in device_vocab])}'
+            device_rule_parts = [f'"{d}"' for d in device_vocab]
+            device_rule = 'device_value ::= ' + ' | '.join(device_rule_parts)
             if len(device_rule) > 1000:
                 issues.append(f"Device value rule is very long ({len(device_rule)} chars)")
             
-            action_rule = f'action_value ::= {" | ".join([f\'"{a}"\' for a in action_vocab])}'
+            action_rule_parts = [f'"{a}"' for a in action_vocab]
+            action_rule = 'action_value ::= ' + ' | '.join(action_rule_parts)
             if len(action_rule) > 2000:
                 issues.append(f"Action value rule is very long ({len(action_rule)} chars)")
             
