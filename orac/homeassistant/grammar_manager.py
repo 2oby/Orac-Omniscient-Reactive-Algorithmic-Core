@@ -431,7 +431,7 @@ class HomeAssistantGrammarManager:
         action_vocab = grammar_dict.get("properties", {}).get("action", {}).get("enum", [])
         location_vocab = grammar_dict.get("properties", {}).get("location", {}).get("enum", [])
         
-        # Generate GBNF grammar
+        # Generate GBNF grammar with proper newlines
         gbnf_grammar = f"""root ::= object
 
 object ::= "{{" ws (string ":" ws value ("," ws string ":" ws value)*)? ws "}}"
@@ -448,7 +448,9 @@ location_string ::= "\\"location\\"" ":" ws "\\"" location_value "\\""
 generic_string ::= "\\"" ([^"\\\\] | "\\\\" (["\\\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))* "\\""
 
 device_value ::= {self._generate_alternation(device_vocab)}
+
 action_value ::= {self._generate_alternation(action_vocab)}
+
 location_value ::= {self._generate_alternation(location_vocab)}
 
 number ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [-+]? [0-9]+)?
@@ -472,7 +474,7 @@ ws ::= [ \\t\\n\\r]*
             GBNF alternation string
         """
         if not values:
-            return '""'  # Empty string if no values
+            return '"empty"'  # Valid GBNF rule instead of empty string
         
         # Escape quotes and create alternation
         escaped_values = []
