@@ -258,6 +258,20 @@ device_value ::= {" | ".join(device_rule_parts)}'''
         long_alternatives[:5]  # Check for first few
     )
     
+    # Test 7: Most minimal grammar (letters and digits)
+    print("\n" + "="*80)
+    print("TEST 7: Most Minimal Grammar (letters and digits)")
+    print("="*80)
+    
+    minimal_grammar = '''root ::= "a" | "b" | "c" | "1" | "2" | "3"'''
+    
+    tester.test_grammar_with_llama(
+        minimal_grammar,
+        "a",
+        "Most minimal grammar (a, b, c, 1, 2, 3)",
+        ["a", "b", "c", "1", "2", "3"]
+    )
+    
     # Print summary
     print("\n" + "="*80)
     print("TEST SUMMARY")
