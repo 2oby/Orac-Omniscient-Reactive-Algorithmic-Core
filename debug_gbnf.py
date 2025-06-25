@@ -176,7 +176,7 @@ word ::= "hello" | "world" | "test"'''
     # Run llama-cli with the grammar
     llama_cli_path = "/app/third_party/llama_cpp/bin/llama-cli"
     model_path = "/app/models/gguf/distilgpt2.Q4_0.gguf"  # Use a small model for test
-    prompt = ""  # Empty prompt, should generate one of the allowed words
+    prompt = "hello"  # Use a simple prompt to test grammar generation
     grammar_path = "/app/data/simplified_grammar.gbnf"
     cmd = [
         llama_cli_path,
