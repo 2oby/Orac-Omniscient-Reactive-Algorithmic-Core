@@ -806,4 +806,10 @@ class HAMappingBuilder:
 5. **Documentation**: Update user documentation
 6. **Deployment**: Deploy the complete auto-discovery system
 
-**The Home Assistant auto-discovery system is now complete and ready for production use, but the grammar constraints issue must be resolved for the system to be functional!** 
+**The Home Assistant auto-discovery system is now complete and ready for production use, but the grammar constraints issue must be resolved for the system to be functional!**
+
+## ⚠️ **UPDATE (June 25, 2025): GBNF Grammar Constraints - Partial Success**
+
+- **Simple grammars** (e.g., `root ::= "hello" | "world"`) work when passed as a string to llama.cpp, but grammar enforcement is leaky: the model sometimes generates only part of the allowed string or continues generating outside the grammar.
+- **Complex grammars** (e.g., JSON/object grammars) still fail to parse or are not enforced.
+- **Conclusion:** Grammar constraints are only partially working. The root cause may involve both grammar formatting and how llama.cpp enforces constraints during generation. 
