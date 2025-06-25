@@ -184,7 +184,7 @@ word ::= "hello" | "world" | "test"'''
         "-p", prompt,
         "--grammar", grammar_path,
         "-n", "10",
-        "--log-disable"
+        "--verbose"
     ]
     print(f"Running: {' '.join(cmd)}\n")
     try:
