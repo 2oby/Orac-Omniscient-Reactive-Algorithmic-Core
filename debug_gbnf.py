@@ -165,49 +165,25 @@ ws ::= [ \\t\\n\\r]*
         traceback.print_exc()
 
 def write_and_test_simplified_grammar():
-    simplified_grammar = '''
-root ::= object
-
-object ::= "{" ws (string ":" ws value ("," ws string ":" ws value)*)? ws "}"
-
-value ::= object | array | string | number | boolean | null
-
-array ::= "[" ws (value ("," ws value)*)? ws "]"
-
-string ::= device_string | action_string | location_string | generic_string
-
-device_string ::= "\"device\"" ":" ws "\"" device_value "\""
-action_string ::= "\"action\"" ":" ws "\"" action_value "\""
-location_string ::= "\"location\"" ":" ws "\"" location_value "\""
-generic_string ::= "\"" ([^"\\] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))* "\""
-
-device_value ::= "bedroom lights" | "bathroom lights"
-action_value ::= "turn on" | "turn off"
-location_value ::= "bedroom" | "bathroom"
-
-number ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [-+]? [0-9]+)?
-
-boolean ::= "true" | "false"
-
-null ::= "null"
-
-ws ::= [ \t\n\r]*
-'''
+    # The simplest possible GBNF grammar
+    simple_grammar = '''root ::= word
+word ::= "hello" | "world" | "test"'''
+    
     with open("/app/data/simplified_grammar.gbnf", "w") as f:
-        f.write(simplified_grammar)
+        f.write(simple_grammar)
     print("\nWrote simplified grammar to /app/data/simplified_grammar.gbnf\n")
 
     # Run llama-cli with the grammar
     llama_cli_path = "/app/third_party/llama_cpp/bin/llama-cli"
     model_path = "/app/models/gguf/distilgpt2.Q4_0.gguf"  # Use a small model for test
-    prompt = '{"device": "'  # Should only allow valid device completions
+    prompt = ""  # Empty prompt, should generate one of the allowed words
     grammar_path = "/app/data/simplified_grammar.gbnf"
     cmd = [
         llama_cli_path,
         "-m", model_path,
         "-p", prompt,
         "--grammar", grammar_path,
-        "-n", "40",
+        "-n", "10",
         "--log-disable"
     ]
     print(f"Running: {' '.join(cmd)}\n")
