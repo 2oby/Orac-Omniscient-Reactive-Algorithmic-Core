@@ -237,7 +237,7 @@ ws ::= [ \t\n\r]*'''
         special_grammar,
         '{"device": "bedroom\\"lights"}',
         "Grammar with escaped quotes",
-        ["bedroom\\"lights", "bathroom\\"lights"]
+        ["bedroom\"lights", "bathroom\"lights"]
     )
     
     # Test 6: Very long alternation rule
