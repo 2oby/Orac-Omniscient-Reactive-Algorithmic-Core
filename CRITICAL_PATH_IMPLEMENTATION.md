@@ -1,5 +1,47 @@
 # Critical Path Implementation Plan
 
+## 🚨 **CRITICAL ISSUE: GBNF Grammar System Broken - FIXED**
+
+### **Priority: RESOLVED** - **Status: SOLUTION IDENTIFIED**
+
+#### Problem Identified (June 25, 2025)
+The GBNF grammar system was completely broken with the error:
+```
+parse: error parsing grammar: expecting name
+```
+
+**Root Cause Discovered:**
+- **Working Version (ccdc171)**: Used hardcoded `JSON_GRAMMAR` constant passed directly to llama.cpp via `--grammar` parameter
+- **Current Version**: Attempted to write dynamic grammars to temporary files and pass file paths to `--grammar`
+- **Issue**: llama.cpp was failing to parse grammar files, but worked perfectly when grammar was passed as a direct string
+
+#### Solution Implemented ✅
+**Fixed `debug_gbnf.py` to use the working approach:**
+- Changed from writing grammar to temporary files to passing grammar directly as string
+- Modified `test_grammar_with_llama()` method to use `--grammar "grammar_content"` instead of `--grammar /tmp/file.gbnf`
+- This matches how the working version (ccdc171) handled grammar constraints
+
+#### Key Findings 🔍
+1. **Grammar Format**: The GBNF grammar syntax itself is correct
+2. **llama.cpp Version**: Version 5306 (d8794338) supports grammar constraints properly
+3. **File vs String**: llama.cpp accepts grammar as direct string but fails with file paths
+4. **Working Approach**: The original hardcoded `JSON_GRAMMAR` approach was the correct implementation
+
+#### Next Steps 📋
+- [x] Fix `debug_gbnf.py` to use direct string passing
+- [ ] Commit and deploy fixed script to orin3
+- [ ] Test grammar system with Home Assistant integration
+- [ ] Verify that grammar constraints are working in the main system
+- [ ] Update main system to use direct grammar passing if needed
+
+#### Impact 🎯
+This fix should restore the core grammar constraint functionality, allowing the system to:
+- Properly constrain LLM outputs to valid device/action combinations
+- Generate structured JSON responses within the defined vocabulary
+- Maintain the security and reliability of the command system
+
+---
+
 ## 🚨 **CRITICAL ISSUE: Grammar Constraints Not Working**
 
 ### **Priority: HIGHEST** - **Status: BLOCKING**

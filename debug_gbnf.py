@@ -30,25 +30,20 @@ class GBNFTester:
         print(f"\n🧪 Testing: {test_name}")
         print("=" * 60)
         
-        # Create temporary grammar file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.gbnf', delete=False) as f:
-            f.write(grammar_content)
-            grammar_path = f.name
-        
         try:
-            # Build command
+            # Build command - pass grammar directly as string instead of file
             cmd = [
                 self.llama_cli_path,
                 "-m", self.model_path,
                 "-p", prompt,
-                "--grammar", grammar_path,
+                "--grammar", grammar_content.strip(),  # Pass grammar directly
                 "-n", "5",  # Generate 5 tokens
                 "--temp", "0.1",  # Low temperature for more predictable output
                 "--repeat-penalty", "1.1",
                 "--verbose"
             ]
             
-            print(f"Command: {' '.join(cmd)}")
+            print(f"Command: {' '.join(cmd[:6])} [GRAMMAR] {' '.join(cmd[7:])}")
             print(f"Grammar:\n{grammar_content}")
             print(f"Prompt: '{prompt}'")
             print("-" * 40)
@@ -69,7 +64,7 @@ class GBNFTester:
             print(f"STDERR:\n{stderr}")
             
             # Check if grammar was parsed successfully
-            grammar_parsed = "Failed to parse grammar" not in stderr
+            grammar_parsed = "Failed to parse grammar" not in stderr and "error parsing grammar" not in stderr
             grammar_used = "grammar" in stdout.lower() or "constraint" in stdout.lower()
             
             # Check if output matches expected
@@ -108,12 +103,6 @@ class GBNFTester:
         except Exception as e:
             print(f"❌ Test failed with error: {e}")
             return {"test_name": test_name, "success": False, "error": str(e)}
-        finally:
-            # Clean up temporary file
-            try:
-                os.unlink(grammar_path)
-            except:
-                pass
 
 async def debug_gbnf():
     """Debug the GBNF grammar format."""
