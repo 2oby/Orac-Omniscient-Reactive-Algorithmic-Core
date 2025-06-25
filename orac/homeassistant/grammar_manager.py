@@ -410,102 +410,98 @@ class HomeAssistantGrammarManager:
             logger.error(f"Error discovering Home Assistant data: {e}")
             raise
 
-    def generate_gbnf_grammar(self, grammar_dict: Optional[Dict[str, Any]] = None) -> str:
-        """Generate a GBNF grammar string from the grammar dictionary.
-        
-        Args:
-            grammar_dict: Grammar dictionary (if None, uses cached grammar)
+    def generate_gbnf_grammar(self, grammar_dict: Dict[str, Any]) -> str:
+        """Generate GBNF grammar string from grammar dictionary."""
+        try:
+            # Extract vocabulary
+            properties = grammar_dict.get("properties", {})
             
-        Returns:
-            GBNF grammar string for llama.cpp
-        """
-        if grammar_dict is None:
-            grammar_dict = self._cached_grammar
-        
-        if not grammar_dict:
-            # Fallback to basic JSON grammar if no grammar available
-            return self._get_basic_json_grammar()
-        
-        # Extract vocabulary from grammar
-        device_vocab = grammar_dict.get("properties", {}).get("device", {}).get("enum", [])
-        action_vocab = grammar_dict.get("properties", {}).get("action", {}).get("enum", [])
-        location_vocab = grammar_dict.get("properties", {}).get("location", {}).get("enum", [])
-        
-        # Generate GBNF grammar with proper newlines
-        gbnf_grammar = f"""root ::= object
-
-object ::= "{{" ws (string ":" ws value ("," ws string ":" ws value)*)? ws "}}"
-
-value ::= object | array | string | number | boolean | null
-
-array ::= "[" ws (value ("," ws value)*)? ws "]"
-
-string ::= device_string | action_string | location_string | generic_string
-
-device_string ::= "\\"device\\"" ":" ws "\\"" device_value "\\""
-action_string ::= "\\"action\\"" ":" ws "\\"" action_value "\\""
-location_string ::= "\\"location\\"" ":" ws "\\"" location_value "\\""
-generic_string ::= "\\"" ([^"\\\\] | "\\\\" (["\\\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))* "\\""
-
-device_value ::= {self._generate_alternation(device_vocab)}
-
-action_value ::= {self._generate_alternation(action_vocab)}
-
-location_value ::= {self._generate_alternation(location_vocab)}
-
-number ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [-+]? [0-9]+)?
-
-boolean ::= "true" | "false"
-
-null ::= "null"
-
-ws ::= [ \\t\\n\\r]*
-"""
-        
-        return gbnf_grammar
-
-    def _generate_alternation(self, values: List[str]) -> str:
-        """Generate an alternation rule for GBNF grammar.
-        
-        Args:
-            values: List of string values to alternate between
+            # Get device, action, and location vocabularies
+            device_vocab = properties.get("device", {}).get("enum", [])
+            action_vocab = properties.get("action", {}).get("enum", [])
+            location_vocab = properties.get("location", {}).get("enum", [])
             
-        Returns:
-            GBNF alternation string
-        """
-        if not values:
-            return '"empty"'  # Valid GBNF rule instead of empty string
-        
-        # Escape quotes and create alternation
-        escaped_values = []
-        for value in values:
-            # Escape quotes and backslashes
-            escaped = value.replace('\\', '\\\\').replace('"', '\\"')
-            escaped_values.append(f'"{escaped}"')
-        
-        return " | ".join(escaped_values)
-
-    def _get_basic_json_grammar(self) -> str:
-        """Get a basic JSON grammar as fallback.
-        
-        Returns:
-            Basic GBNF JSON grammar string
-        """
-        return """root ::= object
-
-object ::= "{" ws (string ":" ws value ("," ws string ":" ws value)*)? ws "}"
-
-value ::= object | array | string | number | boolean | null
-
-array ::= "[" ws (value ("," ws value)*)? ws "]"
-
-string ::= "\"" ([^"\\] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))* "\""
-
-number ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [-+]? [0-9]+)?
-
-boolean ::= "true" | "false"
-
-null ::= "null"
-
-ws ::= [ \t\n\r]*
-"""
+            # Clean and validate vocabularies
+            device_vocab = [str(d).strip() for d in device_vocab if d and str(d).strip()]
+            action_vocab = [str(a).strip() for a in action_vocab if a and str(a).strip()]
+            location_vocab = [str(l).strip() for l in location_vocab if l and str(l).strip()]
+            
+            # Limit vocabulary size to avoid parsing issues
+            max_vocab_size = 20  # llama.cpp seems to have issues with very long alternation rules
+            device_vocab = device_vocab[:max_vocab_size]
+            action_vocab = action_vocab[:max_vocab_size]
+            location_vocab = location_vocab[:max_vocab_size]
+            
+            # Generate GBNF grammar with simplified rule names (no underscores)
+            gbnf_lines = []
+            
+            # Root rule
+            gbnf_lines.append("root ::= object")
+            gbnf_lines.append("")
+            
+            # Object structure
+            gbnf_lines.append("object ::= \"{\" ws (string \":\" ws value (\",\" ws string \":\" ws value)*)? ws \"}\"")
+            gbnf_lines.append("")
+            
+            # Value types
+            gbnf_lines.append("value ::= object | array | string | number | boolean | null")
+            gbnf_lines.append("")
+            
+            # Array structure
+            gbnf_lines.append("array ::= \"[\" ws (value (\",\" ws value)*)? ws \"]\"")
+            gbnf_lines.append("")
+            
+            # String types - use simple rule names without underscores
+            gbnf_lines.append("string ::= devicestring | actionstring | locationstring | genericstring")
+            gbnf_lines.append("")
+            
+            # Device string rule
+            if device_vocab:
+                device_quoted = [f'"{d}"' for d in device_vocab]
+                gbnf_lines.append(f'devicestring ::= "\\"device\\"" ":" ws "\\"" devicevalue "\\""')
+                gbnf_lines.append(f'devicevalue ::= {" | ".join(device_quoted)}')
+                gbnf_lines.append("")
+            
+            # Action string rule
+            if action_vocab:
+                action_quoted = [f'"{a}"' for a in action_vocab]
+                gbnf_lines.append(f'actionstring ::= "\\"action\\"" ":" ws "\\"" actionvalue "\\""')
+                gbnf_lines.append(f'actionvalue ::= {" | ".join(action_quoted)}')
+                gbnf_lines.append("")
+            
+            # Location string rule
+            if location_vocab:
+                location_quoted = [f'"{l}"' for l in location_vocab]
+                gbnf_lines.append(f'locationstring ::= "\\"location\\"" ":" ws "\\"" locationvalue "\\""')
+                gbnf_lines.append(f'locationvalue ::= {" | ".join(location_quoted)}')
+                gbnf_lines.append("")
+            
+            # Generic string rule - simplified to avoid complex character classes
+            gbnf_lines.append('genericstring ::= "\\"" stringcontent "\\""')
+            gbnf_lines.append('stringcontent ::= [^"]*')  # Simplified - any character except quote
+            gbnf_lines.append("")
+            
+            # Number rule - simplified
+            gbnf_lines.append("number ::= \"-\"? ([0-9] | [1-9] [0-9]*) (\".\" [0-9]+)? ([eE] [-+]? [0-9]+)?")
+            gbnf_lines.append("")
+            
+            # Boolean and null
+            gbnf_lines.append("boolean ::= \"true\" | \"false\"")
+            gbnf_lines.append("null ::= \"null\"")
+            gbnf_lines.append("")
+            
+            # Whitespace - simplified
+            gbnf_lines.append("ws ::= [ \\t\\n\\r]*")
+            
+            return "\n".join(gbnf_lines)
+            
+        except Exception as e:
+            self.logger.error(f"Error generating GBNF grammar: {e}")
+            # Fallback to minimal working grammar
+            return '''root ::= object
+object ::= "{" ws string ":" ws value ws "}"
+string ::= "\\"" stringcontent "\\""
+stringcontent ::= "device" | "action" | "location"
+value ::= "\\"" valuecontent "\\""
+valuecontent ::= "test"
+ws ::= [ \\t\\n\\r]*'''
