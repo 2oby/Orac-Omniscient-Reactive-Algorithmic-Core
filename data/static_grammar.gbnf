@@ -1,23 +1,13 @@
 root ::= "{" ws action_pair "," ws device_pair "}"
 
-action_pair ::= "\"action\":" ws "\"" action "\""
-device_pair ::= "\"device\":" ws "\"" device "\""
+action_pair ::= "\"action\":" ws action_value
+device_pair ::= "\"device\":" ws device_value
 
-action ::= 
-    "turn on" | 
-    "turn off" | 
-    "toggle" | 
-    "switch on" | 
-    "switch off" | 
-    "activate" | 
-    "deactivate"
+action_value ::= "\"" action "\""
+device_value ::= "\"" device "\""
 
-device ::= 
-    "bedroom lights" | 
-    "bathroom lights" | 
-    "kitchen lights" | 
-    "hall lights" | 
-    "lounge lights" | 
-    "toilet lights"
+action ::= "turn on" | "turn off" | "toggle" | "switch on" | "switch off" | "activate" | "deactivate"
+
+device ::= "bedroom lights" | "bathroom lights" | "kitchen lights" | "hall lights" | "lounge lights" | "toilet lights"
 
 ws ::= [ \t\n]* 
