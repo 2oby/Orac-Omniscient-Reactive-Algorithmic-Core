@@ -2,12 +2,14 @@
 set -euo pipefail
 
 # Improved deploy_and_test.sh script with llama.cpp integration
-# Usage: ./scripts/deploy_and_test.sh [commit_message] [branch] [service_name]
+# Usage: ./scripts/deploy_and_test.sh [commit_message] [branch] [service_name] [cleanup_level]
+# cleanup_level: normal (default) or aggressive
 
 # Default parameters
 COMMIT_MSG=${1:-"Update ORAC MVP"}
 DEPLOY_BRANCH=${2:-"MVP_HOMEASSISTANT"}   # Default to 'MVP_HOMEASSISTANT' branch if not specified
 SERVICE_NAME=${3:-"orac"}   # Docker Compose service to exec into
+CLEANUP_LEVEL=${4:-"normal"}   # normal or aggressive
 REMOTE_ALIAS="orin3"
 SSH_ORIGIN="https://github.com/2oby/Orac-Omniscient-Reactive-Algorithmic-Core.git"
 
@@ -21,8 +23,9 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}🚀 ORAC Deployment Script for Jetson${NC}"
 echo -e "${BLUE}===============================${NC}"
 echo -e "${YELLOW}Deploying branch: $DEPLOY_BRANCH${NC}"
-echo -e "${YELLOW}Usage: ./scripts/deploy_and_test.sh [commit_message] [branch] [service_name]${NC}"
+echo -e "${YELLOW}Usage: ./scripts/deploy_and_test.sh [commit_message] [branch] [service_name] [cleanup_level]${NC}"
 echo -e "${YELLOW}Example: ./scripts/deploy_and_test.sh \"Update API\" MVP_API${NC}"
+echo -e "${YELLOW}Example: ./scripts/deploy_and_test.sh \"Update API\" MVP_API orac aggressive${NC}"
 echo -e "${BLUE}===============================${NC}"
 
 # Check if we're on the correct branch
@@ -108,6 +111,55 @@ ssh "$REMOTE_ALIAS" "\
         echo 'nvidia-smi not available'; \
         jetson_release 2>/dev/null || echo 'jetson_release not available'; \
     fi; \
+    
+    echo '${BLUE}🧹 Cleaning up old Docker resources...${NC}'; \
+    echo '${YELLOW}Cleanup level: $CLEANUP_LEVEL${NC}'; \
+    \
+    echo '${YELLOW}Disk space before cleanup:${NC}'; \
+    df -h | grep -E '/$|/home'; \
+    \
+    echo '${YELLOW}Docker disk usage before cleanup:${NC}'; \
+    docker system df 2>/dev/null || echo 'Docker system df not available'; \
+    \
+    echo '${YELLOW}Stopping and removing old containers...${NC}'; \
+    \$DOCKER_CMD down --remove-orphans 2>/dev/null || true; \
+    docker container prune -f 2>/dev/null || true; \
+    \
+    if [ "$CLEANUP_LEVEL" = "aggressive" ]; then \
+        echo '${YELLOW}🔄 Aggressive cleanup mode - removing ALL unused Docker resources...${NC}'; \
+        echo '${YELLOW}Removing all unused images (including dangling)...${NC}'; \
+        docker image prune -a -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Removing all unused volumes...${NC}'; \
+        docker volume prune -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Removing all unused networks...${NC}'; \
+        docker network prune -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Removing build cache...${NC}'; \
+        docker builder prune -a -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Full system prune...${NC}'; \
+        docker system prune -a -f --volumes 2>/dev/null || true; \
+    else \
+        echo '${YELLOW}Normal cleanup mode - removing unused resources...${NC}'; \
+        echo '${YELLOW}Removing unused images...${NC}'; \
+        docker image prune -a -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Removing unused volumes...${NC}'; \
+        docker volume prune -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Removing unused networks...${NC}'; \
+        docker network prune -f 2>/dev/null || true; \
+    fi; \
+    \
+    echo '${YELLOW}Disk space after cleanup:${NC}'; \
+    df -h | grep -E '/$|/home'; \
+    \
+    echo '${YELLOW}Docker disk usage after cleanup:${NC}'; \
+    docker system df 2>/dev/null || echo 'Docker system df not available'; \
+    \
+    echo '${GREEN}✓ Docker cleanup completed${NC}'; \
     
     echo '${BLUE}🔍 Checking llama.cpp binaries...${NC}'; \
     if [ -d 'third_party/llama_cpp/bin' ]; then \
