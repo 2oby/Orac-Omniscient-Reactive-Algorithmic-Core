@@ -48,6 +48,7 @@ class HomeAssistantGrammarManager:
         self.client = client
         self.mapping_config = mapping_config or EntityMappingConfig(client=client)
         self.domain_mapper = DomainMapper()
+        self.logger = logger
         
         # Grammar persistence
         if grammar_file:
@@ -62,7 +63,7 @@ class HomeAssistantGrammarManager:
         self._cached_grammar = None
         self._grammar_version = None
         
-        logger.info(f"HomeAssistantGrammarManager initialized with grammar file: {self.grammar_file}")
+        self.logger.info(f"HomeAssistantGrammarManager initialized with grammar file: {self.grammar_file}")
 
     def _get_grammar_version(self) -> str:
         """Generate a version string for the current grammar state.
@@ -93,14 +94,14 @@ class HomeAssistantGrammarManager:
             
             # Check if version matches
             if data.get('version') == self._grammar_version:
-                logger.info("Loaded grammar from cache file")
+                self.logger.info("Loaded grammar from cache file")
                 return data.get('grammar')
             else:
-                logger.info("Grammar cache version mismatch, regenerating")
+                self.logger.info("Grammar cache version mismatch, regenerating")
                 return None
                 
         except Exception as e:
-            logger.warning(f"Error loading grammar from file: {e}")
+            self.logger.warning(f"Error loading grammar from file: {e}")
             return None
 
     def _save_grammar_to_file(self, grammar: Dict[str, Any]) -> None:
@@ -123,10 +124,10 @@ class HomeAssistantGrammarManager:
             with open(self.grammar_file, 'w') as f:
                 json.dump(data, f, indent=2)
             
-            logger.info(f"Saved grammar to file: {self.grammar_file}")
+            self.logger.info(f"Saved grammar to file: {self.grammar_file}")
             
         except Exception as e:
-            logger.error(f"Error saving grammar to file: {e}")
+            self.logger.error(f"Error saving grammar to file: {e}")
 
     def _get_friendly_name_with_fallback(self, entity_id: str) -> str:
         """Get friendly name for an entity, using entity_id as fallback if NULL.
@@ -159,7 +160,7 @@ class HomeAssistantGrammarManager:
         current_version = self._get_grammar_version()
         
         if not force_regenerate and self._cached_grammar and self._grammar_version == current_version:
-            logger.info("Using cached grammar")
+            self.logger.info("Using cached grammar")
             return self._cached_grammar
         
         # Try to load from file first
@@ -170,7 +171,7 @@ class HomeAssistantGrammarManager:
                 self._grammar_version = current_version
                 return cached_grammar
         
-        logger.info("Generating grammar rules from Home Assistant data...")
+        self.logger.info("Generating grammar rules from Home Assistant data...")
         
         try:
             # Get entities and services
@@ -204,13 +205,13 @@ class HomeAssistantGrammarManager:
             # Save to file
             self._save_grammar_to_file(grammar)
             
-            logger.info(f"Generated grammar with {len(grammar['properties']['device']['enum'])} devices, "
-                       f"{len(grammar['properties']['action']['enum'])} actions")
+            self.logger.info(f"Generated grammar with {len(grammar['properties']['device']['enum'])} devices, "
+                           f"{len(grammar['properties']['action']['enum'])} actions")
             
             return grammar
             
         except Exception as e:
-            logger.error(f"Error generating grammar: {e}")
+            self.logger.error(f"Error generating grammar: {e}")
             return {}
 
     def _generate_device_vocabulary(self, entities: List[Dict[str, Any]]) -> List[str]:
@@ -327,7 +328,7 @@ class HomeAssistantGrammarManager:
         Args:
             run_auto_discovery: Whether to run auto-discovery before updating
         """
-        logger.info("Updating grammar rules...")
+        self.logger.info("Updating grammar rules...")
         
         # Run auto-discovery to get latest mappings
         if run_auto_discovery and self.mapping_config:
@@ -336,7 +337,7 @@ class HomeAssistantGrammarManager:
         # Generate new grammar (force regeneration)
         grammar = await self.generate_grammar(force_regenerate=True)
         
-        logger.info("Grammar update complete")
+        self.logger.info("Grammar update complete")
 
     async def get_grammar(self, force_regenerate: bool = False) -> Dict[str, Any]:
         """Get current grammar rules.
@@ -379,43 +380,43 @@ class HomeAssistantGrammarManager:
         This method fetches entities, services, and areas from Home Assistant
         and logs them to the console for inspection.
         """
-        logger.info("Discovering Home Assistant data...")
+        self.logger.info("Discovering Home Assistant data...")
         
         try:
             # Get all entities
             entities = await self.client.get_states()
-            logger.info("\n=== Home Assistant Entities ===")
+            self.logger.info("\n=== Home Assistant Entities ===")
             for entity in entities:
                 entity_id = entity.get('entity_id')
                 friendly_name = self._get_friendly_name_with_fallback(entity_id)
-                logger.info(f"Entity: {entity_id} -> {friendly_name} = {entity.get('state')}")
+                self.logger.info(f"Entity: {entity_id} -> {friendly_name} = {entity.get('state')}")
             
             # Get all services
             services = await self.client.get_services()
-            logger.info("\n=== Home Assistant Services ===")
+            self.logger.info("\n=== Home Assistant Services ===")
             for domain, domain_services in services.items():
-                logger.info(f"\nDomain: {domain}")
+                self.logger.info(f"\nDomain: {domain}")
                 for service in domain_services:
-                    logger.info(f"  Service: {service}")
+                    self.logger.info(f"  Service: {service}")
             
             # Get all areas
             areas = await self.client.get_areas()
-            logger.info("\n=== Home Assistant Areas ===")
+            self.logger.info("\n=== Home Assistant Areas ===")
             for area in areas:
-                logger.info(f"Area: {area.get('name')} (ID: {area.get('area_id')})")
+                self.logger.info(f"Area: {area.get('name')} (ID: {area.get('area_id')})")
             
-            logger.info("\nHome Assistant data discovery complete")
+            self.logger.info("\nHome Assistant data discovery complete")
             
         except Exception as e:
-            logger.error(f"Error discovering Home Assistant data: {e}")
+            self.logger.error(f"Error discovering Home Assistant data: {e}")
             raise
 
     def generate_gbnf_grammar(self, grammar_dict: Dict[str, Any]) -> str:
         """Generate GBNF grammar string from grammar dictionary."""
         try:
-            # Escape spaces in vocabulary terms
+            # Proper escaping for GBNF strings
             def escape_gbnf_string(s):
-                return s.replace(" ", "\\ ")
+                return s.replace('\\', '\\\\').replace('"', '\\"').replace(' ', '\\ ')
             
             # Extract vocabulary
             properties = grammar_dict.get("properties", {})
@@ -431,68 +432,44 @@ class HomeAssistantGrammarManager:
             location_vocab = [str(l).strip() for l in location_vocab if l and str(l).strip()]
             
             # Limit vocabulary size to avoid parsing issues
-            max_vocab_size = 20  # llama.cpp seems to have issues with very long alternation rules
+            max_vocab_size = 15  # Reduced from 20 to avoid parsing issues
             device_vocab = device_vocab[:max_vocab_size]
             action_vocab = action_vocab[:max_vocab_size]
             location_vocab = location_vocab[:max_vocab_size]
             
-            # Generate GBNF grammar with simplified rule names (no underscores)
+            # Generate GBNF grammar with correct escaping
             gbnf_lines = []
             
             # Root rule
             gbnf_lines.append("root ::= object")
             gbnf_lines.append("")
             
-            # Object structure
-            gbnf_lines.append("object ::= \"{\" ws (string \":\" ws value (\",\" ws string \":\" ws value)*)? ws \"}\"")
+            # Object structure - simplified to avoid complex parsing
+            gbnf_lines.append('object ::= "{" ws device_string "," ws action_string ws "}"')
             gbnf_lines.append("")
             
-            # Value types
-            gbnf_lines.append("value ::= object | array | string | number | boolean | null")
+            # String definitions with correct escaping
+            gbnf_lines.append('device_string ::= "\\"device\\"" ":" ws "\\"" device_value "\\""')
+            gbnf_lines.append('action_string ::= "\\"action\\"" ":" ws "\\"" action_value "\\""')
             gbnf_lines.append("")
             
-            # Array structure
-            gbnf_lines.append("array ::= \"[\" ws (value (\",\" ws value)*)? ws \"]\"")
-            gbnf_lines.append("")
-            
-            # String types - use simple rule names without underscores
-            gbnf_lines.append("string ::= devicestring | actionstring | locationstring | genericstring")
-            gbnf_lines.append("")
-            
-            # Device strings with escaped spaces
+            # Device values with proper escaping
             if device_vocab:
-                gbnf_lines.append(
-                    "devicestring ::= " + " | ".join(f'"{escape_gbnf_string(d)}"' for d in device_vocab)
-                )
+                device_escaped = [f'"{escape_gbnf_string(d)}"' for d in device_vocab]
+                gbnf_lines.append("device_value ::= " + " | ".join(device_escaped))
                 gbnf_lines.append("")
             
-            # Action strings with escaped spaces
+            # Action values with proper escaping
             if action_vocab:
-                gbnf_lines.append(
-                    "actionstring ::= " + " | ".join(f'"{escape_gbnf_string(a)}"' for a in action_vocab)
-                )
+                action_escaped = [f'"{escape_gbnf_string(a)}"' for a in action_vocab]
+                gbnf_lines.append("action_value ::= " + " | ".join(action_escaped))
                 gbnf_lines.append("")
             
-            # Location strings with escaped spaces
+            # Location values with proper escaping (optional field)
             if location_vocab:
-                gbnf_lines.append(
-                    "locationstring ::= " + " | ".join(f'"{escape_gbnf_string(l)}"' for l in location_vocab)
-                )
+                location_escaped = [f'"{escape_gbnf_string(l)}"' for l in location_vocab]
+                gbnf_lines.append("location_value ::= " + " | ".join(location_escaped))
                 gbnf_lines.append("")
-            
-            # Generic string rule - simplified to avoid complex character classes
-            gbnf_lines.append('genericstring ::= "\\"" stringcontent "\\""')
-            gbnf_lines.append('stringcontent ::= [^"]*')  # Simplified - any character except quote
-            gbnf_lines.append("")
-            
-            # Number rule - simplified
-            gbnf_lines.append("number ::= \"-\"? ([0-9] | [1-9] [0-9]*) (\".\" [0-9]+)? ([eE] [-+]? [0-9]+)?")
-            gbnf_lines.append("")
-            
-            # Boolean and null
-            gbnf_lines.append("boolean ::= \"true\" | \"false\"")
-            gbnf_lines.append("null ::= \"null\"")
-            gbnf_lines.append("")
             
             # Whitespace - simplified
             gbnf_lines.append("ws ::= [ \\t\\n\\r]*")
@@ -567,9 +544,9 @@ class HomeAssistantGrammarManager:
             Minimal working GBNF grammar string
         """
         return '''root ::= object
-object ::= "{" ws string ":" ws value ws "}"
-string ::= "\\"" stringcontent "\\""
-stringcontent ::= "device" | "action" | "location"
-value ::= "\\"" valuecontent "\\""
-valuecontent ::= "test"
+object ::= "{" ws device_string "," ws action_string ws "}"
+device_string ::= "\\"device\\"" ":" ws "\\"" device_value "\\""
+action_string ::= "\\"action\\"" ":" ws "\\"" action_value "\\""
+device_value ::= "\\"bedroom\\ lights\\"" | "\\"kitchen\\ lights\\""
+action_value ::= "\\"turn\\ on\\"" | "\\"turn\\ off\\""
 ws ::= [ \\t\\n\\r]*'''
