@@ -1,6 +1,16 @@
-root ::= "{" ws "\"action\":" ws "\"" action "\"" "," ws "\"device\":" ws "\"" device "\"" "}"
+root ::= "{" ws action_pair "," ws device_pair "}"
 
-action ::= "turn on" | "turn off" | "toggle" | "switch on" | "switch off" | "activate" | "deactivate"
+action_pair ::= "\"action\":" ws "\"" action "\""
+device_pair ::= "\"device\":" ws "\"" device "\""
+
+action ::= 
+    "turn on" | 
+    "turn off" | 
+    "toggle" | 
+    "switch on" | 
+    "switch off" | 
+    "activate" | 
+    "deactivate"
 
 device ::= 
     "bedroom lights" | 
