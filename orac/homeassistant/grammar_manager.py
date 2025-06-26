@@ -465,7 +465,7 @@ class HomeAssistantGrammarManager:
         try:
             # Proper escaping for GBNF strings
             def escape_gbnf_string(s):
-                return s.replace('\\', '\\\\').replace('"', '\\"').replace(' ', '\\ ')
+                return s.replace('\\', '\\\\').replace('"', '\\"').replace(' ', '\\\\ ')
             
             # Extract vocabulary
             properties = grammar_dict.get("properties", {})
@@ -475,78 +475,55 @@ class HomeAssistantGrammarManager:
             action_vocab = properties.get("action", {}).get("enum", [])
             location_vocab = properties.get("location", {}).get("enum", [])
             
-            # Clean and validate vocabularies
-            device_vocab = [str(d).strip() for d in device_vocab if d and str(d).strip()]
-            action_vocab = [str(a).strip() for a in action_vocab if a and str(a).strip()]
-            location_vocab = [str(l).strip() for l in location_vocab if l and str(l).strip()]
+            # Clean and validate vocabulary (limit to 10 items each)
+            device_vocab = [str(d).strip() for d in device_vocab if d and str(d).strip()][:10]
+            action_vocab = [str(a).strip() for a in action_vocab if a and str(a).strip()][:10]
+            location_vocab = [str(l).strip() for l in location_vocab if l and str(l).strip()][:10]
             
-            # Limit vocabulary size to avoid parsing issues
-            max_vocab_size = 10  # Further reduced to avoid parsing issues
-            device_vocab = device_vocab[:max_vocab_size]
-            action_vocab = action_vocab[:max_vocab_size]
-            location_vocab = location_vocab[:max_vocab_size]
+            # Build GBNF grammar lines
+            gbnf_lines = [
+                "root ::= command",
+                "",
+                "# Simple command structure",
+                "command ::= device_part action_part",
+                "",
+                "# Device part",
+                "device_part ::= device_label device_value",
+                "device_label ::= \"device:\"",
+                "device_value ::= " + " | ".join(f'"{escape_gbnf_string(d)}"' for d in device_vocab),
+                "",
+                "# Action part", 
+                "action_part ::= action_label action_value",
+                "action_label ::= \"action:\"",
+                "action_value ::= " + " | ".join(f'"{escape_gbnf_string(a)}"' for a in action_vocab),
+                "",
+                "# Location part (optional)",
+                "location_part ::= location_label location_value",
+                "location_label ::= \"location:\"",
+                "location_value ::= " + " | ".join(f'"{escape_gbnf_string(l)}"' for l in location_vocab),
+                "",
+                "# Whitespace",
+                "ws ::= [ \\t\\n\\r]*"
+            ]
             
-            # Generate GBNF grammar with correct escaping
-            gbnf_lines = []
-            
-            # Root rule
-            gbnf_lines.append("root ::= object")
-            gbnf_lines.append("")
-            
-            # Object structure - simplified to avoid complex parsing
-            gbnf_lines.append('object ::= "{" ws device_field "," ws action_field ws "}"')
-            gbnf_lines.append("")
-            
-            # Field definitions with simpler structure
-            gbnf_lines.append('device_field ::= "\\"device\\"" ":" ws device_value')
-            gbnf_lines.append('action_field ::= "\\"action\\"" ":" ws action_value')
-            gbnf_lines.append("")
-            
-            # Device values with proper escaping
-            if device_vocab:
-                device_escaped = [f'"{escape_gbnf_string(d)}"' for d in device_vocab]
-                gbnf_lines.append("device_value ::= " + " | ".join(device_escaped))
-                gbnf_lines.append("")
-            
-            # Action values with proper escaping
-            if action_vocab:
-                action_escaped = [f'"{escape_gbnf_string(a)}"' for a in action_vocab]
-                gbnf_lines.append("action_value ::= " + " | ".join(action_escaped))
-                gbnf_lines.append("")
-            
-            # Location values with proper escaping (optional field)
-            if location_vocab:
-                location_escaped = [f'"{escape_gbnf_string(l)}"' for l in location_vocab]
-                gbnf_lines.append("location_value ::= " + " | ".join(location_escaped))
-                gbnf_lines.append("")
-            
-            # Whitespace - simplified
-            gbnf_lines.append("ws ::= [ \\t\\n\\r]*")
-            
+            # Join lines and validate
             grammar_str = "\n".join(gbnf_lines)
             
             # Validate the generated grammar
-            if not self.validate_gbnf_grammar(grammar_str):
+            if self.validate_gbnf_grammar(grammar_str):
+                self.logger.info("GBNF grammar validation passed")
+                return grammar_str
+            else:
                 self.logger.warning("Generated grammar failed validation, using fallback")
-                return self._get_fallback_grammar()
-            
-            return grammar_str
-            
+                return self._generate_fallback_grammar()
+                
         except Exception as e:
             self.logger.error(f"Error generating GBNF grammar: {e}")
-            # Fallback to minimal working grammar
-            return self._get_fallback_grammar()
-
-    def _get_fallback_grammar(self) -> str:
-        """Get a minimal working GBNF grammar as fallback.
-        
-        Returns:
-            Minimal working GBNF grammar string
-        """
-        return '''root ::= object
-object ::= "{" ws device_field "," ws action_field ws "}"
-device_field ::= "\\"device\\"" ":" ws device_value
-action_field ::= "\\"action\\"" ":" ws action_value
-device_value ::= "\\"bedroom\\ lights\\"" | "\\"kitchen\\ lights\\""
-action_value ::= "\\"turn\\ on\\"" | "\\"turn\\ off\\""
-ws ::= [ \\t\\n\\r]*'''
+            return self._generate_fallback_grammar()
+    
+    def _generate_fallback_grammar(self) -> str:
+        """Generate a simple fallback grammar when main generation fails."""
+        return '''root ::= command
+command ::= "device:" device_value "action:" action_value
+device_value ::= "bedroom lights" | "bathroom lights" | "kitchen lights"
+action_value ::= "turn on" | "turn off" | "toggle"'''
