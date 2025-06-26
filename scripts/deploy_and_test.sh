@@ -109,6 +109,16 @@ ssh "$REMOTE_ALIAS" "\
         jetson_release 2>/dev/null || echo 'jetson_release not available'; \
     fi; \
     
+    echo '${BLUE}🧹 Cleaning up disk space...${NC}'; \
+    echo 'Cleaning Docker system...'; \
+    docker system prune -af --volumes || echo 'Docker cleanup failed or not needed'; \
+    echo 'Cleaning package cache...'; \
+    sudo apt-get clean || echo 'Package cache cleanup failed or not needed'; \
+    echo 'Cleaning temporary files...'; \
+    sudo rm -rf /tmp/* || echo 'Temp cleanup failed or not needed'; \
+    echo 'Disk space after cleanup:'; \
+    df -h | grep -E '/$|/home'; \
+    
     echo '${BLUE}🔍 Checking llama.cpp binaries...${NC}'; \
     if [ -d 'third_party/llama_cpp/bin' ]; then \
         echo 'Checking llama.cpp binaries:'; \
