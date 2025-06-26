@@ -1,0 +1,10 @@
+root ::= ws action_value "," ws "\"device\"" ws ":" ws device_value ws "}"
+
+action_value ::= "\"" action "\""
+device_value ::= "\"" device "\""
+
+action ::= "turn on" | "turn off" | "toggle"
+
+device ::= "bedroom lights" | "bathroom lights" | "kitchen lights" | "living room lights"
+
+ws ::= [ \t\n]* 

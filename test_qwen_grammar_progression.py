@@ -36,21 +36,35 @@ class QwenGrammarTester:
             "/app/data/static_grammar.gbnf"
         ]
         
-        # Test prompts for each grammar
+        # Test prompts that users would actually provide
         self.test_prompts = {
             "hello_world": [
-                "hello",
-                "world", 
-                "test",
-                ""
+                "hello",               # Should generate "hello" or "world"
+                "world",               # Should generate "hello" or "world" 
+                "test",                # Invalid prompt - should fail or generate nothing
+                ""                     # Empty prompt - edge case
             ],
             "static_grammar": [
-                '{"action": "turn on", "device": "kitchen lights"}',
-                '{"action": "turn off", "device": "bedroom lights"}',
-                '{"action": "toggle", "device": "bathroom lights"}',
-                'turn on the kitchen lights'
+                "turn on the kitchen lights",      # ✅ Natural language prompt
+                "switch off the bedroom lights",   # ✅ Natural language prompt
+                "toggle the bathroom lights",      # ✅ Natural language prompt
+                "activate the hall lights"         # ✅ Natural language prompt
             ]
         }
+    
+    def load_grammar_safely(self, grammar_file: str) -> Optional[str]:
+        """Safely load grammar file with error handling."""
+        try:
+            with open(grammar_file, 'r') as f:
+                grammar_content = f.read()
+            print(f"✅ Grammar loaded successfully: {os.path.basename(grammar_file)}")
+            return grammar_content
+        except FileNotFoundError:
+            print(f"❌ Grammar file not found: {grammar_file}")
+            return None
+        except Exception as e:
+            print(f"❌ Failed to load grammar {grammar_file}: {e}")
+            return None
     
     def test_model_with_grammar(self, model_path: str, grammar_file: str, prompt: str, test_name: str) -> Dict[str, Any]:
         """Test a specific model with a specific grammar and prompt."""
@@ -67,8 +81,16 @@ class QwenGrammarTester:
             print(f"❌ {error_msg}")
             return {"test_name": test_name, "success": False, "error": error_msg}
         
-        if not os.path.exists(grammar_file):
-            error_msg = f"Grammar file not found: {grammar_file}"
+        # Load and validate grammar
+        grammar_content = self.load_grammar_safely(grammar_file)
+        if grammar_content is None:
+            error_msg = f"Grammar failed to load: {grammar_file}"
+            print(f"❌ {error_msg}")
+            return {"test_name": test_name, "success": False, "error": error_msg}
+        
+        # Validate grammar syntax (basic check)
+        if not self._validate_grammar_syntax(grammar_content):
+            error_msg = f"Grammar syntax validation failed: {grammar_file}"
             print(f"❌ {error_msg}")
             return {"test_name": test_name, "success": False, "error": error_msg}
         
@@ -151,6 +173,39 @@ class QwenGrammarTester:
             error_msg = f"Unexpected error: {e}"
             print(f"❌ {error_msg}")
             return {"test_name": test_name, "success": False, "error": error_msg}
+    
+    def _validate_grammar_syntax(self, grammar_content: str) -> bool:
+        """Basic GBNF syntax validation."""
+        try:
+            lines = grammar_content.strip().split('\n')
+            
+            # Check for basic GBNF structure
+            has_root = False
+            has_rules = False
+            
+            for line in lines:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                    
+                if '::=' in line:
+                    has_rules = True
+                    if 'root' in line.split('::=')[0].strip():
+                        has_root = True
+            
+            if not has_rules:
+                print("❌ No grammar rules found (missing ::=)")
+                return False
+                
+            if not has_root:
+                print("❌ No root rule found")
+                return False
+                
+            return True
+            
+        except Exception as e:
+            print(f"❌ Grammar validation error: {e}")
+            return False
     
     def _check_grammar_compliance(self, generated_text: str, grammar_file: str) -> bool:
         """Check if generated text complies with the grammar."""
