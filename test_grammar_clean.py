@@ -40,8 +40,7 @@ class CleanGrammarTester:
                 "-p", prompt,
                 "-n", "5",  # Generate 5 tokens
                 "--temp", "0.1",  # Low temperature for more predictable output
-                "--repeat-penalty", "1.1",
-                "--no-verbose"  # Reduce verbose output
+                "--repeat-penalty", "1.1"
             ]
             
             # Add grammar (either as file or string)
