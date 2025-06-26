@@ -413,6 +413,10 @@ class HomeAssistantGrammarManager:
     def generate_gbnf_grammar(self, grammar_dict: Dict[str, Any]) -> str:
         """Generate GBNF grammar string from grammar dictionary."""
         try:
+            # Escape spaces in vocabulary terms
+            def escape_gbnf_string(s):
+                return s.replace(" ", "\\ ")
+            
             # Extract vocabulary
             properties = grammar_dict.get("properties", {})
             
@@ -455,25 +459,25 @@ class HomeAssistantGrammarManager:
             gbnf_lines.append("string ::= devicestring | actionstring | locationstring | genericstring")
             gbnf_lines.append("")
             
-            # Device string rule
+            # Device strings with escaped spaces
             if device_vocab:
-                device_quoted = [f'"{d}"' for d in device_vocab]
-                gbnf_lines.append(f'devicestring ::= "\\"device\\"" ":" ws "\\"" devicevalue "\\""')
-                gbnf_lines.append(f'devicevalue ::= {" | ".join(device_quoted)}')
+                gbnf_lines.append(
+                    "devicestring ::= " + " | ".join(f'"{escape_gbnf_string(d)}"' for d in device_vocab)
+                )
                 gbnf_lines.append("")
             
-            # Action string rule
+            # Action strings with escaped spaces
             if action_vocab:
-                action_quoted = [f'"{a}"' for a in action_vocab]
-                gbnf_lines.append(f'actionstring ::= "\\"action\\"" ":" ws "\\"" actionvalue "\\""')
-                gbnf_lines.append(f'actionvalue ::= {" | ".join(action_quoted)}')
+                gbnf_lines.append(
+                    "actionstring ::= " + " | ".join(f'"{escape_gbnf_string(a)}"' for a in action_vocab)
+                )
                 gbnf_lines.append("")
             
-            # Location string rule
+            # Location strings with escaped spaces
             if location_vocab:
-                location_quoted = [f'"{l}"' for l in location_vocab]
-                gbnf_lines.append(f'locationstring ::= "\\"location\\"" ":" ws "\\"" locationvalue "\\""')
-                gbnf_lines.append(f'locationvalue ::= {" | ".join(location_quoted)}')
+                gbnf_lines.append(
+                    "locationstring ::= " + " | ".join(f'"{escape_gbnf_string(l)}"' for l in location_vocab)
+                )
                 gbnf_lines.append("")
             
             # Generic string rule - simplified to avoid complex character classes
@@ -493,12 +497,76 @@ class HomeAssistantGrammarManager:
             # Whitespace - simplified
             gbnf_lines.append("ws ::= [ \\t\\n\\r]*")
             
-            return "\n".join(gbnf_lines)
+            grammar_str = "\n".join(gbnf_lines)
+            
+            # Validate the generated grammar
+            if not self.validate_gbnf_grammar(grammar_str):
+                self.logger.warning("Generated grammar failed validation, using fallback")
+                return self._get_fallback_grammar()
+            
+            return grammar_str
             
         except Exception as e:
             self.logger.error(f"Error generating GBNF grammar: {e}")
             # Fallback to minimal working grammar
-            return '''root ::= object
+            return self._get_fallback_grammar()
+
+    def validate_gbnf_grammar(self, grammar_str: str) -> bool:
+        """Validate GBNF grammar string for syntax correctness.
+        
+        Args:
+            grammar_str: The GBNF grammar string to validate
+            
+        Returns:
+            True if grammar is valid, False otherwise
+        """
+        try:
+            # Basic validation checks
+            if not grammar_str or not grammar_str.strip():
+                self.logger.error("Grammar string is empty")
+                return False
+            
+            # Check for required root rule
+            if "root ::=" not in grammar_str:
+                self.logger.error("Grammar missing root rule")
+                return False
+            
+            # Check for basic syntax patterns
+            lines = grammar_str.split('\n')
+            for line in lines:
+                line = line.strip()
+                if line and '::=' in line:
+                    # Check rule name format (no spaces, valid characters)
+                    rule_name = line.split('::=')[0].strip()
+                    if ' ' in rule_name or not rule_name.isalnum():
+                        self.logger.error(f"Invalid rule name: {rule_name}")
+                        return False
+            
+            # Check for unescaped quotes in vocabulary
+            if '"' in grammar_str and '\\"' not in grammar_str:
+                # Look for potential unescaped quotes in vocabulary
+                import re
+                vocab_pattern = r'"([^"]*)"'
+                matches = re.findall(vocab_pattern, grammar_str)
+                for match in matches:
+                    if '"' in match and '\\"' not in match:
+                        self.logger.error(f"Found unescaped quote in vocabulary: {match}")
+                        return False
+            
+            self.logger.info("GBNF grammar validation passed")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error validating GBNF grammar: {e}")
+            return False
+
+    def _get_fallback_grammar(self) -> str:
+        """Get a minimal working GBNF grammar as fallback.
+        
+        Returns:
+            Minimal working GBNF grammar string
+        """
+        return '''root ::= object
 object ::= "{" ws string ":" ws value ws "}"
 string ::= "\\"" stringcontent "\\""
 stringcontent ::= "device" | "action" | "location"
