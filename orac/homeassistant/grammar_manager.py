@@ -463,9 +463,9 @@ class HomeAssistantGrammarManager:
     def generate_gbnf_grammar(self, grammar_dict: Dict[str, Any]) -> str:
         """Generate GBNF grammar string from grammar dictionary."""
         try:
-            # Proper escaping for GBNF strings
+            # Proper escaping for GBNF strings - use single backslashes
             def escape_gbnf_string(s):
-                return s.replace('\\', '\\\\').replace('"', '\\"').replace(' ', '\\\\ ')
+                return s.replace('\\', '\\\\').replace('"', '\\"').replace(' ', '\\ ')
             
             # Extract vocabulary
             properties = grammar_dict.get("properties", {})
@@ -475,34 +475,34 @@ class HomeAssistantGrammarManager:
             action_vocab = properties.get("action", {}).get("enum", [])
             location_vocab = properties.get("location", {}).get("enum", [])
             
-            # Clean and validate vocabulary (limit to 5 items each for maximum compatibility)
-            device_vocab = [str(d).strip() for d in device_vocab if d and str(d).strip()][:5]
-            action_vocab = [str(a).strip() for a in action_vocab if a and str(a).strip()][:5]
-            location_vocab = [str(l).strip() for l in location_vocab if l and str(l).strip()][:5]
+            # Clean and validate vocabulary
+            device_vocab = [str(d).strip() for d in device_vocab if d and str(d).strip()][:10]
+            action_vocab = [str(a).strip() for a in action_vocab if a and str(a).strip()][:10]
+            location_vocab = [str(l).strip() for l in location_vocab if l and str(l).strip()][:10]
             
-            # Build GBNF grammar lines - simplest possible structure
-            gbnf_lines = [
-                "root ::= device_value",
-                "",
-                "device_value ::= " + " | ".join(f'"{escape_gbnf_string(d)}"' for d in device_vocab)
-            ]
+            # Build GBNF grammar lines
+            gbnf_lines = []
             
-            # Join lines and validate
+            # Root rule - simplest possible
+            gbnf_lines.append("root ::= device_value")
+            gbnf_lines.append("")
+            
+            # Device values with proper escaping
+            if device_vocab:
+                device_alternatives = [f'"{escape_gbnf_string(d)}"' for d in device_vocab]
+                gbnf_lines.append(f"device_value ::= {' | '.join(device_alternatives)}")
+            else:
+                gbnf_lines.append('device_value ::= "unknown"')
+            
+            # Join all lines
             grammar_str = "\n".join(gbnf_lines)
             
-            # Validate the generated grammar
-            if self.validate_gbnf_grammar(grammar_str):
-                self.logger.info("GBNF grammar validation passed")
-                return grammar_str
-            else:
-                self.logger.warning("Generated grammar failed validation, using fallback")
-                return self._generate_fallback_grammar()
-                
+            self.logger.info(f"Generated GBNF grammar with {len(device_vocab)} devices")
+            
+            return grammar_str
+            
         except Exception as e:
             self.logger.error(f"Error generating GBNF grammar: {e}")
-            return self._generate_fallback_grammar()
-    
-    def _generate_fallback_grammar(self) -> str:
-        """Generate a simple fallback grammar when main generation fails."""
-        return '''root ::= device_value
-device_value ::= "bedroom lights" | "bathroom lights" | "kitchen lights"'''
+            # Return fallback grammar
+            return '''root ::= "fallback"
+fallback ::= "error"'''
