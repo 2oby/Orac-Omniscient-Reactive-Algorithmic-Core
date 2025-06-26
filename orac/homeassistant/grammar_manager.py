@@ -411,6 +411,55 @@ class HomeAssistantGrammarManager:
             self.logger.error(f"Error discovering Home Assistant data: {e}")
             raise
 
+    def validate_gbnf_grammar(self, grammar_str: str) -> bool:
+        """Validate GBNF grammar string for syntax correctness.
+        
+        Args:
+            grammar_str: The GBNF grammar string to validate
+            
+        Returns:
+            True if grammar is valid, False otherwise
+        """
+        try:
+            # Basic validation checks
+            if not grammar_str or not grammar_str.strip():
+                self.logger.error("Grammar string is empty")
+                return False
+            
+            # Check for required root rule
+            if "root ::=" not in grammar_str:
+                self.logger.error("Grammar missing root rule")
+                return False
+            
+            # Check for basic syntax patterns
+            lines = grammar_str.split('\n')
+            for line in lines:
+                line = line.strip()
+                if line and '::=' in line:
+                    # Check rule name format (allow underscores and alphanumeric)
+                    rule_name = line.split('::=')[0].strip()
+                    if ' ' in rule_name or not all(c.isalnum() or c == '_' for c in rule_name):
+                        self.logger.error(f"Invalid rule name: {rule_name}")
+                        return False
+            
+            # Check for unescaped quotes in vocabulary
+            if '"' in grammar_str and '\\"' not in grammar_str:
+                # Look for potential unescaped quotes in vocabulary
+                import re
+                vocab_pattern = r'"([^"]*)"'
+                matches = re.findall(vocab_pattern, grammar_str)
+                for match in matches:
+                    if '"' in match and '\\"' not in match:
+                        self.logger.error(f"Found unescaped quote in vocabulary: {match}")
+                        return False
+            
+            self.logger.info("GBNF grammar validation passed")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error validating GBNF grammar: {e}")
+            return False
+
     def generate_gbnf_grammar(self, grammar_dict: Dict[str, Any]) -> str:
         """Generate GBNF grammar string from grammar dictionary."""
         try:
@@ -432,7 +481,7 @@ class HomeAssistantGrammarManager:
             location_vocab = [str(l).strip() for l in location_vocab if l and str(l).strip()]
             
             # Limit vocabulary size to avoid parsing issues
-            max_vocab_size = 15  # Reduced from 20 to avoid parsing issues
+            max_vocab_size = 10  # Further reduced to avoid parsing issues
             device_vocab = device_vocab[:max_vocab_size]
             action_vocab = action_vocab[:max_vocab_size]
             location_vocab = location_vocab[:max_vocab_size]
@@ -445,12 +494,12 @@ class HomeAssistantGrammarManager:
             gbnf_lines.append("")
             
             # Object structure - simplified to avoid complex parsing
-            gbnf_lines.append('object ::= "{" ws device_string "," ws action_string ws "}"')
+            gbnf_lines.append('object ::= "{" ws device_field "," ws action_field ws "}"')
             gbnf_lines.append("")
             
-            # String definitions with correct escaping
-            gbnf_lines.append('device_string ::= "\\"device\\"" ":" ws "\\"" device_value "\\""')
-            gbnf_lines.append('action_string ::= "\\"action\\"" ":" ws "\\"" action_value "\\""')
+            # Field definitions with simpler structure
+            gbnf_lines.append('device_field ::= "\\"device\\"" ":" ws device_value')
+            gbnf_lines.append('action_field ::= "\\"action\\"" ":" ws action_value')
             gbnf_lines.append("")
             
             # Device values with proper escaping
@@ -488,55 +537,6 @@ class HomeAssistantGrammarManager:
             # Fallback to minimal working grammar
             return self._get_fallback_grammar()
 
-    def validate_gbnf_grammar(self, grammar_str: str) -> bool:
-        """Validate GBNF grammar string for syntax correctness.
-        
-        Args:
-            grammar_str: The GBNF grammar string to validate
-            
-        Returns:
-            True if grammar is valid, False otherwise
-        """
-        try:
-            # Basic validation checks
-            if not grammar_str or not grammar_str.strip():
-                self.logger.error("Grammar string is empty")
-                return False
-            
-            # Check for required root rule
-            if "root ::=" not in grammar_str:
-                self.logger.error("Grammar missing root rule")
-                return False
-            
-            # Check for basic syntax patterns
-            lines = grammar_str.split('\n')
-            for line in lines:
-                line = line.strip()
-                if line and '::=' in line:
-                    # Check rule name format (no spaces, valid characters)
-                    rule_name = line.split('::=')[0].strip()
-                    if ' ' in rule_name or not rule_name.isalnum():
-                        self.logger.error(f"Invalid rule name: {rule_name}")
-                        return False
-            
-            # Check for unescaped quotes in vocabulary
-            if '"' in grammar_str and '\\"' not in grammar_str:
-                # Look for potential unescaped quotes in vocabulary
-                import re
-                vocab_pattern = r'"([^"]*)"'
-                matches = re.findall(vocab_pattern, grammar_str)
-                for match in matches:
-                    if '"' in match and '\\"' not in match:
-                        self.logger.error(f"Found unescaped quote in vocabulary: {match}")
-                        return False
-            
-            self.logger.info("GBNF grammar validation passed")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error validating GBNF grammar: {e}")
-            return False
-
     def _get_fallback_grammar(self) -> str:
         """Get a minimal working GBNF grammar as fallback.
         
@@ -544,9 +544,9 @@ class HomeAssistantGrammarManager:
             Minimal working GBNF grammar string
         """
         return '''root ::= object
-object ::= "{" ws device_string "," ws action_string ws "}"
-device_string ::= "\\"device\\"" ":" ws "\\"" device_value "\\""
-action_string ::= "\\"action\\"" ":" ws "\\"" action_value "\\""
+object ::= "{" ws device_field "," ws action_field ws "}"
+device_field ::= "\\"device\\"" ":" ws device_value
+action_field ::= "\\"action\\"" ":" ws action_value
 device_value ::= "\\"bedroom\\ lights\\"" | "\\"kitchen\\ lights\\""
 action_value ::= "\\"turn\\ on\\"" | "\\"turn\\ off\\""
 ws ::= [ \\t\\n\\r]*'''
