@@ -1,7 +1,4 @@
-root ::= "{" ws action_pair "," ws device_pair "}"
-
-action_pair ::= "\"action\":" ws action_value
-device_pair ::= "\"device\":" ws device_value
+root ::= "{" ws "action" ws ":" ws action_value "," ws "device" ws ":" ws device_value "}"
 
 action_value ::= "\"" action "\""
 device_value ::= "\"" device "\""
