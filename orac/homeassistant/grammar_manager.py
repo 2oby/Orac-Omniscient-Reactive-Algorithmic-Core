@@ -475,35 +475,16 @@ class HomeAssistantGrammarManager:
             action_vocab = properties.get("action", {}).get("enum", [])
             location_vocab = properties.get("location", {}).get("enum", [])
             
-            # Clean and validate vocabulary (limit to 10 items each)
-            device_vocab = [str(d).strip() for d in device_vocab if d and str(d).strip()][:10]
-            action_vocab = [str(a).strip() for a in action_vocab if a and str(a).strip()][:10]
-            location_vocab = [str(l).strip() for l in location_vocab if l and str(l).strip()][:10]
+            # Clean and validate vocabulary (limit to 5 items each for maximum compatibility)
+            device_vocab = [str(d).strip() for d in device_vocab if d and str(d).strip()][:5]
+            action_vocab = [str(a).strip() for a in action_vocab if a and str(a).strip()][:5]
+            location_vocab = [str(l).strip() for l in location_vocab if l and str(l).strip()][:5]
             
-            # Build GBNF grammar lines
+            # Build GBNF grammar lines - simplest possible structure
             gbnf_lines = [
-                "root ::= command",
+                "root ::= device_value",
                 "",
-                "# Simple command structure",
-                "command ::= device_part action_part",
-                "",
-                "# Device part",
-                "device_part ::= device_label device_value",
-                "device_label ::= \"device:\"",
-                "device_value ::= " + " | ".join(f'"{escape_gbnf_string(d)}"' for d in device_vocab),
-                "",
-                "# Action part", 
-                "action_part ::= action_label action_value",
-                "action_label ::= \"action:\"",
-                "action_value ::= " + " | ".join(f'"{escape_gbnf_string(a)}"' for a in action_vocab),
-                "",
-                "# Location part (optional)",
-                "location_part ::= location_label location_value",
-                "location_label ::= \"location:\"",
-                "location_value ::= " + " | ".join(f'"{escape_gbnf_string(l)}"' for l in location_vocab),
-                "",
-                "# Whitespace",
-                "ws ::= [ \\t\\n\\r]*"
+                "device_value ::= " + " | ".join(f'"{escape_gbnf_string(d)}"' for d in device_vocab)
             ]
             
             # Join lines and validate
@@ -523,7 +504,5 @@ class HomeAssistantGrammarManager:
     
     def _generate_fallback_grammar(self) -> str:
         """Generate a simple fallback grammar when main generation fails."""
-        return '''root ::= command
-command ::= "device:" device_value "action:" action_value
-device_value ::= "bedroom lights" | "bathroom lights" | "kitchen lights"
-action_value ::= "turn on" | "turn off" | "toggle"'''
+        return '''root ::= device_value
+device_value ::= "bedroom lights" | "bathroom lights" | "kitchen lights"'''
