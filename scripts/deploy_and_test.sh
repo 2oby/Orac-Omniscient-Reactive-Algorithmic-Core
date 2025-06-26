@@ -112,6 +112,35 @@ ssh "$REMOTE_ALIAS" "\
         jetson_release 2>/dev/null || echo 'jetson_release not available'; \
     fi; \
     
+    echo '${BLUE}🔍 Checking llama.cpp binaries...${NC}'; \
+    if [ -d 'third_party/llama_cpp/bin' ]; then \
+        echo 'Checking llama.cpp binaries:'; \
+        ls -l third_party/llama_cpp/bin/; \
+        echo 'Checking library path:'; \
+        ls -l third_party/llama_cpp/lib/; \
+    else \
+        echo '${RED}❌ llama.cpp binaries not found${NC}'; \
+        exit 1; \
+    fi; \
+    
+    echo '${BLUE}🔍 Checking model directory...${NC}'; \
+    if [ -d 'models/gguf' ]; then \
+        echo 'Available models:'; \
+        ls -lh models/gguf/*.gguf 2>/dev/null || echo 'No GGUF models found'; \
+    else \
+        echo '${RED}❌ models/gguf directory not found${NC}'; \
+        exit 1; \
+    fi; \
+    
+    echo '${BLUE}🐳 Detecting Docker command...${NC}'; \
+    if command -v docker compose &> /dev/null; then \
+        DOCKER_CMD='docker compose'; \
+        echo 'Using: docker compose'; \
+    else \
+        DOCKER_CMD='docker-compose'; \
+        echo 'Using: docker-compose'; \
+    fi; \
+    
     echo '${BLUE}🧹 Cleaning up old Docker resources...${NC}'; \
     echo '${YELLOW}Cleanup level: $CLEANUP_LEVEL${NC}'; \
     \
@@ -160,35 +189,6 @@ ssh "$REMOTE_ALIAS" "\
     docker system df 2>/dev/null || echo 'Docker system df not available'; \
     \
     echo '${GREEN}✓ Docker cleanup completed${NC}'; \
-    
-    echo '${BLUE}🔍 Checking llama.cpp binaries...${NC}'; \
-    if [ -d 'third_party/llama_cpp/bin' ]; then \
-        echo 'Checking llama.cpp binaries:'; \
-        ls -l third_party/llama_cpp/bin/; \
-        echo 'Checking library path:'; \
-        ls -l third_party/llama_cpp/lib/; \
-    else \
-        echo '${RED}❌ llama.cpp binaries not found${NC}'; \
-        exit 1; \
-    fi; \
-    
-    echo '${BLUE}🔍 Checking model directory...${NC}'; \
-    if [ -d 'models/gguf' ]; then \
-        echo 'Available models:'; \
-        ls -lh models/gguf/*.gguf 2>/dev/null || echo 'No GGUF models found'; \
-    else \
-        echo '${RED}❌ models/gguf directory not found${NC}'; \
-        exit 1; \
-    fi; \
-    
-    echo '${BLUE}🐳 Detecting Docker command...${NC}'; \
-    if command -v docker compose &> /dev/null; then \
-        DOCKER_CMD='docker compose'; \
-        echo 'Using: docker compose'; \
-    else \
-        DOCKER_CMD='docker-compose'; \
-        echo 'Using: docker-compose'; \
-    fi; \
     
     echo '${BLUE}🐳 Building & starting containers...${NC}'; \
     \$DOCKER_CMD up --build -d; \
