@@ -114,7 +114,11 @@ def validate_hello_world_output(output):
     """Validate that output is either 'hello' or 'world'."""
     if not output:
         return False
+    
+    # Clean up the output - remove [end of text] and other tokens
     output = output.strip().lower()
+    output = output.replace("[end of text]", "").replace("<|endoftext|>", "").strip()
+    
     return output in ["hello", "world"]
 
 def validate_static_actions_output(output):
@@ -160,6 +164,12 @@ def test_hello_world_grammar(model_path):
         print(f"❌ Grammar file not found: {grammar_file}")
         return False
     
+    # Check grammar file content
+    with open(grammar_file, 'r') as f:
+        grammar_content = f.read()
+        print(f"📄 Grammar file content ({len(grammar_content)} chars):")
+        print(f"   {repr(grammar_content)}")
+    
     success_count = 0
     total_count = len(HELLO_WORLD_TESTS)
     
@@ -185,6 +195,12 @@ def test_static_actions_grammar(model_path):
     if not os.path.exists(grammar_file):
         print(f"❌ Grammar file not found: {grammar_file}")
         return False
+    
+    # Check grammar file content
+    with open(grammar_file, 'r') as f:
+        grammar_content = f.read()
+        print(f"📄 Grammar file content ({len(grammar_content)} chars):")
+        print(f"   {repr(grammar_content)}")
     
     success_count = 0
     total_count = len(STATIC_ACTIONS_TESTS)
