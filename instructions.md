@@ -74,16 +74,28 @@ The `deploy_and_test.sh` script automates the deployment process from your local
 ./scripts/deploy_and_test.sh "commit_message" "branch" "service_name"
 ```
 
-**Example with Real Values:**
+**Deployment Script:**
 ```bash
-# Deploy to main branch with service name "orac"
-./scripts/deploy_and_test.sh "Fix GBNF parsing issue in grammar manager" "main" "orac"
+# Deploy changes to remote machine with commit message
+./scripts/deploy_and_test.sh "Your commit message here"
 
-# Deploy to development branch
-./scripts/deploy_and_test.sh "Add new domain mapping logic" "dev" "orac"
+# Optional parameters (all have sensible defaults):
+# ./scripts/deploy_and_test.sh [commit_message] [branch] [service_name] [cleanup_level]
+# 
+# Defaults:
+# - commit_message: "Update ORAC MVP"
+# - branch: "Grammar" 
+# - service_name: "orac"
+# - cleanup_level: "normal"
 
-# Deploy with detailed commit message
-./scripts/deploy_and_test.sh "Update llama.cpp to version 5306 for GBNF support" "main" "orac"
+# Example usage:
+./scripts/deploy_and_test.sh "Fix GBNF parsing issue in grammar manager"
+
+# Deploy to specific branch
+./scripts/deploy_and_test.sh "Add new domain mapping logic" "dev"
+
+# Deploy with aggressive cleanup
+./scripts/deploy_and_test.sh "Update llama.cpp to version 5306 for GBNF support" "main" "orac" "aggressive"
 ```
 
 **What the Script Does:**
@@ -148,10 +160,25 @@ mkdir -p models/gguf logs
    **Deployment Script:**
    ```bash
    # Deploy changes to remote machine with commit message
-   ./scripts/deploy_and_test.sh "Your commit message here" "branch_name" "service_name"
+   ./scripts/deploy_and_test.sh "Your commit message here"
+   
+   # Optional parameters (all have sensible defaults):
+   # ./scripts/deploy_and_test.sh [commit_message] [branch] [service_name] [cleanup_level]
+   # 
+   # Defaults:
+   # - commit_message: "Update ORAC MVP"
+   # - branch: "Grammar" 
+   # - service_name: "orac"
+   # - cleanup_level: "normal"
    
    # Example usage:
-   ./scripts/deploy_and_test.sh "Fix GBNF parsing issue in grammar manager" "main" "orac"
+   ./scripts/deploy_and_test.sh "Fix GBNF parsing issue in grammar manager"
+   
+   # Deploy to specific branch
+   ./scripts/deploy_and_test.sh "Add new domain mapping logic" "dev"
+   
+   # Deploy with aggressive cleanup
+   ./scripts/deploy_and_test.sh "Update llama.cpp to version 5306 for GBNF support" "main" "orac" "aggressive"
    
    # The script will:
    # 1. Commit your changes with the provided message
