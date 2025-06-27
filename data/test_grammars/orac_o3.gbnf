@@ -1,16 +1,12 @@
 # --- top-level ---------------------------------------------------------------
-root ::= "{"
-          "\"device\":" ws device_value ws "," ws
-          "\"action\":" ws action_value ws "," ws
-          "\"location\":" ws location_value
-         "}"
+root ::= "{" "\"device\":" ws device_value ws "," ws "\"action\":" ws action_value ws "," ws "\"location\":" ws location_value "}"
 
 # --- helper for optional whitespace ------------------------------------------
 ws ::= [ \t\n\r]*          # zero or more spaces / tabs / new-lines
 
 # --- composite “string” values ----------------------------------------------
-device_value   ::= "\"" device   "\""
-action_value   ::= "\"" action   "\""
+device_value   ::= "\"" device "\""
+action_value   ::= "\"" action "\""
 location_value ::= "\"" location "\""
 
 # --- enumerations ------------------------------------------------------------
