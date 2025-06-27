@@ -276,6 +276,82 @@ EOF
 chmod +x scripts/check_llama_cpp_version.sh
 ```
 
+#### Step 5.3: Create Rollback Script
+```bash
+# Create scripts/rollback_llama_cpp.sh
+cat > scripts/rollback_llama_cpp.sh << 'EOF'
+#!/bin/bash
+# Emergency rollback to manual binaries
+
+set -e
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BACKUP_DIR=$(find "$PROJECT_ROOT/third_party" -name "llama_cpp_backup_*" | head -1)
+
+if [ -z "$BACKUP_DIR" ]; then
+    echo "No backup found. Cannot rollback."
+    exit 1
+fi
+
+echo "Rolling back to backup: $BACKUP_DIR"
+
+# Remove submodule
+cd "$PROJECT_ROOT"
+git submodule deinit -f third_party/llama_cpp
+rm -rf third_party/llama_cpp
+git rm -f third_party/llama_cpp
+
+# Restore backup
+cp -r "$BACKUP_DIR" third_party/llama_cpp
+
+# Commit rollback
+git add third_party/llama_cpp
+git commit -m "Emergency rollback: restore manual llama.cpp binaries"
+
+echo "Rollback completed successfully"
+EOF
+
+chmod +x scripts/rollback_llama_cpp.sh
+```
+
+#### Step 5.4: Script Design Philosophy
+```bash
+# Configuration - Change this to update to a different version
+TARGET_VERSION="v0.1.0-llama-cpp-b5306"
+```
+- Fetches latest changes from remote
+- Checks out specified version
+- Commits submodule update
+
+### **Management Scripts Summary**
+
+#### **Update Script** (`scripts/update_llama_cpp.sh`)
+```bash
+# Configuration - Change this to update to a different version
+TARGET_VERSION="v0.1.0-llama-cpp-b5306"
+```
+- Fetches latest changes from remote
+- Checks out specified version
+- Commits submodule update
+
+#### **Version Check Script** (`scripts/check_llama_cpp_version.sh`)
+- Shows current git commit and branch
+- Displays repository information
+- Checks binary presence with visual indicators
+- Lists all available binaries
+
+#### **Rollback Script** (`scripts/rollback_llama_cpp.sh`)
+```bash
+# Configuration - Change this to rollback to a different version
+TARGET_VERSION="v0.1.0-llama-cpp-b5306"
+```
+- Creates timestamped backup
+- Checks out specified version
+- Commits rollback changes
+
+### **Ready for Phase 6**
+The management scripts are complete and ready for use. We can now proceed with documentation updates and cleanup.
+
 ### Phase 6: Documentation & Cleanup
 
 #### Step 6.1: Update Documentation
