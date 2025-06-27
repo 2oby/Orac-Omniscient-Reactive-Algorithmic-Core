@@ -13,7 +13,10 @@ Test Progression:
 4. two_fields.gbnf - Two non-terminals (TESTING)
 5. with_whitespace.gbnf - Non-terminal + whitespace (TESTING)
 6. complex_whitespace.gbnf - Multiple non-terminals + whitespace (TESTING)
-7. static_actions.gbnf - Complex grammar (KNOWN FAILING)
+7. wildcard_json.gbnf - Wildcard patterns (NEW TESTING)
+8. flexible_json.gbnf - Character classes (NEW TESTING)
+9. constrained_wildcard.gbnf - Constrained wildcards (NEW TESTING)
+10. static_actions.gbnf - Complex grammar (KNOWN FAILING)
 """
 
 import subprocess
@@ -25,235 +28,135 @@ from pathlib import Path
 class GrammarTester:
     def __init__(self):
         self.model_path = "/models/gguf/Qwen3-0.6B-Q4_K_M.gguf"
+        self.grammar_dir = "/app/data/test_grammars"
         self.llama_cli = "/app/third_party/llama_cpp/bin/llama-cli"
-        self.grammars_dir = "/app/data/test_grammars"
-        self.results = {}
         
-    def test_grammar(self, grammar_file: str, test_prompts: list) -> dict:
-        """Test a single grammar file with multiple prompts"""
-        grammar_path = os.path.join(self.grammars_dir, grammar_file)
-        
-        print(f"\n🧪 Testing {grammar_file}")
-        print("=" * 50)
-        
-        # Read and display grammar content
-        try:
-            with open(grammar_path, 'r') as f:
-                grammar_content = f.read().strip()
-            print(f"📄 Grammar content ({len(grammar_content)} chars):")
-            print(f"   '{grammar_content}'")
-        except Exception as e:
-            print(f"❌ Error reading grammar file: {e}")
-            return {"status": "error", "error": str(e)}
-        
-        results = {
-            "grammar_file": grammar_file,
-            "grammar_content": grammar_content,
-            "tests": [],
-            "passed": 0,
-            "failed": 0
-        }
-        
-        for i, prompt in enumerate(test_prompts, 1):
-            print(f"\n  Testing {i}: {prompt}")
-            
-            # Build command
-            cmd = [
-                self.llama_cli,
-                "-m", self.model_path,
-                "-p", prompt,
-                "--grammar-file", grammar_path,
-                "-n", "10",
-                "--temp", "0.0",
-                "--repeat-penalty", "1.1"
-            ]
-            
-            print(f"  Command: {' '.join(cmd[:4])} ... --grammar-file {grammar_path}")
-            
-            try:
-                # Run command
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=30
-                )
-                
-                if result.returncode == 0:
-                    output = result.stdout.strip()
-                    print(f"    ✅ Output: {output}")
-                    
-                    # Validate output (basic check)
-                    if output and len(output) > 0:
-                        print(f"    ✅ Valid output: {output}")
-                        results["tests"].append({
-                            "prompt": prompt,
-                            "status": "passed",
-                            "output": output
-                        })
-                        results["passed"] += 1
-                    else:
-                        print(f"    ❌ Empty output")
-                        results["tests"].append({
-                            "prompt": prompt,
-                            "status": "failed",
-                            "output": output,
-                            "error": "Empty output"
-                        })
-                        results["failed"] += 1
-                else:
-                    error = result.stderr.strip()
-                    print(f"    ❌ Command failed: {error}")
-                    results["tests"].append({
-                        "prompt": prompt,
-                        "status": "failed",
-                        "output": None,
-                        "error": error
-                    })
-                    results["failed"] += 1
-                    
-            except subprocess.TimeoutExpired:
-                print(f"    ❌ Command timed out")
-                results["tests"].append({
-                    "prompt": prompt,
-                    "status": "failed",
-                    "output": None,
-                    "error": "Timeout"
-                })
-                results["failed"] += 1
-            except Exception as e:
-                print(f"    ❌ Unexpected error: {e}")
-                results["tests"].append({
-                    "prompt": prompt,
-                    "status": "failed",
-                    "output": None,
-                    "error": str(e)
-                })
-                results["failed"] += 1
-        
-        # Summary
-        total = results["passed"] + results["failed"]
-        print(f"\n📊 Results: {results['passed']}/{total} tests passed")
-        
-        if results["failed"] == 0:
-            print("✅ Grammar PASSED")
-            results["status"] = "passed"
-        else:
-            print("❌ Grammar FAILED")
-            results["status"] = "failed"
-        
-        return results
-    
-    def run_progression_test(self):
-        """Run the complete progression test"""
-        print("🚀 ORAC Grammar Progression Testing")
-        print("=" * 60)
-        print("Testing grammars in order of increasing complexity...")
-        print(f"Using model: {self.model_path}")
-        
-        # Test progression - ordered by complexity
-        test_cases = [
-            {
-                "file": "hello_world.gbnf",
-                "prompts": ["say hello", "say world", "hello", "world"],
-                "description": "Simple alternations (baseline)"
-            },
-            {
-                "file": "simple_json.gbnf", 
-                "prompts": ["generate json", "create action", "turn on"],
-                "description": "Fixed JSON string"
-            },
-            {
-                "file": "single_field.gbnf",
-                "prompts": ["turn on lights", "turn off", "toggle"],
-                "description": "One non-terminal"
-            },
-            {
-                "file": "two_fields.gbnf",
-                "prompts": ["turn on bedroom lights", "turn off kitchen", "toggle"],
-                "description": "Two non-terminals"
-            },
-            {
-                "file": "with_whitespace.gbnf",
-                "prompts": ["turn on", "turn off", "toggle"],
-                "description": "Non-terminal + whitespace"
-            },
-            {
-                "file": "complex_whitespace.gbnf",
-                "prompts": ["turn on bedroom lights", "turn off kitchen", "toggle"],
-                "description": "Multiple non-terminals + whitespace"
-            },
-            {
-                "file": "static_actions.gbnf",
-                "prompts": ["turn on bedroom lights", "turn off kitchen lights", "toggle bathroom lights"],
-                "description": "Complex grammar (known failing)"
-            }
+        # Test grammars in order of complexity
+        self.test_grammars = [
+            "hello_world.gbnf",
+            "simple_json.gbnf", 
+            "single_field.gbnf",
+            "two_fields.gbnf",
+            "with_whitespace.gbnf",
+            "complex_whitespace.gbnf",
+            "wildcard_json.gbnf",
+            "flexible_json.gbnf", 
+            "constrained_wildcard.gbnf",
+            "static_actions.gbnf"
         ]
         
-        breaking_point = None
-        
-        for i, test_case in enumerate(test_cases, 1):
-            print(f"\n{'='*60}")
-            print(f"STEP {i}: {test_case['description']}")
-            print(f"File: {test_case['file']}")
-            print(f"{'='*60}")
-            
-            result = self.test_grammar(test_case['file'], test_case['prompts'])
-            self.results[test_case['file']] = result
-            
-            # Check if this is the breaking point
-            if result["status"] == "failed" and breaking_point is None:
-                breaking_point = {
-                    "step": i,
-                    "file": test_case['file'],
-                    "description": test_case['description'],
-                    "result": result
-                }
-                print(f"\n🚨 BREAKING POINT FOUND!")
-                print(f"   Step {i}: {test_case['description']}")
-                print(f"   File: {test_case['file']}")
-                print(f"   Status: {result['failed']}/{result['passed'] + result['failed']} tests failed")
-        
-        # Final summary
+        self.test_prompts = [
+            "say hello",
+            "turn on bedroom lights",
+            "turn on bedroom lights",
+            "turn on bedroom lights", 
+            "turn on bedroom lights",
+            "turn on bedroom lights",
+            "turn on bedroom lights",
+            "turn on bedroom lights",
+            "turn on bedroom lights",
+            "turn on bedroom lights"
+        ]
+
+    def test_grammar(self, grammar_file, prompt, test_num):
+        """Test a single grammar file"""
         print(f"\n{'='*60}")
-        print("📋 FINAL TEST SUMMARY")
+        print(f"TEST {test_num}: {grammar_file}")
         print(f"{'='*60}")
         
-        for i, test_case in enumerate(test_cases, 1):
-            result = self.results[test_case['file']]
-            status = "✅ PASS" if result["status"] == "passed" else "❌ FAIL"
-            print(f"{i:2d}. {status} {test_case['file']} - {test_case['description']}")
+        grammar_path = os.path.join(self.grammar_dir, grammar_file)
         
-        if breaking_point:
-            print(f"\n🎯 BREAKING POINT ANALYSIS")
-            print(f"{'='*60}")
-            print(f"Grammar complexity breaks at: {breaking_point['description']}")
-            print(f"File: {breaking_point['file']}")
-            print(f"Step: {breaking_point['step']}")
+        # Check if grammar file exists
+        if not os.path.exists(grammar_path):
+            print(f"❌ Grammar file not found: {grammar_path}")
+            return False
             
-            # Analyze the failure
-            failed_tests = [t for t in breaking_point['result']['tests'] if t['status'] == 'failed']
-            if failed_tests:
-                print(f"\nFirst failure details:")
-                first_failure = failed_tests[0]
-                print(f"  Prompt: {first_failure['prompt']}")
-                print(f"  Error: {first_failure.get('error', 'Unknown error')}")
-        else:
-            print(f"\n✅ All grammars passed! No breaking point found.")
+        # Display grammar content
+        print(f"📄 Grammar content:")
+        with open(grammar_path, 'r') as f:
+            print(f.read())
         
-        return breaking_point
+        # Test command
+        cmd = [
+            self.llama_cli,
+            '-m', self.model_path,
+            '-p', prompt,
+            '--grammar-file', grammar_path,
+            '-n', '10',
+            '--temp', '0.0'
+        ]
+        
+        print(f"\n🔧 Test command:")
+        print(f"   {' '.join(cmd)}")
+        
+        try:
+            # Run the test
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            print(f"\n📊 Results:")
+            print(f"   Exit code: {result.returncode}")
+            
+            if result.returncode == 0:
+                print(f"   ✅ SUCCESS")
+                print(f"   Output: {result.stdout.strip()}")
+                return True
+            else:
+                print(f"   ❌ FAILED")
+                print(f"   Error: {result.stderr.strip()}")
+                return False
+                
+        except subprocess.TimeoutExpired:
+            print(f"   ⏰ TIMEOUT")
+            return False
+        except Exception as e:
+            print(f"   💥 EXCEPTION: {e}")
+            return False
 
-def main():
-    tester = GrammarTester()
-    breaking_point = tester.run_progression_test()
-    
-    # Exit with appropriate code
-    if breaking_point:
-        print(f"\n⚠️  Grammar testing completed with breaking point found.")
-        sys.exit(1)
-    else:
-        print(f"\n✅ All grammar tests passed!")
-        sys.exit(0)
+    def run_progression_test(self):
+        """Run all grammar tests in progression"""
+        print("🚀 Starting Progressive Grammar Testing")
+        print(f"📁 Grammar directory: {self.grammar_dir}")
+        print(f"🤖 Model: {self.model_path}")
+        
+        results = []
+        
+        for i, (grammar, prompt) in enumerate(zip(self.test_grammars, self.test_prompts), 1):
+            success = self.test_grammar(grammar, prompt, i)
+            results.append({
+                'test_num': i,
+                'grammar': grammar,
+                'success': success
+            })
+            
+            # Stop if we find the breaking point
+            if not success:
+                print(f"\n🎯 BREAKING POINT FOUND at test {i}: {grammar}")
+                break
+        
+        # Summary
+        print(f"\n{'='*60}")
+        print("📋 TEST SUMMARY")
+        print(f"{'='*60}")
+        
+        for result in results:
+            status = "✅ PASS" if result['success'] else "❌ FAIL"
+            print(f"   Test {result['test_num']:2d}: {result['grammar']:<25} {status}")
+        
+        # Analysis
+        working_count = sum(1 for r in results if r['success'])
+        total_count = len(results)
+        
+        print(f"\n📈 Analysis:")
+        print(f"   Working grammars: {working_count}/{total_count}")
+        print(f"   Breaking point: Test {working_count + 1} ({self.test_grammars[working_count] if working_count < len(self.test_grammars) else 'N/A'})")
+        
+        return results
 
 if __name__ == "__main__":
-    main() 
+    tester = GrammarTester()
+    results = tester.run_progression_test() 
