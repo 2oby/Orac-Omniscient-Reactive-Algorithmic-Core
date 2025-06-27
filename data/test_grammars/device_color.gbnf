@@ -1,3 +1,4 @@
 root ::= "{" "\"device\":" color "}"
 color ::= "\"" color_value "\""
 color_value ::= "BLACK" | "WHITE"
+
