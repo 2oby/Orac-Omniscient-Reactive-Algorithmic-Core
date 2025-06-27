@@ -1,0 +1,4 @@
+root ::= "{" "\"device\":" "\"" device "\"" "," "\"action\":" "\"" action "\"" "}"
+
+device ::= "lights" | "heating" | "blinds" | "music"
+action ::= "on" | "off" | "toggle" | "open" | "shut"
