@@ -1,0 +1,4 @@
+root ::= "{" "\"device\":" "\"" device "\"" "," "\"action\":" "\"" action "\"" "," "\"location\":" "\"" location "\"" "}"
+device ::= "lights" | "heating" | "blinds" | "music"
+action ::= "on" | "off" | "toggle" | "open" | "shut"
+location ::= "bedroom" | "kitchen" | "hall" | "dining room" 
