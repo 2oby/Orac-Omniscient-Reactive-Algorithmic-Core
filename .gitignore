@@ -1,5 +1,9 @@
 models/
 
+# Logs
+logs/
+*.log
+
 # Environment files
 .env
 .env.*
