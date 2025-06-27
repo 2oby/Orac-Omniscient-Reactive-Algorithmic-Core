@@ -1,0 +1,4 @@
+root ::= "{" ws "\"action\"" ws ":" ws action_value ws "}"
+
+action_value ::= "\"turn on\"" | "\"turn off\"" | "\"toggle\""
+ws ::= [ \t\n]* 
