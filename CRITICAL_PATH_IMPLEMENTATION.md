@@ -4,6 +4,82 @@
 
 This document focuses on the three most critical components that must be implemented correctly for the Home Assistant auto-discovery system to work:
 
+
+TEMP: Prio 1, we are working on this now
+
+
+Step-by-Step Implementation Plan: Improved Git Submodule Approach
+Phase 1: Preparation & Coordination
+Step 1.1: Verify current state on both machines
+Confirm both machines are at the same commit (40678b3 + our reset commit)
+Ensure both have the same manual binaries in place
+Check that .gitmodules is removed on both
+Step 1.2: Decide on target version
+Choose specific tag/commit from llama-cpp-jetson repo
+Options: main branch, specific tag (e.g., v1.0.0), or specific commit hash
+Phase 2: Set up Submodule on Local Machine
+Step 2.1: Add submodule to local machine
+Apply to CRITICAL_PAT...
+Run
+llama_cpp
+Step 2.2: Checkout specific version
+Apply to CRITICAL_PAT...
+Run
+.
+Step 2.3: Commit the submodule setup
+Apply to CRITICAL_PAT...
+Run
+"
+Phase 3: Sync to Test Machine
+Step 3.1: Push changes from local machine
+Apply to CRITICAL_PAT...
+Run
+Grammar
+Step 3.2: Pull changes on test machine
+Apply to CRITICAL_PAT...
+Run
+"
+Step 3.3: Initialize submodule on test machine
+Apply to CRITICAL_PAT...
+Run
+"
+Phase 4: Verification & Testing
+Step 4.1: Verify submodule status on both machines
+Apply to CRITICAL_PAT...
+Run
+"
+Step 4.2: Test that binaries work
+Run a simple test to ensure llama.cpp binaries are functional
+Verify the correct version is installed
+Phase 5: Create Management Scripts
+Step 5.1: Create binary update script
+Apply to CRITICAL_PAT...
+Run
+]
+Step 5.2: Create binary version check script
+Apply to CRITICAL_PAT...
+Run
+versions
+Phase 6: Documentation & Cleanup
+Step 6.1: Update documentation
+Document the new submodule approach
+Add instructions for updating binaries
+Update setup scripts
+Step 6.2: Clean up any temporary files
+Remove backup directories
+Clean up any temporary build artifacts
+Questions to Resolve:
+What specific version should we target initially? (main, a tag, or specific commit?)
+Should we implement the management scripts immediately, or set up the basic submodule first?
+Do you want to test the binaries after each step, or complete the full setup first?
+Which step would you like to start with, and what version should we target?
+
+
+
+
+-----
+
+
 1. **Entity Registry API Integration** - Room/area assignments
 2. **Domain-to-Device Mapping Logic** - Simplification heart
 3. **Location Detection Algorithm** - Multiple fallback strategies
