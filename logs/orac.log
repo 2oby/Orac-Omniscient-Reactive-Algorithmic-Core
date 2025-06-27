@@ -1,0 +1,4 @@
+2025-06-27 15:03:16,625 - INFO - orac.logger - logger.py:89 - ORAC logger initialized at 2025-06-27 15:03:16
+2025-06-27 15:03:16,625 - INFO - orac.logger - logger.py:90 - Log level set to INFO
+2025-06-27 15:03:16,625 - INFO - orac.logger - logger.py:91 - System info: {"platform": "macOS-12.5-arm64-arm-64bit", "python_version": "3.10.11", "processor": "arm", "startup_time": "2025-06-27 15:03:16", "hostname": "Tobys-Air.lan"}
+2025-06-27 15:03:16,625 - INFO - orac - __init__.py:38 - ORAC v0.2.0 initializing
