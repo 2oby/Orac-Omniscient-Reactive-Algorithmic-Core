@@ -1,0 +1,5 @@
+root ::= "{\"action\":\"" action_chars "\",\"device\":\"" device_chars "\",\"location\":\"" location_chars "\"}"
+
+action_chars ::= [a-z ]*
+device_chars ::= [a-z ]*
+location_chars ::= [a-z ]* 
