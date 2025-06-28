@@ -1,4 +1,4 @@
-root ::= "{\"device\":\"" device "\",\"action\":\"" action "\",\"location\":\"" location "\"}"
+root ::= "{" "\"device\":" "\"" device "\"" "," "\"action\":" "\"" action "\"" "," "\"location\":" "\"" location "\"" "}"
 
 device ::= "lights" | "heating" | "blinds" | "music" | "UNKNOWN"
 
