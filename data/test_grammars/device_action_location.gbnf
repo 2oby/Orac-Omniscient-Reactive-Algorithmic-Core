@@ -1,4 +1,6 @@
 root ::= "{" "\"device\":" "\"" device "\"" "," "\"action\":" "\"" action "\"" "," "\"location\":" "\"" location "\"" "}"
-device ::= "lights" | "heating" | "blinds" | "music"
-action ::= "on" | "off" | "toggle" | "open" | "shut"  | "high" | "low" | "medium" | "warm" | "cold" | "hot" | "up" | "down" | "loud" | "quiet"
-location ::= "bedroom" | "kitchen" | "hall" | "dining room" 
+device ::= "lights" | "heating" | "blinds" | "music" | "UNKNOWN"
+pct        ::= "0%" | "50%" | "100%"
+set_action ::= "set " pct
+action ::= "on" | "off" | "toggle" | "open" | "shut"  | "high" | "low" | "medium" | "warm" | "cold" | "hot" | "up" | "down" | "loud" | "quiet" | "UNKNOWN" | set_action
+location ::= "bedroom" | "kitchen" | "hall" | "dining room" | "UNKNOWN"
