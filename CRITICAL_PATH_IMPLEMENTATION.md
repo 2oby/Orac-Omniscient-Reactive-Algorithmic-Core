@@ -87,6 +87,344 @@ This document focuses on the three most critical components that must be impleme
 
 ## Current Priority: **ACTIVE DEVELOPMENT**
 
+### 🔄 **NEXT - Grammar Accuracy Improvements and API Integration**
+
+#### Current State
+- GBNF grammar testing completed with 67% accuracy (4/6 successful cases)
+- Grammar syntax and parameter optimization achieved
+- System prompt effectiveness validated
+- Model behavior patterns documented
+
+#### Implementation Priority: **HIGHEST**
+
+##### 4.1 Grammar Accuracy Improvements
+
+**Goal**: Improve grammar parsing accuracy from 67% to >90% for production use.
+
+**Implementation Plan**:
+
+###### 4.1.1 Grammar Rule Reordering
+```python
+# orac/homeassistant/grammar_manager.py
+class GrammarOptimizer:
+    """Optimizes grammar rules for better accuracy"""
+    
+    # Most common devices first (based on Home Assistant usage)
+    DEVICE_PRIORITY = [
+        "lights",      # Most common
+        "thermostat",  # Climate control
+        "blinds",      # Window covers
+        "music",       # Media players
+        "tv",          # Television
+        "fan",         # Fans
+        "alarm",       # Security
+        "switch"       # Generic switches
+    ]
+    
+    # Most common locations first
+    LOCATION_PRIORITY = [
+        "living room",   # Most common
+        "bedroom",       # Sleeping area
+        "kitchen",       # Cooking area
+        "bathroom",      # Bathroom
+        "dining room",   # Dining area
+        "hall",          # Hallway
+        "office",        # Work area
+        "garage",        # Garage
+        "basement",      # Basement
+        "attic"          # Attic
+    ]
+    
+    def optimize_grammar_order(self, grammar_content: str) -> str:
+        """Reorder grammar rules based on usage frequency"""
+        # Implementation to reorder device and location rules
+        # Put most common items first to reduce model bias
+```
+
+###### 4.1.2 Enhanced Device Type Coverage
+```python
+# orac/homeassistant/grammar_manager.py
+class DeviceTypeExpander:
+    """Expands device type coverage for better recognition"""
+    
+    # Comprehensive device mappings
+    DEVICE_ALIASES = {
+        "lights": ["light", "lamp", "bulb", "ceiling light", "wall light", "floor lamp"],
+        "thermostat": ["heating", "cooling", "climate", "temperature", "ac", "heat"],
+        "blinds": ["blind", "curtain", "shade", "window cover", "drape"],
+        "music": ["speaker", "audio", "sound system", "stereo", "amp", "receiver"],
+        "tv": ["television", "display", "monitor", "screen", "smart tv"],
+        "fan": ["ceiling fan", "table fan", "exhaust fan", "ventilation"],
+        "alarm": ["security", "burglar alarm", "smoke detector", "carbon monoxide"],
+        "switch": ["outlet", "power strip", "smart plug", "relay"]
+    }
+    
+    def expand_device_vocabulary(self, grammar_content: str) -> str:
+        """Add device aliases to grammar for better recognition"""
+        # Implementation to add device aliases to grammar rules
+```
+
+###### 4.1.3 Improved UNKNOWN Handling
+```python
+# orac/homeassistant/grammar_manager.py
+class UnknownHandler:
+    """Improves handling of unknown devices and locations"""
+    
+    def create_fallback_rules(self, grammar_content: str) -> str:
+        """Add better fallback mechanisms for unknown values"""
+        # Implementation to add UNKNOWN fallbacks with better logic
+        # Use context clues to make educated guesses
+```
+
+##### 4.2 API Integration and Parameter Standardization
+
+**Goal**: Ensure ORAC API uses identical grammar parameters and system prompts for consistency.
+
+**Implementation Plan**:
+
+###### 4.2.1 Parameter Standardization
+```python
+# orac/llama_cpp_client.py
+class GrammarParameters:
+    """Standardized grammar parameters for consistent results"""
+    
+    # Optimized parameters from testing
+    DEFAULT_PARAMS = {
+        "temperature": 0.2,      # Low for deterministic output
+        "top_p": 0.8,           # Nucleus sampling
+        "top_k": 30,            # Limit vocabulary choices
+        "max_tokens": 50,       # Safety limit
+        "repeat_penalty": 1.1,  # Prevent repetition
+        "grammar_file": "unknown_set.gbnf"  # Standard grammar file
+    }
+    
+    def get_grammar_params(self, model_name: str = None) -> dict:
+        """Get standardized parameters for grammar generation"""
+        params = self.DEFAULT_PARAMS.copy()
+        
+        # Model-specific adjustments
+        if model_name and "qwen" in model_name.lower():
+            # Qwen models work well with these parameters
+            pass
+        elif model_name and "distilgpt2" in model_name.lower():
+            # DistilGPT-2 may need different parameters
+            params["temperature"] = 0.3  # Slightly higher for variety
+        
+        return params
+```
+
+###### 4.2.2 System Prompt Integration
+```python
+# orac/llama_cpp_client.py
+class SystemPromptManager:
+    """Manages system prompts for grammar generation"""
+    
+    # Effective system prompt from testing
+    GRAMMAR_SYSTEM_PROMPT = """Apply to unknown_set....
+
+You are a helpful assistant that extracts structured information from natural language commands for Home Assistant automation. Parse the following command and extract the device, action, and location components."""
+    
+    def get_grammar_prompt(self, user_command: str) -> str:
+        """Generate complete prompt with system prompt and user command"""
+        return f"{self.GRAMMAR_SYSTEM_PROMPT}\n\nCommand: {user_command}\n\nJSON:"
+```
+
+###### 4.2.3 Grammar File Deployment
+```python
+# orac/homeassistant/grammar_manager.py
+class GrammarDeploymentManager:
+    """Manages grammar file deployment and loading"""
+    
+    def deploy_grammar_file(self, grammar_content: str, filename: str = "unknown_set.gbnf"):
+        """Deploy grammar file to correct location for API access"""
+        # Implementation to deploy grammar file to /app/data/test_grammars/
+        # Ensure API can access the grammar file
+    
+    def validate_grammar_file(self, grammar_content: str) -> bool:
+        """Validate grammar file syntax before deployment"""
+        # Implementation to validate GBNF syntax
+        # Check for underscore rule names (invalid)
+        # Verify JSON structure is correct
+```
+
+##### 4.3 Production Readiness Features
+
+**Goal**: Add production-ready features for robust grammar parsing.
+
+**Implementation Plan**:
+
+###### 4.3.1 JSON Schema Validation
+```python
+# orac/homeassistant/grammar_validator.py
+from typing import Dict, Any, Optional
+import json
+from jsonschema import validate, ValidationError
+
+class GrammarResponseValidator:
+    """Validates grammar parsing responses"""
+    
+    # JSON schema for grammar responses
+    GRAMMAR_RESPONSE_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "device": {"type": "string"},
+            "action": {"type": "string"},
+            "location": {"type": "string"}
+        },
+        "required": ["device", "action", "location"],
+        "additionalProperties": False
+    }
+    
+    def validate_response(self, response_text: str) -> Optional[Dict[str, Any]]:
+        """Validate and parse grammar response"""
+        try:
+            # Extract JSON from response
+            json_start = response_text.find('{')
+            json_end = response_text.rfind('}') + 1
+            
+            if json_start == -1 or json_end == 0:
+                return None
+            
+            json_str = response_text[json_start:json_end]
+            parsed_json = json.loads(json_str)
+            
+            # Validate against schema
+            validate(instance=parsed_json, schema=self.GRAMMAR_RESPONSE_SCHEMA)
+            
+            return parsed_json
+            
+        except (json.JSONDecodeError, ValidationError) as e:
+            # Log validation error
+            return None
+```
+
+###### 4.3.2 Comprehensive Logging
+```python
+# orac/homeassistant/grammar_logger.py
+import logging
+from typing import Dict, Any, Optional
+
+class GrammarLogger:
+    """Comprehensive logging for grammar parsing"""
+    
+    def __init__(self):
+        self.logger = logging.getLogger("grammar_parser")
+        self.logger.setLevel(logging.DEBUG)
+    
+    def log_grammar_request(self, command: str, model: str, params: Dict[str, Any]):
+        """Log grammar parsing request"""
+        self.logger.info(f"Grammar request: command='{command}', model='{model}', params={params}")
+    
+    def log_grammar_response(self, response: str, parsed_json: Optional[Dict[str, Any]], 
+                           success: bool, error: Optional[str] = None):
+        """Log grammar parsing response"""
+        if success:
+            self.logger.info(f"Grammar success: response='{response}', parsed={parsed_json}")
+        else:
+            self.logger.error(f"Grammar failure: response='{response}', error='{error}'")
+    
+    def log_grammar_performance(self, command: str, response_time: float, token_count: int):
+        """Log grammar parsing performance metrics"""
+        self.logger.info(f"Grammar performance: command='{command}', time={response_time:.3f}s, tokens={token_count}")
+```
+
+###### 4.3.3 Fallback Mechanisms
+```python
+# orac/homeassistant/grammar_fallback.py
+from typing import Dict, Any, Optional
+import re
+
+class GrammarFallbackHandler:
+    """Handles fallback when grammar parsing fails"""
+    
+    def __init__(self):
+        # Simple regex patterns for fallback parsing
+        self.device_patterns = {
+            "lights": r"\b(light|lights|lamp|bulb)\b",
+            "thermostat": r"\b(heat|heating|cool|cooling|thermostat|temperature)\b",
+            "blinds": r"\b(blind|blinds|curtain|shade)\b",
+            "music": r"\b(music|speaker|audio|sound)\b",
+            "tv": r"\b(tv|television|display|screen)\b",
+            "fan": r"\b(fan|ventilation)\b"
+        }
+        
+        self.action_patterns = {
+            "on": r"\b(turn on|switch on|activate|start)\b",
+            "off": r"\b(turn off|switch off|deactivate|stop)\b",
+            "toggle": r"\b(toggle|switch)\b",
+            "open": r"\b(open|raise|lift)\b",
+            "close": r"\b(close|lower|shut)\b"
+        }
+        
+        self.location_patterns = {
+            "living room": r"\b(living room|living)\b",
+            "bedroom": r"\b(bedroom|bed room)\b",
+            "kitchen": r"\b(kitchen)\b",
+            "bathroom": r"\b(bathroom|bath room)\b",
+            "dining room": r"\b(dining room|dining)\b"
+        }
+    
+    def fallback_parse(self, command: str) -> Optional[Dict[str, str]]:
+        """Fallback parsing using regex patterns when grammar fails"""
+        command_lower = command.lower()
+        
+        # Extract device
+        device = "UNKNOWN"
+        for device_type, pattern in self.device_patterns.items():
+            if re.search(pattern, command_lower):
+                device = device_type
+                break
+        
+        # Extract action
+        action = "UNKNOWN"
+        for action_type, pattern in self.action_patterns.items():
+            if re.search(pattern, command_lower):
+                action = action_type
+                break
+        
+        # Extract location
+        location = "UNKNOWN"
+        for location_type, pattern in self.location_patterns.items():
+            if re.search(pattern, command_lower):
+                location = location_type
+                break
+        
+        return {
+            "device": device,
+            "action": action,
+            "location": location
+        }
+```
+
+**Success Criteria**:
+- Grammar accuracy improved from 67% to >90%
+- API uses standardized parameters and system prompts
+- Comprehensive error handling and fallback mechanisms
+- Production-ready logging and validation
+- Performance optimization for low latency
+
+**Files to Modify**:
+- `orac/homeassistant/grammar_manager.py` - Grammar optimization and deployment
+- `orac/llama_cpp_client.py` - Parameter standardization and system prompts
+- `orac/homeassistant/grammar_validator.py` - JSON schema validation
+- `orac/homeassistant/grammar_logger.py` - Comprehensive logging
+- `orac/homeassistant/grammar_fallback.py` - Fallback mechanisms
+- `data/test_grammars/unknown_set.gbnf` - Optimized grammar file
+
+**Impact**:
+- **Accuracy**: Significant improvement in grammar parsing accuracy
+- **Reliability**: Robust error handling and fallback mechanisms
+- **Consistency**: Standardized parameters across all API calls
+- **Production Ready**: Comprehensive logging and validation
+- **Performance**: Optimized for production latency requirements
+
+**Next Steps**:
+1. Implement grammar rule reordering and device type expansion
+2. Add parameter standardization and system prompt integration
+3. Implement JSON schema validation and comprehensive logging
+4. Add fallback mechanisms for graceful degradation
+5. Test all improvements thoroughly with real Home Assistant commands
+
 ### 🔄 **NEXT - Domain-to-Device Mapping Logic**
 
 #### Current State

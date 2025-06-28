@@ -983,553 +983,125 @@ sudo chmod -R 755 ~/ORAC/cache ~/ORAC/data ~/ORAC/logs
 **Current Phase**: Phase 1 - Core Discovery Infrastructure (Entity Mapping and Auto-Discovery System Completed)
 **Next Milestone**: Grammar Manager Overhaul and Dynamic Grammar Generation 
 
-## Phase 3: UI/UX Improvements and Error Handling
+## Phase 4: GBNF Grammar Testing and Optimization
 
-### 3.1 Current State Analysis (2025-06-22)
+### 4.1 GBNF Grammar Testing Results and Findings
 
-**Goal**: Address the identified next steps for UI modal issues, error handling, testing, and documentation.
+**Goal**: Test and optimize GBNF (Grammar Backus-Naur Form) grammar for parsing natural language commands into structured JSON for Home Assistant integration.
 
-**Implementation Status**: 🔄 **ANALYSIS COMPLETE - READY FOR IMPLEMENTATION**
+**Implementation Status**: ✅ **COMPLETED** (2025-01-27)
 
-**Current Issues Identified**:
+**Test Methodology**:
+- **Command Structure**: Using llama.cpp with pattern: `Apply to unknown_set....`
+- **Model**: Qwen3-0.6B-Q4_K_M.gguf (0.6B parameter model, quantized)
+- **Parameters**: Temperature 0.2, Top-p 0.8, Top-k 30, Max tokens 50
+- **Grammar File**: unknown_set.gbnf
 
-#### 3.1.1 UI Modal State Management Issues
-- **Modal State Persistence**: Modal state not properly reset when closed unexpectedly
-- **Event Listener Conflicts**: Multiple event listeners may cause state conflicts
-- **Focus Management**: Input focus not properly managed during modal transitions
-- **Progress State**: Progress bar state not properly synchronized with backend operations
-- **Form Validation**: Limited client-side validation for entity mapping forms
+**Grammar Structure**:
+The grammar defines three main components:
+- **Device**: Extracted device type (lights, blinds, music, etc.)
+- **Action**: Extracted action (turn on, turn off, set to %, etc.)
+- **Location**: Extracted location (kitchen, bedroom, living room, etc.)
 
-#### 3.1.2 Error Handling Gaps
-- **API Error Responses**: Frontend doesn't handle all HTTP error codes gracefully
-- **Network Timeouts**: No timeout handling for long-running operations
-- **User Feedback**: Limited error messages and recovery suggestions
-- **State Recovery**: No automatic state recovery after API failures
-- **Loading States**: Inconsistent loading state management
+**Test Results**:
 
-#### 3.1.3 Testing Infrastructure Gaps
-- **No UI Testing**: No automated tests for modal functionality
-- **No Integration Tests**: No end-to-end tests for Home Assistant workflows
-- **No Error Scenario Tests**: No tests for error handling scenarios
-- **No Accessibility Tests**: No tests for keyboard navigation and screen readers
+#### ✅ Successful Cases (4/6 - 67% accuracy)
+- "turn off the lights in the kitchen" → `{"device":"lights","action":"off","location":"kitchen"}`
+- "set the bedroom lights to 75%" → `{"device":"lights","action":"set 75%","location":"bedroom"}`
+- "open the blinds in the hall" → `{"device":"blinds","action":"open","location":"hall"}`
+- "turn on the music in the dining room" → `{"device":"music","action":"on","location":"dining room"}`
 
-#### 3.1.4 Documentation Gaps
-- **API Documentation**: Missing comprehensive API endpoint documentation
-- **User Guide**: No user guide for Home Assistant integration features
-- **Developer Guide**: No developer guide for extending the system
-- **Troubleshooting**: No troubleshooting guide for common issues
-
-**What Needs to Be Implemented**:
-
-#### 3.1.5 UI Modal State Management Fixes
-- **State Machine Implementation**: Implement proper state machine for modal lifecycle
-- **Event Listener Cleanup**: Proper cleanup of event listeners to prevent memory leaks
-- **Focus Management**: Implement proper focus trapping and restoration
-- **Progress Synchronization**: Real-time progress updates from backend operations
-- **Form Validation**: Client-side validation with real-time feedback
-
-#### 3.1.6 Error Handling Improvements
-- **Error Boundary Implementation**: React-style error boundaries for JavaScript errors
-- **API Error Handling**: Comprehensive error handling for all API endpoints
-- **Retry Logic**: Automatic retry for transient failures
-- **User-Friendly Messages**: Clear, actionable error messages
-- **Recovery Mechanisms**: Automatic recovery from common error states
-
-#### 3.1.7 Testing Infrastructure
-- **Jest/Testing Library Setup**: Modern JavaScript testing framework
-- **Modal Component Tests**: Unit tests for modal state management
-- **Integration Tests**: End-to-end tests for Home Assistant workflows
-- **Error Scenario Tests**: Tests for various error conditions
-- **Accessibility Tests**: Tests for keyboard navigation and screen readers
-
-#### 3.1.8 Documentation Updates
-- **API Documentation**: OpenAPI/Swagger documentation for all endpoints
-- **User Guide**: Step-by-step guide for Home Assistant integration
-- **Developer Guide**: Guide for extending the system
-- **Troubleshooting Guide**: Common issues and solutions
-
-**Priority Implementation Order**:
-
-1. **High Priority**: Fix UI modal state management issues
-   - Implement proper state machine
-   - Fix event listener conflicts
-   - Improve focus management
-   - Add form validation
-
-2. **High Priority**: Improve error handling
-   - Add comprehensive API error handling
-   - Implement retry logic
-   - Add user-friendly error messages
-   - Add recovery mechanisms
-
-3. **Medium Priority**: Add testing infrastructure
-   - Set up Jest/Testing Library
-   - Add modal component tests
-   - Add integration tests
-   - Add error scenario tests
-
-4. **Medium Priority**: Update documentation
-   - Create API documentation
-   - Write user guide
-   - Write developer guide
-   - Create troubleshooting guide
-
-**Success Criteria**:
-- Modal state management is reliable and predictable
-- All API errors are handled gracefully with user-friendly messages
-- Comprehensive test coverage for UI functionality
-- Complete documentation for users and developers
-- Improved user experience with better error recovery
-
-**Files to Modify**:
-- `orac/static/js/main.js` - Fix modal state management and error handling
-- `orac/static/css/style.css` - Improve modal styling and accessibility
-- `orac/templates/index.html` - Add error handling elements
-- `orac/api.py` - Improve error responses and validation
-- `tests/` - Add new test files for UI and integration testing
-- `README.md` - Update with new documentation
-- `docs/` - Create new documentation files
-
-**Impact**:
-- **Reliability**: More stable and predictable UI behavior
-- **User Experience**: Better error messages and recovery
-- **Maintainability**: Comprehensive testing and documentation
-- **Accessibility**: Better keyboard navigation and screen reader support
-
-**Next Steps**:
-1. Implement modal state management fixes
-2. Add comprehensive error handling
-3. Set up testing infrastructure
-4. Create documentation
-5. Test all improvements thoroughly
-
-## Phase 3.1: UI Modal State Management Fixes - COMPLETED
-
-### 3.1.1 Modal State Machine Implementation
-
-**Goal**: Implement proper state machine for modal lifecycle to resolve JavaScript state management problems.
-
-**Implementation Status**: ✅ **COMPLETED** (2025-06-22)
-
-**What Was Implemented**:
-
-#### 3.1.1.1 State Machine Architecture (`orac/static/js/main.js`)
-- **ModalState Enum**: Defined states: `CLOSED`, `LOADING`, `FORM`, `COMPLETE`, `ERROR`
-- **State Management**: Implemented `setModalState()` function for controlled state transitions
-- **State Validation**: Added checks to prevent invalid state transitions
-- **State Logging**: Added console logging for state changes for debugging
-
-#### 3.1.1.2 Focus Management (`orac/static/js/main.js`)
-- **Focus Trapping**: Implemented `setupFocusTrap()` and `removeFocusTrap()` functions
-- **Focus Restoration**: Store and restore previous focus element when modal closes
-- **Auto Focus**: Automatically focus first focusable element when modal opens
-- **Keyboard Navigation**: Tab key navigation within modal with proper wrapping
-
-#### 3.1.1.3 Event Listener Management (`orac/static/js/main.js`)
-- **Event Listener Tracking**: Track all modal event listeners for proper cleanup
-- **Cleanup Function**: `removeModalEventListeners()` prevents memory leaks
-- **Escape Key Handling**: Close modal with Escape key
-- **Click Outside Handling**: Close modal when clicking outside content
-
-#### 3.1.1.4 Form Validation (`orac/static/js/main.js`)
-- **Real-time Validation**: Input validation on change with immediate feedback
-- **Error State Management**: Visual error states with CSS classes
-- **Validation Rules**: Minimum length requirements and required field validation
-- **Error Clearing**: Automatic error clearing when input becomes valid
-
-**What Worked**:
-- ✅ **State Machine**: Modal state transitions are now predictable and controlled
-- ✅ **Focus Management**: Proper focus trapping and restoration prevents focus issues
-- ✅ **Event Cleanup**: No more memory leaks from event listeners
-- ✅ **Form Validation**: Real-time validation provides immediate user feedback
-- ✅ **Accessibility**: Improved keyboard navigation and screen reader support
-
-**What Didn't Work**:
-- ❌ **Initial Simple Approach**: Direct DOM manipulation caused state conflicts
-- ❌ **Manual Event Management**: Manual event listener management led to memory leaks
-- ❌ **Basic Validation**: Simple validation didn't provide good user experience
-
-**Test Results** (2025-06-22):
-```
-✅ Modal State Transitions: All states transition correctly
-✅ Focus Management: Focus trapping and restoration working
-✅ Event Cleanup: No memory leaks detected
-✅ Form Validation: Real-time validation working
-✅ Keyboard Navigation: Tab and arrow key navigation working
-✅ Accessibility: ARIA attributes properly set
-```
-
-**Files Modified**:
-- `orac/static/js/main.js` - Complete modal state management overhaul
-- `orac/static/css/style.css` - Improved modal styling and accessibility
-- `orac/templates/index.html` - Added ARIA attributes and error elements
-- `tests/test_modal_functionality.py` - Added test framework for modal functionality
-
-**Impact**:
-- **Reliability**: Modal behavior is now predictable and stable
-- **User Experience**: Better feedback and smoother interactions
-- **Accessibility**: Improved keyboard navigation and screen reader support
-- **Maintainability**: Cleaner code structure with proper state management
-
-### 3.1.2 Error Handling Improvements
-
-**Goal**: Implement comprehensive error handling for API failures and user feedback.
-
-**Implementation Status**: ✅ **COMPLETED** (2025-06-22)
-
-**What Was Implemented**:
-
-#### 3.1.2.1 API Error Handling (`orac/static/js/main.js`)
-- **Retry Logic**: `fetchWithRetry()` function with exponential backoff
-- **Timeout Handling**: 30-second timeout for all API requests
-- **Error Parsing**: Proper parsing of API error responses
-- **Graceful Degradation**: System continues working when some endpoints fail
-
-#### 3.1.2.2 User Feedback System (`orac/static/js/main.js`)
-- **Error Messages**: `showErrorMessage()` for global error display
-- **Success Messages**: `showSuccessMessage()` for positive feedback
-- **Modal Errors**: `showModalError()` for modal-specific errors
-- **Auto-dismiss**: Messages automatically disappear after appropriate duration
-
-#### 3.1.2.3 State Recovery (`orac/static/js/main.js`)
-- **Processing State**: `isProcessing` flag prevents multiple simultaneous operations
-- **Error Recovery**: Automatic state recovery after API failures
-- **Retry Limits**: Maximum retry attempts to prevent infinite loops
-- **User Guidance**: Clear error messages with actionable suggestions
-
-#### 3.1.2.4 Visual Error States (`orac/static/css/style.css`)
-- **Error Styling**: Visual error states for form inputs
-- **Loading States**: Loading indicators for long-running operations
-- **Success Feedback**: Visual confirmation for successful operations
-- **Animation**: Smooth animations for better user experience
-
-**What Worked**:
-- ✅ **Retry Logic**: Automatic retry with exponential backoff handles transient failures
-- ✅ **User Feedback**: Clear, actionable error messages improve user experience
-- ✅ **State Recovery**: System recovers gracefully from API failures
-- ✅ **Visual Feedback**: Error states provide immediate visual feedback
-- ✅ **Timeout Handling**: Prevents hanging operations
-
-**What Didn't Work**:
-- ❌ **Simple Alert Messages**: `alert()` calls provided poor user experience
-- ❌ **No Retry Logic**: Failed requests didn't retry automatically
-- ❌ **Poor Error Messages**: Generic error messages weren't helpful
-- ❌ **No State Recovery**: System state could become inconsistent
-
-**Test Results** (2025-06-22):
-```
-✅ API Error Handling: All HTTP error codes handled gracefully
-✅ Retry Logic: Exponential backoff working correctly
-✅ User Feedback: Error and success messages displaying properly
-✅ State Recovery: System recovers from API failures
-✅ Timeout Handling: 30-second timeouts preventing hanging operations
-```
-
-**Files Modified**:
-- `orac/static/js/main.js` - Comprehensive error handling implementation
-- `orac/static/css/style.css` - Error state styling and animations
-- `orac/templates/index.html` - Error display elements
-
-**Impact**:
-- **Reliability**: System handles errors gracefully without crashing
-- **User Experience**: Clear feedback helps users understand what's happening
-- **Robustness**: Automatic retry logic handles network issues
-- **Maintainability**: Centralized error handling is easier to maintain
-
-### 3.1.3 Accessibility Improvements
-
-**Goal**: Improve accessibility for keyboard navigation and screen readers.
-
-**Implementation Status**: ✅ **COMPLETED** (2025-06-22)
-
-**What Was Implemented**:
-
-#### 3.1.3.1 ARIA Attributes (`orac/templates/index.html`)
-- **Modal Dialog**: Proper `role="dialog"` and `aria-labelledby` attributes
-- **Progress Bar**: `role="progressbar"` with `aria-valuenow` and `aria-valuetext`
-- **Form Labels**: Proper `for` attributes and `aria-describedby` relationships
-- **Button Types**: Explicit `type="button"` attributes for all buttons
-
-#### 3.1.3.2 Keyboard Navigation (`orac/static/js/main.js`)
-- **Focus Trapping**: Tab key navigation stays within modal
-- **Arrow Key Navigation**: Left/right arrow keys for suggestion chips
-- **Enter/Space**: Activate buttons and select suggestions
-- **Escape Key**: Close modal with Escape key
-
-#### 3.1.3.3 Screen Reader Support (`orac/static/js/main.js`)
-- **Dynamic Updates**: ARIA attributes update as state changes
-- **Progress Announcements**: Screen readers announce progress updates
-- **Error Announcements**: Errors are announced to screen readers
-- **Status Updates**: Status changes are properly announced
-
-#### 3.1.3.4 Visual Accessibility (`orac/static/css/style.css`)
-- **Focus Indicators**: Clear focus indicators for all interactive elements
-- **High Contrast**: Support for high contrast mode
-- **Reduced Motion**: Respect `prefers-reduced-motion` preference
-- **Color Independence**: Error states work without relying on color alone
-
-**What Worked**:
-- ✅ **ARIA Attributes**: All interactive elements have proper ARIA attributes
-- ✅ **Keyboard Navigation**: Full keyboard navigation support
-- ✅ **Screen Reader Support**: Screen readers can navigate and understand the interface
-- ✅ **Visual Accessibility**: Clear focus indicators and high contrast support
-- ✅ **Motion Preferences**: Respects user motion preferences
-
-**What Didn't Work**:
-- ❌ **Missing ARIA**: Previous version lacked proper ARIA attributes
-- ❌ **Poor Keyboard Support**: Limited keyboard navigation
-- ❌ **No Screen Reader Support**: Screen readers couldn't understand the interface
-- ❌ **Poor Visual Feedback**: Unclear focus indicators
-
-**Test Results** (2025-06-22):
-```
-✅ ARIA Attributes: All elements have proper ARIA attributes
-✅ Keyboard Navigation: Full keyboard navigation working
-✅ Screen Reader Support: Screen readers can navigate interface
-✅ Focus Management: Clear focus indicators and proper focus flow
-✅ High Contrast: High contrast mode supported
-```
-
-**Files Modified**:
-- `orac/templates/index.html` - Added comprehensive ARIA attributes
-- `orac/static/js/main.js` - Implemented keyboard navigation and ARIA updates
-- `orac/static/css/style.css` - Added accessibility-focused styling
-
-**Impact**:
-- **Accessibility**: Interface is now accessible to users with disabilities
-- **Usability**: Better keyboard navigation improves overall usability
-- **Compliance**: Meets WCAG accessibility guidelines
-- **Inclusivity**: Makes the interface usable by a wider audience
-
-**Next Steps for Phase 3**:
-1. **Medium Priority**: Set up comprehensive testing infrastructure
-2. **Medium Priority**: Create complete documentation
-3. **Low Priority**: Add advanced features like undo/redo functionality
-4. **Low Priority**: Implement advanced accessibility features
-
-**Success Criteria Met**:
-- ✅ Modal state management is reliable and predictable
-- ✅ All API errors are handled gracefully with user-friendly messages
-- ✅ Comprehensive accessibility support implemented
-- ✅ Improved user experience with better error recovery
-- ✅ Clean, maintainable code structure
-
-## Phase 4: GBNF Grammar Testing and Model Performance Analysis
-
-### 4.1 GBNF Grammar System Validation
-
-**Goal**: Validate the GBNF (Grammar Backus-Naur Form) system functionality with llama.cpp v5306 and test various grammar complexity levels.
-
-**Implementation Status**: ✅ **COMPLETED** (2025-06-27)
-
-**Root Cause Analysis**:
-- **Grammar Support**: llama.cpp v5306 provides GBNF grammar support for structured output
-- **Model Differences**: Different models show varying levels of grammar compliance and context understanding
-- **Temperature Impact**: Temperature settings significantly affect grammar adherence and context sensitivity
-- **Grammar Complexity**: Simple vs. complex grammars require different testing approaches
-
-**What Was Implemented**:
-
-#### 4.1.1 Basic Grammar Testing (`data/test_grammars/greeting.gbnf`)
-```gbnf
-root ::= "{" "\"greeting\":" "\"" greeting "\"" "}"
-greeting ::= "hello" | "hi" | "hey"
-```
-- **Purpose**: Test basic JSON structure with single field
-- **Expected Output**: `{"greeting":"hello"}` or similar
-- **Success Criteria**: Valid JSON with constrained vocabulary
-
-#### 4.1.2 Device Category Grammar (`data/test_grammars/device_category.gbnf`)
-```gbnf
-root ::= "{" "\"device\":" "\"" device "\"" "}"
-device ::= "lights" | "heating" | "blinds" | "music"
-```
-- **Purpose**: Test device classification with constrained options
-- **Expected Output**: `{"device":"lights"}` or similar
-- **Success Criteria**: Correct device identification from context
-
-#### 4.1.3 Complex Grammar Testing (`data/test_grammars/device_and_action.gbnf`)
-```gbnf
-root ::= "{" "\"device\":" "\"" device "\"" "," "\"action\":" "\"" action "\"" "}"
-device ::= "lights" | "heating" | "blinds" | "music"
-action ::= "on" | "off" | "toggle" | "open" | "shut"
-```
-- **Purpose**: Test multi-field JSON with logical relationships
-- **Expected Output**: `{"device":"lights","action":"on"}`
-- **Success Criteria**: Context-aware device and action selection
-
-**What Worked**:
-- ✅ **Grammar Parsing**: All grammars parsed successfully without errors
-- ✅ **JSON Structure**: Correct JSON format generation in all cases
-- ✅ **Vocabulary Constraint**: Models adhered to allowed vocabulary options
-- ✅ **Complex Grammar Support**: Multi-field grammars worked correctly
-- ✅ **Deployment Integration**: Grammars deployed successfully via deploy_and_test.sh
-
-**What Didn't Work**:
-- ❌ **Context Sensitivity at Low Temperature**: Models showed preference bias at temp=0.0
-- ❌ **Simple Prompts**: Basic prompts didn't always trigger context-aware responses
-- ❌ **Deterministic Mode**: Low temperature (0.0) caused repetitive outputs regardless of prompt
-
-**Test Results** (2025-06-27):
-
-**Greeting Grammar Tests**:
-```
-✅ Prompt: "say hello" → Output: {"greeting":"hello"}
-✅ Prompt: "greet me" → Output: {"greeting":"hi"}
-✅ Grammar Compliance: 100%
-✅ JSON Structure: Valid in all cases
-```
-
-**Device Category Grammar Tests**:
-```
-✅ Prompt: "control lights" → Output: {"device":"heating"} (temp=0.0)
-✅ Prompt: "turn on music" → Output: {"device":"heating"} (temp=0.0)
-✅ Prompt: "return a JSON indicating that the device is music" → Output: {"device":"music"} (temp=0.8)
-✅ Context Sensitivity: Improved with higher temperature
-```
-
-**Device and Action Grammar Tests**:
-```
-✅ Prompt: "turn on the lights" → Output: {"device":"lights","action":"on"} (Qwen3-0.6B)
-✅ Prompt: "play some music" → Output: {"device":"music","action":"open"} (Qwen3-0.6B)
-✅ Complex Grammar: Multi-field JSON working perfectly
-✅ Context Understanding: Excellent with larger models
-```
-
-**Deployment Verification**:
-- ✅ All grammars deployed successfully to remote Jetson Orin
-- ✅ Docker container integration working correctly
-- ✅ llama.cpp v5306 grammar support confirmed
-- ✅ Test automation via deploy_and_test.sh working
-
-**Lessons Learned**:
-1. **Temperature matters for context sensitivity** - Higher temperatures (0.8) improve context understanding
-2. **Model size affects grammar compliance** - Larger models (Qwen3-0.6B) show better context awareness
-3. **Explicit prompts improve results** - Clear instructions help models follow grammar rules
-4. **Complex grammars work well** - Multi-field JSON structures are supported
-5. **Grammar constraints are enforced** - Models cannot generate invalid vocabulary
-
-**Files Created**:
-- `data/test_grammars/greeting.gbnf` - Basic greeting grammar test
-- `data/test_grammars/device_category.gbnf` - Device classification grammar
-- `data/test_grammars/device_and_action.gbnf` - Complex device-action grammar
-
-**Impact**:
-- **Grammar Validation**: Confirmed GBNF system works correctly with llama.cpp v5306
-- **Model Understanding**: Better understanding of model behavior differences
-- **Testing Framework**: Established grammar testing methodology
-- **Deployment Process**: Validated grammar deployment workflow
-
-### 4.2 Model Performance Comparison Analysis
-
-**Goal**: Compare different model performances with GBNF grammars to understand capabilities and limitations.
-
-**Implementation Status**: ✅ **COMPLETED** (2025-06-27)
-
-**Root Cause Analysis**:
-- **Model Size Differences**: DistilGPT-2 (121M) vs Qwen3-0.6B (379M) parameters
-- **Architecture Differences**: GPT-2 vs Qwen architecture affects context understanding
-- **Training Data Differences**: Different training corpora affect domain knowledge
-- **Quantization Impact**: Q4_K_M quantization vs Q3_K_L affects performance
-
-**What Was Tested**:
-
-#### 4.2.1 DistilGPT-2 Model Performance
-- **Model**: `distilgpt2.Q3_K_L.gguf` (121M parameters)
-- **Architecture**: GPT-2 (distilled)
-- **Quantization**: Q3_K - Large
-- **Context Length**: 1024 tokens (training), 4096 tokens (inference)
-
-**Test Results with DistilGPT-2**:
-```
-✅ Grammar Compliance: 100% - Always generates valid JSON
-✅ Context Sensitivity: Limited - Shows preference bias
-✅ Prompt Understanding: Basic - Often ignores specific context
-✅ Temperature Impact: Significant - Higher temp improves variety
-✅ Speed: Fast - Quick generation due to small size
-```
-
-**Example Outputs**:
-- Prompt: "turn on the lights" → `{"device":"blinds","action":"toggle"}`
-- Prompt: "play some music" → `{"device":"music","action":"shut` (cut off)
-- Prompt: "the device is blinds" → `{"device":"heating"}`
-- Prompt: "the device is music" → `{"device":"heating"}`
-
-#### 4.2.2 Qwen3-0.6B Model Performance
-- **Model**: `Qwen3-0.6B-Q4_K_M.gguf` (379M parameters)
-- **Architecture**: Qwen (Alibaba)
-- **Quantization**: Q4_K - Medium
-- **Context Length**: 8192 tokens
-
-**Test Results with Qwen3-0.6B**:
-```
-✅ Grammar Compliance: 100% - Always generates valid JSON
-✅ Context Sensitivity: Excellent - Understands prompt context
-✅ Prompt Understanding: Advanced - Follows specific instructions
-✅ Temperature Impact: Moderate - Good performance at various temps
-✅ Speed: Moderate - Slower than DistilGPT-2 but acceptable
-```
-
-**Example Outputs**:
-- Prompt: "turn on the lights" → `{"device":"lights","action":"on"}`
-- Prompt: "play some music" → `{"device":"music","action":"open"}`
-- Prompt: "return a JSON indicating that the device is music" → `{"device":"music"}`
-
-**Performance Comparison Summary**:
-
-| Aspect | DistilGPT-2 | Qwen3-0.6B | Winner |
-|--------|-------------|------------|---------|
-| **Grammar Compliance** | 100% | 100% | Tie |
-| **Context Sensitivity** | Limited | Excellent | Qwen3-0.6B |
-| **Prompt Understanding** | Basic | Advanced | Qwen3-0.6B |
-| **Speed** | Fast | Moderate | DistilGPT-2 |
-| **Resource Usage** | Low | Medium | DistilGPT-2 |
-| **Output Quality** | Acceptable | High | Qwen3-0.6B |
+#### ❌ Problematic Cases (2/6)
+- "set the bathroom lights to 25%" → `{"device":"blinds","action":"set 25%","location":"bathroom"}`
+- "turn on the heating in the living room" → `{"device":"heating","action":"on","location":"dining room"}`
 
 **Key Findings**:
 
-1. **Grammar Compliance**: Both models achieve 100% grammar compliance
-2. **Context Understanding**: Qwen3-0.6B significantly outperforms DistilGPT-2
-3. **Speed vs Quality Trade-off**: DistilGPT-2 is faster but less context-aware
-4. **Temperature Sensitivity**: DistilGPT-2 is more sensitive to temperature changes
-5. **Model Selection**: Choice depends on use case (speed vs. quality)
+#### 1. Grammar Syntax Discovery
+- **Underscores don't work**: Using `set_action` in grammar causes parsing errors
+- **Hyphens work**: Using `set-action` in grammar works correctly
+- **GBNF Syntax Requirement**: Underscores are not valid in rule names
+
+#### 2. System Prompt Effectiveness
+- System prompt dramatically improved results
+- Pattern: `Apply to unknown_set....` with specific formatting
+
+#### 3. Parameter Sensitivity
+- **Temperature 0.2**: Provides consistent, deterministic output
+- **Top-p 0.8, Top-k 30**: Reduces randomness while maintaining quality
+- **50 token limit**: Sufficient for JSON responses (model completes naturally)
+
+#### 4. Model Behavior Patterns
+- **Device mapping bias**: Model sometimes chooses first available device in grammar
+- **Location fallback**: Unknown locations default to first available location instead of "UNKNOWN"
+- **Action recognition**: Excellent for simple actions and percentage-based actions
+
+#### 5. Token Limit Behavior
+- **"> EOF by user"**: Indicates model completed naturally before hitting token limit
+- **No additional output**: Even with 80 tokens, model generates same JSON
+- **Efficient completion**: Model stops when task is complete
+
+**Current Issues**:
+1. **Device Recognition**: "bathroom lights" → "blinds" (incorrect device mapping)
+2. **Location Mapping**: "living room" → "dining room" (wrong location)
+3. **Grammar Order Bias**: Model prefers first items in grammar lists
+4. **UNKNOWN Handling**: Model doesn't use UNKNOWN fallbacks effectively
 
 **What Worked**:
-- ✅ **Grammar System**: Both models work perfectly with GBNF grammars
-- ✅ **JSON Generation**: All outputs are valid JSON with correct structure
-- ✅ **Vocabulary Constraint**: Both models respect allowed vocabulary
-- ✅ **Complex Grammars**: Multi-field grammars work with both models
-- ✅ **Deployment**: Both models available and working in production
+- ✅ **Grammar Syntax**: Hyphen-based rule names work correctly
+- ✅ **System Prompt**: Dramatic improvement in parsing accuracy
+- ✅ **Parameter Tuning**: Low temperature provides consistent results
+- ✅ **JSON Structure**: Model generates valid JSON consistently
+- ✅ **Action Recognition**: Excellent for simple and percentage-based actions
 
 **What Didn't Work**:
-- ❌ **Context Ignorance**: DistilGPT-2 often ignores specific prompt context
-- ❌ **Preference Bias**: DistilGPT-2 shows strong preference for certain outputs
-- ❌ **Speed vs Quality**: No single model excels at both speed and context understanding
+- ❌ **Underscore Rule Names**: Causes parsing errors in GBNF
+- ❌ **Device Bias**: Model prefers first grammar items over context
+- ❌ **Location Fallbacks**: UNKNOWN handling not working as expected
+- ❌ **Complex Device Types**: Some device mappings incorrect
 
 **Lessons Learned**:
-1. **Model selection is use-case dependent** - Speed vs. quality trade-offs
-2. **Larger models provide better context understanding** - Worth the performance cost for complex tasks
-3. **Grammar compliance is universal** - All tested models respect grammar constraints
-4. **Temperature settings matter more for smaller models** - Critical for variety
-5. **Explicit prompts help all models** - Clear instructions improve results
+1. **GBNF syntax is strict** - underscores not allowed in rule names, use hyphens
+2. **System prompts are crucial** - dramatic impact on parsing accuracy
+3. **Grammar order matters** - model biases toward first items in lists
+4. **Parameter tuning essential** - low temperature needed for consistency
+5. **Token limits can be conservative** - model completes naturally when task done
+
+**Files Modified**:
+- `data/test_grammars/unknown_set.gbnf` - Grammar file for testing
+- Test scripts and documentation updated
 
 **Impact**:
-- **Model Selection**: Clear criteria for choosing between models
-- **Performance Expectations**: Realistic expectations for different model capabilities
-- **Optimization Strategy**: Understanding of speed vs. quality trade-offs
-- **Grammar System**: Validation that grammar system works across model types
+- **Accuracy**: 67% success rate with room for improvement
+- **Reliability**: Consistent JSON output structure
+- **Performance**: Efficient token usage and completion
+- **Foundation**: Solid base for production grammar implementation
 
-**Next Steps for Phase 4**:
-1. **High Priority**: Test with larger Qwen models (1.7B, 3B) for advanced capabilities
-2. **Medium Priority**: Create grammar testing automation framework
-3. **Medium Priority**: Develop model selection guidelines for different use cases
-4. **Low Priority**: Optimize grammar generation for specific model characteristics
+**Next Steps**:
+1. **Improve Accuracy**:
+   - Reorder grammar rules (put most common devices/locations first)
+   - Add more device types (include common Home Assistant devices)
+   - Improve UNKNOWN handling (better fallback mechanisms)
+   - Add more location options (cover common room types)
+   - Test with different models (try larger models for better understanding)
 
-**Success Criteria Met**:
-- ✅ GBNF grammar system validated with multiple models
-- ✅ Model performance characteristics documented and compared
-- ✅ Grammar testing methodology established
-- ✅ Deployment process validated for grammar files
-- ✅ Clear understanding of model capabilities and limitations
+2. **API Integration**:
+   - Ensure consistency (make sure ORAC API uses identical parameters)
+   - Grammar file deployment (verify API loads the same grammar file)
+   - System prompt integration (add effective system prompt to API calls)
+   - Parameter standardization (use same temperature, top-p, top-k values)
+   - Error handling (add proper error handling for grammar parsing failures)
+
+3. **Production Readiness**:
+   - Validation (add JSON schema validation for API responses)
+   - Logging (add detailed logging for debugging grammar issues)
+   - Fallback mechanisms (implement graceful degradation when grammar fails)
+   - Performance optimization (optimize for production latency requirements)
+
+**Final Status**:
+- ✅ **Grammar Testing**: COMPLETED
+- ✅ **Syntax Discovery**: IMPLEMENTED
+- ✅ **Parameter Optimization**: ACHIEVED
+- ✅ **Production Foundation**: ESTABLISHED
 
 ---
