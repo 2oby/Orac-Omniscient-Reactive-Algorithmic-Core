@@ -1,6 +1,6 @@
 root ::= "{\"device\":\"" device "\",\"action\":\"" action "\",\"location\":\"" location "\"}"
 device ::= "lights" | "heating" | "blinds" | "music" | "UNKNOWN"
-pct        ::= "0%" | "50%" | "100%"
+pct ::= "0%" | "50%" | "100%"
 set_action ::= "set " pct
 action ::= "on" | "off" | "toggle" | "open" | "shut" | "high" | "low" | "medium" | "warm" | "cold" | "hot" | "up" | "down" | "loud" | "quiet" | "UNKNOWN" | "set 75%" | set_action
 location ::= "bedroom" | "bathroom" | "kitchen" | "hall" | "dining room" | "any" | "all" | "UNKNOWN"
