@@ -80,6 +80,7 @@ class GenerationRequest(BaseModel):
     stop: Optional[List[str]] = Field(None, description="Stop sequences")
     max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
     json_mode: bool = Field(False, description="Whether to force JSON output using grammar")
+    grammar_file: Optional[str] = Field(None, description="Path to GBNF grammar file to use for generation")
 
 
 class GenerationResponse(BaseModel):

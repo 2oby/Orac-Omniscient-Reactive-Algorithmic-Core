@@ -217,9 +217,12 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
         is_ha_command = any(keyword in request.prompt.lower() for keyword in ha_keywords)
         
         # Use GBNF grammar for Home Assistant commands
-        grammar_file = None
-        if is_ha_command and request.json_mode:
-            # Use the unknown_set.gbnf grammar for initial testing
+        grammar_file = request.grammar_file  # Use grammar_file from request
+        if grammar_file and not os.path.exists(grammar_file):
+            logger.warning(f"Grammar file not found: {grammar_file}, falling back to JSON grammar")
+            grammar_file = None
+        elif not grammar_file and is_ha_command and request.json_mode:
+            # Fallback to hardcoded path for backward compatibility
             grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "unknown_set.gbnf")
             if os.path.exists(grammar_file):
                 logger.info(f"Using unknown_set.gbnf grammar for HA command: {grammar_file}")

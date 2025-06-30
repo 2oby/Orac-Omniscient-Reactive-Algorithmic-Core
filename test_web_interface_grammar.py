@@ -63,7 +63,7 @@ class WebInterfaceGrammarTester:
             "-m", MODEL_PATH,
             "-p", prompt,
             "--grammar-file", self.grammar_file,
-            "-n", "20",
+            "-n", "50",
             "--temp", "0.0",
             "--no-display-prompt"
         ]
