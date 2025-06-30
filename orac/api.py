@@ -522,14 +522,28 @@ async def startup_event():
         if favorites.get("default_model"):
             try:
                 logger.info(f"Loading default model: {favorites['default_model']}")
-                # Use _ensure_server_running instead of load_model
-                await client._ensure_server_running(
-                    model=favorites["default_model"],
-                    temperature=0.7,
-                    top_p=0.7,
-                    top_k=40,
-                    json_mode=True
-                )
+                
+                # Start with unknown_set.gbnf grammar for Home Assistant commands
+                grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "unknown_set.gbnf")
+                if os.path.exists(grammar_file):
+                    logger.info(f"Starting default model with unknown_set.gbnf grammar: {grammar_file}")
+                    await client._ensure_server_running(
+                        model=favorites["default_model"],
+                        temperature=0.0,  # Use 0.0 for grammar mode (consistent with test scripts)
+                        top_p=0.8,
+                        top_k=30,
+                        json_mode=True,
+                        grammar_file=grammar_file
+                    )
+                else:
+                    logger.warning(f"unknown_set.gbnf not found at {grammar_file}, starting with default JSON grammar")
+                    await client._ensure_server_running(
+                        model=favorites["default_model"],
+                        temperature=0.7,
+                        top_p=0.7,
+                        top_k=40,
+                        json_mode=True
+                    )
                 logger.info("Default model loaded successfully")
             except Exception as e:
                 logger.error(f"Failed to load default model: {e}")

@@ -321,9 +321,16 @@ class LlamaCppClient:
         if model in self._servers:
             server = self._servers[model]
             if server.process.poll() is None:  # Server is still running
-                # Update last used time
-                server.last_used = asyncio.get_event_loop().time()
-                return server
+                # Check if we need to restart due to grammar file change
+                # For now, we'll always restart when grammar_file is specified
+                # to ensure the correct grammar is used
+                if grammar_file:
+                    logger.info(f"Restarting server for model {model} to use grammar file: {grammar_file}")
+                    await self._stop_server(model)
+                else:
+                    # Update last used time
+                    server.last_used = asyncio.get_event_loop().time()
+                    return server
             else:
                 # Server died, clean it up
                 await self._stop_server(model)
