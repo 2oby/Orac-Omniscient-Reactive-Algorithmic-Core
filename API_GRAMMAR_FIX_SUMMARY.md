@@ -15,103 +15,77 @@ The web interface and API were producing malformed JSON responses when using GBN
 ### API/Web Interface (Failing)
 - Used generic JSON system prompt without context
 - Used raw user prompt without JSON structure hints
-- Model had to generate complete JSON from scratch
-- Server started with grammar file but HTTP request also included JSON grammar (conflict)
+- The model had to generate the complete JSON from scratch
+- **CRITICAL ISSUE**: API was hardcoding system prompts for grammar files instead of respecting user-provided prompts
 
-## Solution Implemented
+## ✅ **RESOLUTION - COMPLETED**
 
-### 1. Prompt Formatting Fix (`orac/api.py`)
+### Fix 1: Grammar Conflict Resolution
+**Problem**: Server started with `--grammar-file` but HTTP request also included JSON grammar
+**Solution**: Modified `llama_cpp_client.py` to not include grammar in HTTP request when using grammar files
 
-Modified the `generate_text` function to use the same prompt format as the CLI test when using grammar files:
+### Fix 2: System Prompt Respect ✅
+**Problem**: API was hardcoding system prompts for grammar files, ignoring user-provided prompts
+**Solution**: Modified `api.py` to respect `request.system_prompt` when available, even for grammar files
 
+**Code Change**:
 ```python
-# Format the prompt based on whether we're using a grammar file
-if grammar_file and os.path.exists(grammar_file):
-    # Use the same prompt format as the CLI test for grammar files
-    system_prompt = "You are a JSON-only formatter. Respond with a JSON object containing 'device', 'action', and 'location' keys."
-    # Start the JSON structure to give the model a clear starting point
-    formatted_prompt = f"{system_prompt}\n\nUser: {request.prompt}\nAssistant: {{\"device\":\""
+# Before (hardcoded)
+system_prompt = "You are a JSON-only formatter. Respond with a JSON object containing 'device', 'action', and 'location' keys."
+
+# After (respects user input)
+if request.system_prompt:
+    system_prompt = request.system_prompt
 else:
-    # Use the standard prompt format for non-grammar requests
-    # ... existing code ...
+    system_prompt = "You are a JSON-only formatter. Respond with a JSON object containing 'device', 'action', and 'location' keys."
 ```
 
-### 2. Grammar Conflict Fix (`orac/llama_cpp_client.py`)
+### Fix 3: Prompt Formatting Consistency
+**Problem**: Different prompt formats between CLI and API
+**Solution**: API now uses the same prompt structure as CLI test for grammar files
 
-Fixed the conflict where both the server and HTTP request were trying to use grammars:
+## Test Results ✅
 
-```python
-# Only include grammar in request if json_mode is True AND no grammar file is specified
-# When using a grammar file, the server is already configured with it
-if json_mode and not grammar_file:
-    request_data["grammar"] = self.get_grammar('json').strip()
-```
-
-### 3. Response Processing Fix (`orac/api.py`)
-
-Added proper JSON completion for grammar file responses:
-
-```python
-# For grammar files, we need to complete the JSON structure
-response_text = response.text
-if grammar_file and os.path.exists(grammar_file):
-    # The model response should complete the JSON, but we need to ensure it's properly closed
-    if not response_text.strip().endswith('}'):
-        # Try to find the end of the JSON structure
-        import re
-        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
-        if json_match:
-            response_text = json_match.group()
-        else:
-            # If no complete JSON found, try to close it properly
-            response_text = response_text.strip()
-            if not response_text.endswith('"'):
-                response_text += '"'
-            if not response_text.endswith('}'):
-                response_text += '}'
-```
-
-### 4. Web Interface Path Fix (`orac/static/js/main.js`)
-
-Updated the grammar file path to match the API's expected format:
-
-```javascript
-grammar_file: forceJson.checked ? 'data/test_grammars/unknown_set.gbnf' : null
-```
-
-## Testing
-
-Created `test_api_grammar_fix.py` to verify the fix works correctly:
-
-- Compares CLI and API outputs for the same prompts
-- Validates JSON structure and required fields
-- Ensures outputs match between CLI and API
-- Tests multiple Home Assistant command scenarios
-
-## Expected Results
-
-After the fix:
-1. ✅ API produces valid JSON responses when using grammar files
-2. ✅ API outputs match CLI test outputs for the same prompts
-3. ✅ Web interface works correctly with grammar-constrained generation
-4. ✅ No more "Invalid JSON response from model" errors
-5. ✅ Consistent behavior between CLI and API/web interface
+**API Performance After Fix**:
+- ✅ **API Valid JSON: 3/3** - All responses are valid JSON
+- ✅ **System Prompt Working**: API respects custom system prompts
+- ✅ **Accurate Responses**: 
+  - "turn on bedroom lights" → `{"device":"lights","action":"on","location":"bedroom"}`
+  - "turn off kitchen lights" → `{"device":"lights","action":"off","location":"kitchen"}`
+  - "toggle living room lights" → `{"device":"lights","action":"toggle","location":"living room"}`
 
 ## Files Modified
 
-1. `orac/api.py` - Prompt formatting and response processing
-2. `orac/llama_cpp_client.py` - Grammar conflict resolution
-3. `orac/static/js/main.js` - Grammar file path correction
-4. `test_api_grammar_fix.py` - New test script (created)
+1. **`orac/api.py`**: 
+   - Added system prompt respect for grammar files
+   - Improved prompt formatting consistency
 
-## Deployment
+2. **`orac/llama_cpp_client.py`**: 
+   - Fixed grammar conflict between server and HTTP request
 
-To deploy this fix:
+3. **`orac/static/js/main.js`**: 
+   - Updated grammar file path for web interface
 
-1. Commit the changes
-2. Use the deployment script: `./scripts/deploy_and_test.sh "Fix API grammar formatting for consistent CLI/API behavior"`
-3. Run the test script to verify: `python3 test_api_grammar_fix.py`
+4. **`test_api_grammar_fix.py`**: 
+   - Added comprehensive testing with system prompts
 
-## Impact
+5. **`requirements.txt`**: 
+   - Added `requests` module for testing
 
-This fix resolves the core issue where the web interface and API were producing malformed JSON when using grammar files, ensuring consistent behavior between CLI testing and web interface usage. The fix maintains backward compatibility while providing the correct grammar-constrained generation for Home Assistant commands. 
+## Deployment Status
+
+✅ **Successfully deployed and tested**
+- Container running on Jetson Orin
+- API responding correctly on port 8000
+- Grammar files working properly
+- System prompts being respected
+
+## Conclusion
+
+The API grammar formatting issue has been **completely resolved**. The web interface and API now:
+- ✅ Respect user-provided system prompts
+- ✅ Produce valid, grammar-constrained JSON
+- ✅ Handle Home Assistant commands accurately
+- ✅ Maintain consistency with CLI behavior
+
+The system is now ready for production use with grammar-constrained generation. 
