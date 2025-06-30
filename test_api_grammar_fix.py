@@ -84,6 +84,7 @@ class APIGrammarTester:
                 f"{API_BASE_URL}/v1/generate",
                 json={
                     "prompt": prompt,
+                    "system_prompt": "You are a Home Assistant command parser. Parse the user's command into a JSON object with device, action, and location fields.",
                     "json_mode": True,
                     "grammar_file": self.grammar_file,
                     "temperature": 0.0,

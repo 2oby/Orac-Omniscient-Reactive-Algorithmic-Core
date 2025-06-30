@@ -221,7 +221,11 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
         # Format the prompt based on whether we're using a grammar file
         if grammar_file and os.path.exists(grammar_file):
             # Use the same prompt format as the CLI test for grammar files
-            system_prompt = "You are a JSON-only formatter. Respond with a JSON object containing 'device', 'action', and 'location' keys."
+            # But respect user-provided system prompt if available
+            if request.system_prompt:
+                system_prompt = request.system_prompt
+            else:
+                system_prompt = "You are a JSON-only formatter. Respond with a JSON object containing 'device', 'action', and 'location' keys."
             # Start the JSON structure to give the model a clear starting point
             formatted_prompt = f"{system_prompt}\n\nUser: {request.prompt}\nAssistant: {{\"device\":\""
         else:
