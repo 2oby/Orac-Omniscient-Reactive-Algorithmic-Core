@@ -164,6 +164,24 @@ async def unload_model(model_name: str) -> ModelUnloadResponse:
         logger.error(f"Error unloading model: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/v1/homeassistant/grammar/gbnf", tags=["Home Assistant"])
+async def generate_gbnf_grammar() -> Dict[str, Any]:
+    """Generate GBNF grammar file for Home Assistant commands."""
+    try:
+        grammar_manager = await get_ha_grammar_manager()
+        gbnf_content = await grammar_manager.generate_gbnf_grammar()
+        grammar_file_path = await grammar_manager.save_gbnf_grammar()
+        
+        return {
+            "status": "success",
+            "message": "GBNF grammar generated successfully",
+            "grammar_file": grammar_file_path,
+            "grammar_content": gbnf_content
+        }
+    except Exception as e:
+        logger.error(f"Error generating GBNF grammar: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/v1/generate", response_model=GenerationResponse, tags=["Generation"])
 async def generate_text(request: GenerationRequest) -> GenerationResponse:
     """Generate text from a model."""
@@ -193,6 +211,22 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
         )
         
         client = await get_client()
+        
+        # Check if this is a Home Assistant command (simple heuristic)
+        ha_keywords = ["turn on", "turn off", "light", "switch", "thermostat", "bedroom", "kitchen"]
+        is_ha_command = any(keyword in request.prompt.lower() for keyword in ha_keywords)
+        
+        # Use GBNF grammar for Home Assistant commands
+        grammar_file = None
+        if is_ha_command and request.json_mode:
+            # Use the unknown_set.gbnf grammar for initial testing
+            grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "unknown_set.gbnf")
+            if os.path.exists(grammar_file):
+                logger.info(f"Using unknown_set.gbnf grammar for HA command: {grammar_file}")
+            else:
+                logger.warning(f"unknown_set.gbnf not found at {grammar_file}, falling back to JSON grammar")
+                grammar_file = None
+        
         response = await client.generate(
             model=model_to_use,  # Use the determined model
             prompt=formatted_prompt,
@@ -202,7 +236,8 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
             top_k=request.top_k,
             max_tokens=request.max_tokens,
             timeout=30,  # Set a 30-second timeout for the API endpoint
-            json_mode=request.json_mode
+            json_mode=request.json_mode,
+            grammar_file=grammar_file
         )
         return GenerationResponse(
             status="success",

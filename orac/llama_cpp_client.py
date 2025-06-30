@@ -283,16 +283,28 @@ class LlamaCppClient:
         logger.info(f"Found {len(models)} models")
         return models
 
+    def _find_available_port(self) -> int:
+        """Find an available port for a new server.
+        
+        Returns:
+            Available port number
+        """
+        port = DEFAULT_PORT
+        while port in self._server_ports:
+            port += 1
+        return port
+
     async def _ensure_server_running(
         self,
         model: str,
         temperature: float = 0.7,
         top_p: float = 0.7,
         top_k: int = 40,
-        json_mode: bool = True
+        json_mode: bool = True,
+        grammar_file: str = None
     ) -> ServerState:
         """
-        Ensure a server is running for the given model.
+        Ensure a server is running for the specified model.
         
         Args:
             model: Model name
@@ -300,6 +312,7 @@ class LlamaCppClient:
             top_p: Top-p sampling parameter
             top_k: Top-k sampling parameter
             json_mode: Whether to enforce JSON grammar
+            grammar_file: Path to GBNF grammar file (optional)
             
         Returns:
             ServerState for the running server
@@ -308,6 +321,7 @@ class LlamaCppClient:
         if model in self._servers:
             server = self._servers[model]
             if server.process.poll() is None:  # Server is still running
+                # Update last used time
                 server.last_used = asyncio.get_event_loop().time()
                 return server
             else:
@@ -315,23 +329,23 @@ class LlamaCppClient:
                 await self._stop_server(model)
         
         # Find an available port
-        port = DEFAULT_PORT
-        while port in self._server_ports:
-            port += 1
+        port = self._find_available_port()
         
         # Start a new server
         server = await self._start_internal_server(
             model=model,
-            host=DEFAULT_HOST,
+            host="127.0.0.1",
             port=port,
             temperature=temperature,
             top_p=top_p,
             top_k=top_k,
-            json_mode=json_mode
+            json_mode=json_mode,
+            grammar_file=grammar_file
         )
         
         self._servers[model] = server
         self._server_ports.add(port)
+        
         return server
 
     async def _start_internal_server(
@@ -342,7 +356,8 @@ class LlamaCppClient:
         temperature: float = 0.7,
         top_p: float = 0.7,
         top_k: int = 40,
-        json_mode: bool = False
+        json_mode: bool = False,
+        grammar_file: str = None
     ) -> ServerState:
         """
         Start a new server instance.
@@ -355,6 +370,7 @@ class LlamaCppClient:
             top_p: Top-p sampling parameter
             top_k: Top-k sampling parameter
             json_mode: Whether to enforce JSON grammar
+            grammar_file: Path to GBNF grammar file (optional)
             
         Returns:
             ServerState for the new server
@@ -381,8 +397,11 @@ class LlamaCppClient:
             cmd.extend(["--ctx-size", ORIN_CTX_SIZE])
             cmd.extend(["--n-gpu-layers", ORIN_GPU_LAYERS])
         
-        # Only add grammar if json_mode is True
-        if json_mode:
+        # Add grammar if specified
+        if grammar_file and os.path.exists(grammar_file):
+            cmd.extend(["--grammar-file", grammar_file])
+        elif json_mode:
+            # Fallback to JSON grammar for backward compatibility
             cmd.extend(["--grammar", self.get_grammar('json').strip()])
         
         # Start the server process
@@ -450,7 +469,8 @@ class LlamaCppClient:
         timeout: int = 30,
         system_prompt: Optional[str] = None,
         json_mode: bool = True,
-        stream: bool = False
+        stream: bool = False,
+        grammar_file: str = None
     ) -> PromptResponse:
         """
         Generate a response from the model.
@@ -467,6 +487,7 @@ class LlamaCppClient:
             system_prompt: Optional system prompt to override the model's default
             json_mode: Whether to enforce JSON grammar
             stream: Whether to stream the response (not currently implemented)
+            grammar_file: Path to GBNF grammar file (optional)
             
         Returns:
             PromptResponse with generated text and metadata
@@ -501,10 +522,10 @@ class LlamaCppClient:
             # Get model's recommended settings
             recommended_settings = model_config.get("recommended_settings", {})
             
-            # Set parameters based on JSON mode
-            if json_mode:
-                # JSON mode: always use optimized parameters (ignore user input)
-                temperature = 0.2
+            # Set parameters based on grammar usage (consistent with test scripts)
+            if grammar_file or json_mode:
+                # Grammar mode: use optimized parameters (consistent with test scripts)
+                temperature = 0.0  # Match test scripts
                 top_p = 0.8
                 top_k = 30
             else:
@@ -525,7 +546,8 @@ class LlamaCppClient:
                 temperature=temperature,
                 top_p=top_p,
                 top_k=top_k,
-                json_mode=json_mode
+                json_mode=json_mode,
+                grammar_file=grammar_file
             )
             
             # Prepare request data

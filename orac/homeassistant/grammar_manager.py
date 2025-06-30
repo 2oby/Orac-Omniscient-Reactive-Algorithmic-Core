@@ -399,3 +399,53 @@ class HomeAssistantGrammarManager:
         except Exception as e:
             logger.error(f"Error discovering Home Assistant data: {e}")
             raise
+
+    async def generate_gbnf_grammar(self, force_regenerate: bool = False) -> str:
+        """Generate GBNF grammar format for llama.cpp compatibility.
+        
+        Args:
+            force_regenerate: Force regeneration even if cached version exists
+            
+        Returns:
+            GBNF grammar string compatible with llama.cpp
+        """
+        # Get the JSON schema grammar first
+        json_grammar = await self.generate_grammar(force_regenerate)
+        
+        # Extract vocabularies
+        devices = json_grammar.get("properties", {}).get("device", {}).get("enum", [])
+        actions = json_grammar.get("properties", {}).get("action", {}).get("enum", [])
+        locations = json_grammar.get("properties", {}).get("location", {}).get("enum", [])
+        
+        # Generate GBNF format
+        gbnf_grammar = f"""root ::= "{{" ws "\"device\":" ws "\"" device "\"" ws "," ws "\"action\":" ws "\"" action "\"" ws "," ws "\"location\":" ws "\"" location "\"" ws "}}"
+
+device ::= {" | ".join(f'"{d}"' for d in devices)}
+action ::= {" | ".join(f'"{a}"' for a in actions)}
+location ::= {" | ".join(f'"{l}"' for l in locations)}
+ws ::= [ \\t\\n]*"""
+        
+        return gbnf_grammar
+
+    async def save_gbnf_grammar(self, output_path: str = None) -> str:
+        """Save GBNF grammar to file for llama.cpp compatibility.
+        
+        Args:
+            output_path: Path to save the GBNF file (optional)
+            
+        Returns:
+            Path to the saved GBNF file
+        """
+        if output_path is None:
+            # Default to data directory
+            data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
+            os.makedirs(data_dir, exist_ok=True)
+            output_path = os.path.join(data_dir, "homeassistant.gbnf")
+        
+        gbnf_content = await self.generate_gbnf_grammar()
+        
+        with open(output_path, 'w') as f:
+            f.write(gbnf_content)
+        
+        logger.info(f"Saved GBNF grammar to: {output_path}")
+        return output_path
