@@ -567,8 +567,9 @@ class LlamaCppClient:
                 "stop": [] if json_mode else ["<|im_end|>", "<|im_start|>", "<think>", "</think>"]
             }
             
-            # Only include grammar in request if json_mode is True
-            if json_mode:
+            # Only include grammar in request if json_mode is True AND no grammar file is specified
+            # When using a grammar file, the server is already configured with it
+            if json_mode and not grammar_file:
                 request_data["grammar"] = self.get_grammar('json').strip()
             
             # Make request to server

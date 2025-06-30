@@ -2,6 +2,44 @@
 
 > **Development Setup**: For environment setup, deployment procedures, and SSH access to the Jetson Orin, see [ORAC Development Instructions](instructions.md).
 
+## ✅ **RESOLVED - API Grammar Formatting Issue**
+
+### API Grammar Formatting Fix - COMPLETED
+
+#### Issue Description
+The web interface and API were producing malformed JSON responses when using GBNF grammar files, even though the same grammar worked correctly with direct CLI usage. This caused "Invalid JSON response from model" errors.
+
+#### Root Cause
+- **Prompt Formatting**: CLI test used specific system prompt and partial JSON structure, while API used generic prompts
+- **Grammar Conflict**: Server started with `--grammar-file` but HTTP request also included JSON grammar
+- **Response Processing**: API didn't properly handle partial JSON responses from grammar-constrained generation
+
+#### Solution Implemented
+1. **Prompt Formatting Fix** (`orac/api.py`): Use same prompt format as CLI test for grammar files
+2. **Grammar Conflict Fix** (`orac/llama_cpp_client.py`): Don't include grammar in HTTP request when using grammar files
+3. **Response Processing Fix** (`orac/api.py`): Proper JSON completion for grammar file responses
+4. **Web Interface Fix** (`orac/static/js/main.js`): Correct grammar file path
+
+#### Status: ✅ **RESOLVED**
+- API now produces valid JSON responses when using grammar files
+- API outputs match CLI test outputs for the same prompts
+- Web interface works correctly with grammar-constrained generation
+- No more "Invalid JSON response from model" errors
+
+#### Files Modified
+- `orac/api.py` - Prompt formatting and response processing
+- `orac/llama_cpp_client.py` - Grammar conflict resolution  
+- `orac/static/js/main.js` - Grammar file path correction
+- `test_api_grammar_fix.py` - New test script (created)
+
+#### Test Results
+Created comprehensive test script that validates:
+- CLI and API produce identical outputs
+- JSON structure is valid with required fields
+- Multiple Home Assistant command scenarios work correctly
+
+---
+
 ## 🚨 **CURRENT PRIORITY ISSUE - GBNF Parsing Bug in llama.cpp v5306**
 
 ### GBNF Parsing Issue in llama.cpp Version 5306

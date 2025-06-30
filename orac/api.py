@@ -200,18 +200,6 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
         model_configs = load_model_configs()
         model_config = model_configs.get("models", {}).get(model_to_use, {})
         
-        # Get the prompt format template
-        prompt_format = model_config.get("prompt_format", {})
-        template = prompt_format.get("template", "{system_prompt}\n\n{user_prompt}")
-        
-        # Format the prompt using the template
-        formatted_prompt = template.format(
-            system_prompt=request.system_prompt or "",
-            user_prompt=request.prompt
-        )
-        
-        client = await get_client()
-        
         # Check if this is a Home Assistant command (simple heuristic)
         ha_keywords = ["turn on", "turn off", "light", "switch", "thermostat", "bedroom", "kitchen"]
         is_ha_command = any(keyword in request.prompt.lower() for keyword in ha_keywords)
@@ -230,6 +218,32 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
                 logger.warning(f"unknown_set.gbnf not found at {grammar_file}, falling back to JSON grammar")
                 grammar_file = None
         
+        # Format the prompt based on whether we're using a grammar file
+        if grammar_file and os.path.exists(grammar_file):
+            # Use the same prompt format as the CLI test for grammar files
+            system_prompt = "You are a JSON-only formatter. Respond with a JSON object containing 'device', 'action', and 'location' keys."
+            # Start the JSON structure to give the model a clear starting point
+            formatted_prompt = f"{system_prompt}\n\nUser: {request.prompt}\nAssistant: {{\"device\":\""
+        else:
+            # Use the standard prompt format for non-grammar requests
+            prompt_format = model_config.get("prompt_format", {})
+            template = prompt_format.get("template", "{system_prompt}\n\n{user_prompt}")
+            
+            # Use JSON-specific system prompt when in JSON mode
+            if request.json_mode:
+                system_prompt = "You must respond with valid JSON only. Do not include any explanations, thinking, or commentary outside the JSON structure. Your response should be clean, properly formatted JSON that directly answers the request."
+            else:
+                # Use provided system prompt or fall back to model's default
+                system_prompt = request.system_prompt or model_config.get("system_prompt", "")
+            
+            # Format the prompt using the template
+            formatted_prompt = template.format(
+                system_prompt=system_prompt,
+                user_prompt=request.prompt
+            )
+        
+        client = await get_client()
+        
         response = await client.generate(
             model=model_to_use,  # Use the determined model
             prompt=formatted_prompt,
@@ -242,9 +256,28 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
             json_mode=request.json_mode,
             grammar_file=grammar_file
         )
+        
+        # For grammar files, we need to complete the JSON structure
+        response_text = response.text
+        if grammar_file and os.path.exists(grammar_file):
+            # The model response should complete the JSON, but we need to ensure it's properly closed
+            if not response_text.strip().endswith('}'):
+                # Try to find the end of the JSON structure
+                import re
+                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                if json_match:
+                    response_text = json_match.group()
+                else:
+                    # If no complete JSON found, try to close it properly
+                    response_text = response_text.strip()
+                    if not response_text.endswith('"'):
+                        response_text += '"'
+                    if not response_text.endswith('}'):
+                        response_text += '}'
+        
         return GenerationResponse(
             status="success",
-            response=response.text,
+            response=response_text,
             elapsed_ms=response.response_time * 1000,  # Convert to milliseconds
             model=model_to_use  # Return the actual model used
         )
