@@ -2,6 +2,52 @@
 
 > **Development Setup**: For environment setup, deployment procedures, and SSH access to the Jetson Orin, see [ORAC Development Instructions](instructions.md).
 
+## 🎯 **CURRENT PRIORITY - Dynamic Grammar Updates and Web UI Integration**
+
+### Dynamic Grammar Update System - IN PROGRESS
+
+#### Requirements
+- **Daily Updates**: Run entity fetch from Home Assistant once daily at 3am
+- **Manual Trigger**: Add button in Web UI to force fetch from Home Assistant
+- **Grammar Validation**: After each fetch, validate grammar can be parsed and LLM generation works
+- **Test Command**: Use "Turn on the Kitchen lights" as validation test
+- **Model Settings Sync**: Ensure Web UI model settings (default model, top-p, top-k, prompt) are used by API
+
+#### Implementation Plan
+1. **Scheduled Updates**: Implement daily 3am cron job or scheduler for entity discovery
+2. **Web UI Button**: Add "Update Grammar" button to trigger manual fetch
+3. **Grammar Validation**: Post-update validation with test prompt
+4. **Settings Synchronization**: Sync Web UI settings with API configuration
+5. **Error Handling**: Graceful fallback if grammar update fails
+
+#### Status: ✅ **COMPLETED**
+- Daily scheduled grammar updates at 3am implemented
+- Manual grammar update button with force option added to Web UI
+- Grammar validation with test generation ("Turn on the Kitchen lights") implemented
+- Model settings synchronization between Web UI and API implemented
+- Grammar scheduler with status monitoring implemented
+- Default grammar file (default.gbnf) created and integrated
+- Test script created for validation
+
+#### Files Modified
+- `orac/homeassistant/grammar_scheduler.py` - New scheduler module
+- `orac/api.py` - Enhanced grammar update endpoints and model settings sync
+- `orac/static/js/main.js` - Updated Web UI with force update and scheduler status
+- `orac/templates/index.html` - Added force update button
+- `data/test_grammars/default.gbnf` - New default grammar file
+- `test_grammar_scheduler.py` - Test script for validation
+
+#### Features Implemented
+1. **Daily Updates**: Grammar scheduler runs automatically at 3am daily
+2. **Manual Updates**: Web UI button to trigger immediate grammar updates
+3. **Force Updates**: Force update option to bypass time-based restrictions
+4. **Validation**: Post-update validation with test generation
+5. **Settings Sync**: Web UI model settings (temperature, top-p, top-k) used by API
+6. **Status Monitoring**: Real-time scheduler status in Web UI
+7. **Error Handling**: Graceful fallback and error reporting
+
+---
+
 ## ✅ **RESOLVED - API Grammar Formatting Issue**
 
 ### API Grammar Formatting Fix - COMPLETED

@@ -44,6 +44,7 @@ const haMappingStatus = document.getElementById('haMappingStatus');
 const checkNullMappings = document.getElementById('checkNullMappings');
 const runAutoDiscovery = document.getElementById('runAutoDiscovery');
 const updateGrammar = document.getElementById('updateGrammar');
+const forceUpdateGrammar = document.getElementById('forceUpdateGrammar');
 
 // State
 let currentModel = null;
@@ -560,7 +561,7 @@ generateButton.addEventListener('click', async () => {
                 top_k: parseInt(topK.value),
                 max_tokens: parseInt(maxTokens.value),
                 json_mode: forceJson.checked,
-                grammar_file: forceJson.checked ? 'data/test_grammars/unknown_set.gbnf' : null
+                grammar_file: forceJson.checked ? 'data/test_grammars/default.gbnf' : null
             })
         });
 
@@ -879,6 +880,25 @@ async function updateHAStatus() {
         } catch (grammarError) {
             haGrammarStatus.textContent = 'Error';
             console.warn('Error fetching grammar data:', grammarError);
+        }
+
+        // Get scheduler status with error handling
+        try {
+            const schedulerResponse = await fetch('/v1/homeassistant/grammar/scheduler/status');
+            if (schedulerResponse.ok) {
+                const schedulerData = await schedulerResponse.json();
+                const schedulerStatus = schedulerData.scheduler_status;
+                if (schedulerStatus.scheduler_running) {
+                    const nextUpdate = new Date(schedulerStatus.next_update).toLocaleString();
+                    haGrammarStatus.textContent += ` | Scheduler: Running (Next: ${nextUpdate})`;
+                } else {
+                    haGrammarStatus.textContent += ' | Scheduler: Stopped';
+                }
+            } else {
+                console.warn('Failed to fetch scheduler data:', schedulerResponse.status);
+            }
+        } catch (schedulerError) {
+            console.warn('Error fetching scheduler data:', schedulerError);
         }
 
     } catch (error) {
@@ -1372,8 +1392,8 @@ async function runAutoDiscoveryHandler() {
     }
 }
 
-// Update grammar handler - Improved error handling
-async function updateGrammarHandler() {
+// Update grammar handler - Improved error handling with force option
+async function updateGrammarHandler(force = false) {
     if (isProcessing) {
         console.warn('Already processing, ignoring grammar update request');
         return;
@@ -1382,13 +1402,20 @@ async function updateGrammarHandler() {
     isProcessing = true;
     
     try {
-        const response = await fetchWithRetry('/v1/homeassistant/grammar/update', {
+        const url = force ? '/v1/homeassistant/grammar/update?force=true' : '/v1/homeassistant/grammar/update';
+        const response = await fetchWithRetry(url, {
             method: 'POST'
         });
         
         if (response.ok) {
             const data = await response.json();
-            showSuccessMessage(`Grammar updated successfully! Devices: ${data.device_count}, Actions: ${data.action_count}, Locations: ${data.location_count}`);
+            if (data.status === 'skipped') {
+                showSuccessMessage(`Grammar update skipped: ${data.message}`);
+            } else {
+                const validationStatus = data.validation?.status || 'unknown';
+                const validationMessage = data.validation?.message || '';
+                showSuccessMessage(`Grammar updated successfully! Devices: ${data.grammar_stats?.device_count || 'N/A'}, Actions: ${data.grammar_stats?.action_count || 'N/A'}, Locations: ${data.grammar_stats?.location_count || 'N/A'}. Validation: ${validationStatus} - ${validationMessage}`);
+            }
             updateHAStatus();
         } else {
             const errorData = await response.json().catch(() => ({}));
@@ -1402,6 +1429,11 @@ async function updateGrammarHandler() {
     }
 }
 
+// Force update grammar handler
+async function forceUpdateGrammarHandler() {
+    await updateGrammarHandler(true);
+}
+
 // Event listeners
 console.log('Setting up event listeners...');
 console.log('checkNullMappings element:', checkNullMappings);
@@ -1412,7 +1444,8 @@ checkNullMappings.addEventListener('click', (e) => {
 });
 
 runAutoDiscovery.addEventListener('click', runAutoDiscoveryHandler);
-updateGrammar.addEventListener('click', updateGrammarHandler);
+updateGrammar.addEventListener('click', () => updateGrammarHandler(false));
+forceUpdateGrammar.addEventListener('click', forceUpdateGrammarHandler);
 refreshHAStatus.addEventListener('click', updateHAStatus);
 saveEntityMapping.addEventListener('click', saveEntityMappingHandler);
 skipEntity.addEventListener('click', skipEntityHandler);

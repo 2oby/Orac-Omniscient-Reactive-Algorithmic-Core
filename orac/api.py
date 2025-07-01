@@ -74,6 +74,7 @@ client = None
 ha_client = None
 ha_mapping_config = None
 ha_grammar_manager = None
+ha_grammar_scheduler = None
 
 async def get_client() -> LlamaCppClient:
     """Get or create the llama.cpp client instance."""
@@ -115,6 +116,18 @@ async def get_ha_grammar_manager() -> HomeAssistantGrammarManager:
         mapping_config = await get_ha_mapping_config()
         ha_grammar_manager = HomeAssistantGrammarManager(client=client, mapping_config=mapping_config)
     return ha_grammar_manager
+
+async def get_ha_grammar_scheduler() -> 'GrammarScheduler':
+    """Get or create the Home Assistant grammar scheduler instance."""
+    global ha_grammar_scheduler
+    if ha_grammar_scheduler is None:
+        logger.info("Initializing Home Assistant grammar scheduler")
+        client = await get_ha_client()
+        mapping_config = await get_ha_mapping_config()
+        ha_grammar_manager = await get_ha_grammar_manager()
+        from .homeassistant.grammar_scheduler import GrammarScheduler
+        ha_grammar_scheduler = GrammarScheduler(ha_grammar_manager, mapping_config, client)
+    return ha_grammar_scheduler
 
 @app.get("/v1/status", tags=["System"])
 async def get_status() -> Dict[str, Any]:
@@ -196,6 +209,18 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
                 detail="No model specified in request and no default model configured"
             )
         
+        # Load model configs to get default settings for the model
+        model_configs = load_model_configs()
+        model_config = model_configs.get("models", {}).get(model_to_use, {})
+        default_settings = model_config.get("recommended_settings", {})
+        
+        # Use request settings or fall back to model's default settings
+        temperature = request.temperature if request.temperature is not None else default_settings.get("temperature", 0.7)
+        top_p = request.top_p if request.top_p is not None else default_settings.get("top_p", 0.7)
+        top_k = request.top_k if request.top_k is not None else default_settings.get("top_k", 40)
+        max_tokens = request.max_tokens if request.max_tokens is not None else default_settings.get("max_tokens", 2048)
+        json_mode = request.json_mode if request.json_mode is not None else default_settings.get("json_mode", False)
+        
         # Load model configs to get the prompt format
         model_configs = load_model_configs()
         model_config = model_configs.get("models", {}).get(model_to_use, {})
@@ -210,13 +235,13 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
             logger.warning(f"Grammar file not found: {grammar_file}, falling back to JSON grammar")
             grammar_file = None
         elif not grammar_file and is_ha_command and request.json_mode:
-            # Use set_temp.gbnf as default for Home Assistant commands
-            grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "set_temp.gbnf")
+            # Use default.gbnf as default for Home Assistant commands
+            grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "default.gbnf")
             if os.path.exists(grammar_file):
-                logger.info(f"Using set_temp.gbnf grammar for HA command: {grammar_file}")
+                logger.info(f"Using default.gbnf grammar for HA command: {grammar_file}")
             else:
-                logger.warning(f"set_temp.gbnf not found at {grammar_file}, falling back to unknown_set.gbnf")
-                fallback_grammar = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "unknown_set.gbnf")
+                logger.warning(f"default.gbnf not found at {grammar_file}, falling back to set_temp.gbnf")
+                fallback_grammar = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "set_temp.gbnf")
                 if os.path.exists(fallback_grammar):
                     grammar_file = fallback_grammar
                     logger.info(f"Using fallback grammar: {fallback_grammar}")
@@ -258,12 +283,12 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
             model=model_to_use,  # Use the determined model
             prompt=formatted_prompt,
             stream=request.stream,
-            temperature=request.temperature,
-            top_p=request.top_p,
-            top_k=request.top_k,
-            max_tokens=request.max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            max_tokens=max_tokens,
             timeout=30,  # Set a 30-second timeout for the API endpoint
-            json_mode=request.json_mode,
+            json_mode=json_mode,
             grammar_file=grammar_file
         )
         
@@ -530,25 +555,66 @@ async def get_grammar() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/v1/homeassistant/grammar/update", tags=["Home Assistant"])
-async def update_grammar() -> Dict[str, Any]:
-    """Update grammar rules with latest Home Assistant data."""
+async def update_grammar(force: bool = False) -> Dict[str, Any]:
+    """Update grammar rules with latest Home Assistant data and validation."""
     try:
-        grammar_manager = await get_ha_grammar_manager()
-        await grammar_manager.update_grammar()
+        # Get the grammar scheduler
+        scheduler = await get_ha_grammar_scheduler()
         
-        # Get updated grammar
-        grammar = await grammar_manager.generate_grammar()
+        # Run update with validation
+        result = await scheduler.update_grammar_with_validation(force_update=force)
+        
+        if result["status"] == "error":
+            raise HTTPException(status_code=500, detail=result["message"])
+        
+        return result
+    except Exception as e:
+        logger.error(f"Error updating grammar: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/v1/homeassistant/grammar/scheduler/status", tags=["Home Assistant"])
+async def get_grammar_scheduler_status() -> Dict[str, Any]:
+    """Get grammar scheduler status."""
+    try:
+        scheduler = await get_ha_grammar_scheduler()
+        return {
+            "status": "success",
+            "scheduler_status": scheduler.get_status()
+        }
+    except Exception as e:
+        logger.error(f"Error getting scheduler status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/v1/homeassistant/grammar/scheduler/start", tags=["Home Assistant"])
+async def start_grammar_scheduler() -> Dict[str, Any]:
+    """Start the grammar scheduler."""
+    try:
+        scheduler = await get_ha_grammar_scheduler()
+        await scheduler.start_scheduler()
         
         return {
             "status": "success",
-            "message": "Grammar updated successfully",
-            "grammar": grammar,
-            "device_count": len(grammar.get("properties", {}).get("device", {}).get("enum", [])),
-            "action_count": len(grammar.get("properties", {}).get("action", {}).get("enum", [])),
-            "location_count": len(grammar.get("properties", {}).get("location", {}).get("enum", []))
+            "message": "Grammar scheduler started",
+            "scheduler_status": scheduler.get_status()
         }
     except Exception as e:
-        logger.error(f"Error updating grammar: {e}")
+        logger.error(f"Error starting scheduler: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/v1/homeassistant/grammar/scheduler/stop", tags=["Home Assistant"])
+async def stop_grammar_scheduler() -> Dict[str, Any]:
+    """Stop the grammar scheduler."""
+    try:
+        scheduler = await get_ha_grammar_scheduler()
+        await scheduler.stop_scheduler()
+        
+        return {
+            "status": "success",
+            "message": "Grammar scheduler stopped",
+            "scheduler_status": scheduler.get_status()
+        }
+    except Exception as e:
+        logger.error(f"Error stopping scheduler: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.on_event("startup")
@@ -566,28 +632,28 @@ async def startup_event():
             try:
                 logger.info(f"Loading default model: {favorites['default_model']}")
                 
-                # Start with set_temp.gbnf grammar for Home Assistant commands with temperature/percentage support
-                grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "set_temp.gbnf")
+                # Start with default.gbnf grammar for Home Assistant commands
+                grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "default.gbnf")
                 if os.path.exists(grammar_file):
-                    logger.info(f"Starting default model with set_temp.gbnf grammar: {grammar_file}")
+                    logger.info(f"Starting default model with default.gbnf grammar: {grammar_file}")
                     await client._ensure_server_running(
                         model=favorites["default_model"],
-                        temperature=0.1,  # Use 0.1 for temperature/percentage grammar (optimized settings)
+                        temperature=0.1,  # Use 0.1 for grammar-constrained generation
                         top_p=0.9,
                         top_k=10,
                         json_mode=True,
                         grammar_file=grammar_file
                     )
                 else:
-                    logger.warning(f"set_temp.gbnf not found at {grammar_file}, falling back to unknown_set.gbnf")
-                    fallback_grammar = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "unknown_set.gbnf")
+                    logger.warning(f"default.gbnf not found at {grammar_file}, falling back to set_temp.gbnf")
+                    fallback_grammar = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "set_temp.gbnf")
                     if os.path.exists(fallback_grammar):
                         logger.info(f"Using fallback grammar: {fallback_grammar}")
                         await client._ensure_server_running(
                             model=favorites["default_model"],
-                            temperature=0.0,
-                            top_p=0.8,
-                            top_k=30,
+                            temperature=0.1,
+                            top_p=0.9,
+                            top_k=10,
                             json_mode=True,
                             grammar_file=fallback_grammar
                         )
@@ -603,6 +669,15 @@ async def startup_event():
                 logger.info("Default model loaded successfully")
             except Exception as e:
                 logger.error(f"Failed to load default model: {e}")
+        
+        # Start the grammar scheduler for daily updates
+        try:
+            scheduler = await get_ha_grammar_scheduler()
+            await scheduler.start_scheduler()
+            logger.info("Grammar scheduler started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start grammar scheduler: {e}")
+            # Don't fail startup if scheduler fails
     except Exception as e:
         logger.error(f"Error during startup: {e}")
         raise
@@ -610,7 +685,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources on shutdown."""
-    global client, ha_client
+    global client, ha_client, ha_grammar_scheduler
     if client:
         try:
             await client.cleanup()
@@ -623,6 +698,14 @@ async def shutdown_event():
             await ha_client.__aexit__(None, None, None)
         except Exception as e:
             logger.error(f"Error during HA client shutdown: {e}")
+    
+    # Stop grammar scheduler
+    if ha_grammar_scheduler:
+        try:
+            await ha_grammar_scheduler.stop_scheduler()
+            logger.info("Grammar scheduler stopped")
+        except Exception as e:
+            logger.error(f"Error stopping grammar scheduler: {e}")
 
 # Web interface routes
 @app.get("/", response_class=HTMLResponse)

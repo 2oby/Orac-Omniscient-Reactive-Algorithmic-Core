@@ -27,13 +27,13 @@ This document tracks the development progress of ORAC's Home Assistant auto-disc
 **Code Change**:
 ```python
 # Before (hardcoded)
-system_prompt = "You are a JSON-only formatter. Respond with a JSON object containing 'device', 'action', and 'location' keys."
+system_prompt = "/no_think You are a JSON-only formatter. Respond with a JSON object containing 'device', 'action', and 'location' keys."
 
 # After (respects user input)
 if request.system_prompt:
     system_prompt = request.system_prompt
 else:
-    system_prompt = "You are a JSON-only formatter. Respond with a JSON object containing 'device', 'action', and 'location' keys."
+    system_prompt = "/no_think You are a JSON-only formatter. Respond with a JSON object containing 'device', 'action', and 'location' keys."
 ```
 
 #### 4.1.2 Grammar Conflict Resolution (`orac/llama_cpp_client.py`)
@@ -50,7 +50,7 @@ if json_mode and not grammar_file:
 #### 4.1.3 Optimized System Prompt
 **New System Prompt** (for Home Assistant command parsing):
 ```
-You are a JSON-only formatter. For each user input, accurately interpret the intended command and respond with a single-line JSON object containing the keys: "device", "action", and "location". Match the "device" to the user-specified device (e.g., "heating" for heating, "blinds" for blinds) and select the "action" most appropriate for that device (e.g., "on", "off" for heating; "open", "close" for blinds) based on the provided grammar. Use "UNKNOWN" for unrecognized inputs. Output only the JSON object without explanations or additional text.
+/no_think You are a JSON-only formatter. For each user input, accurately interpret the intended command and respond with a single-line JSON object containing the keys: "device", "action", and "location". Match the "device" to the user-specified device (e.g., "heating" for heating, "blinds" for blinds) and select the "action" most appropriate for that device (e.g., "on", "off" for heating; "open", "close" for blinds) based on the provided grammar. Use "UNKNOWN" for unrecognized inputs. Output only the JSON object without explanations or additional text.
 ```
 
 **Optimized Generation Parameters**:
