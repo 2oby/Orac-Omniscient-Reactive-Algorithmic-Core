@@ -210,13 +210,19 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
             logger.warning(f"Grammar file not found: {grammar_file}, falling back to JSON grammar")
             grammar_file = None
         elif not grammar_file and is_ha_command and request.json_mode:
-            # Fallback to hardcoded path for backward compatibility
-            grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "unknown_set.gbnf")
+            # Use set_temp.gbnf as default for Home Assistant commands
+            grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "set_temp.gbnf")
             if os.path.exists(grammar_file):
-                logger.info(f"Using unknown_set.gbnf grammar for HA command: {grammar_file}")
+                logger.info(f"Using set_temp.gbnf grammar for HA command: {grammar_file}")
             else:
-                logger.warning(f"unknown_set.gbnf not found at {grammar_file}, falling back to JSON grammar")
-                grammar_file = None
+                logger.warning(f"set_temp.gbnf not found at {grammar_file}, falling back to unknown_set.gbnf")
+                fallback_grammar = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "unknown_set.gbnf")
+                if os.path.exists(fallback_grammar):
+                    grammar_file = fallback_grammar
+                    logger.info(f"Using fallback grammar: {fallback_grammar}")
+                else:
+                    logger.warning(f"Fallback grammar not found, using JSON grammar")
+                    grammar_file = None
         
         # Format the prompt based on whether we're using a grammar file
         if grammar_file and os.path.exists(grammar_file):
@@ -560,27 +566,40 @@ async def startup_event():
             try:
                 logger.info(f"Loading default model: {favorites['default_model']}")
                 
-                # Start with unknown_set.gbnf grammar for Home Assistant commands
-                grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "unknown_set.gbnf")
+                # Start with set_temp.gbnf grammar for Home Assistant commands with temperature/percentage support
+                grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "set_temp.gbnf")
                 if os.path.exists(grammar_file):
-                    logger.info(f"Starting default model with unknown_set.gbnf grammar: {grammar_file}")
+                    logger.info(f"Starting default model with set_temp.gbnf grammar: {grammar_file}")
                     await client._ensure_server_running(
                         model=favorites["default_model"],
-                        temperature=0.0,  # Use 0.0 for grammar mode (consistent with test scripts)
-                        top_p=0.8,
-                        top_k=30,
+                        temperature=0.1,  # Use 0.1 for temperature/percentage grammar (optimized settings)
+                        top_p=0.9,
+                        top_k=10,
                         json_mode=True,
                         grammar_file=grammar_file
                     )
                 else:
-                    logger.warning(f"unknown_set.gbnf not found at {grammar_file}, starting with default JSON grammar")
-                    await client._ensure_server_running(
-                        model=favorites["default_model"],
-                        temperature=0.7,
-                        top_p=0.7,
-                        top_k=40,
-                        json_mode=True
-                    )
+                    logger.warning(f"set_temp.gbnf not found at {grammar_file}, falling back to unknown_set.gbnf")
+                    fallback_grammar = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "unknown_set.gbnf")
+                    if os.path.exists(fallback_grammar):
+                        logger.info(f"Using fallback grammar: {fallback_grammar}")
+                        await client._ensure_server_running(
+                            model=favorites["default_model"],
+                            temperature=0.0,
+                            top_p=0.8,
+                            top_k=30,
+                            json_mode=True,
+                            grammar_file=fallback_grammar
+                        )
+                    else:
+                        logger.warning(f"Fallback grammar not found, starting with default JSON grammar")
+                        await client._ensure_server_running(
+                            model=favorites["default_model"],
+                            temperature=0.7,
+                            top_p=0.7,
+                            top_k=40,
+                            json_mode=True
+                        )
                 logger.info("Default model loaded successfully")
             except Exception as e:
                 logger.error(f"Failed to load default model: {e}")
