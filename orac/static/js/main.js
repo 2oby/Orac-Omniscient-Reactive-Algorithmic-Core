@@ -243,20 +243,20 @@ document.getElementById('resetSettings').addEventListener('click', async () => {
 
     try {
         // Get model configs to find default settings
-        const response = await fetch('/api/models/configs');
+        const response = await fetch('/v1/config/models');
         if (!response.ok) {
             throw new Error('Failed to load model configs');
         }
         const configs = await response.json();
-        const modelConfig = configs[selectedModel];
+        const modelConfig = configs.models?.[selectedModel] || {};
 
         // Get favorites for default settings
-        const favResponse = await fetch('/api/favorites');
+        const favResponse = await fetch('/v1/config/favorites');
         if (!favResponse.ok) {
             throw new Error('Failed to load favorites');
         }
-        const favorites = await favResponse.json();
-        const defaultSettings = favorites.default_settings || {};
+        const favData = await favResponse.json();
+        const defaultSettings = favData.default_settings || {};
 
         // Update UI with reset values
         systemPrompt.value = modelConfig?.system_prompt || defaultSettings.system_prompt || '';
@@ -480,6 +480,12 @@ async function loadModels() {
             updateSettingsPanel(defaultModel);
         }
         
+        // Ensure settings are properly loaded for the current model
+        if (currentModel) {
+            console.log('Ensuring settings are loaded for current model:', currentModel);
+            updateSettingsPanel(currentModel);
+        }
+        
         console.log('Dropdown populated with', modelSelect.options.length - 1, 'models');
     } catch (error) {
         console.error('Error loading models:', error);
@@ -497,19 +503,46 @@ function createModelOption(model, isFavorite) {
 
 // Update settings panel with model settings
 function updateSettingsPanel(modelName) {
-    if (!modelName) return;
+    if (!modelName) {
+        console.warn('updateSettingsPanel called with no model name');
+        return;
+    }
+    
+    console.log(`Updating settings panel for model: ${modelName}`);
+    console.log('Available model configs:', Object.keys(modelConfigs));
+    console.log('Current model configs:', modelConfigs);
     
     const config = modelConfigs[modelName] || {};
-    const settings = config.recommended_settings || defaultSettings;
+    const settings = config.recommended_settings || {};
     
+    // Use fallback chain: model settings -> default settings -> hardcoded defaults
+    const fallbackSettings = {
+        temperature: 0.7,
+        top_p: 0.7,
+        top_k: 40,
+        max_tokens: 512,
+        json_mode: false
+    };
+    
+    // Update UI with robust fallback logic
     systemPrompt.value = config.system_prompt || '';
     systemPromptDisplay.textContent = config.system_prompt || '';
-    temperature.value = settings.temperature || defaultSettings.temperature;
-    topP.value = settings.top_p || defaultSettings.top_p;
-    topK.value = settings.top_k || defaultSettings.top_k;
-    maxTokens.value = settings.max_tokens || defaultSettings.max_tokens;
-    forceJson.checked = settings.json_mode || false;
+    temperature.value = settings.temperature ?? defaultSettings?.temperature ?? fallbackSettings.temperature;
+    topP.value = settings.top_p ?? defaultSettings?.top_p ?? fallbackSettings.top_p;
+    topK.value = settings.top_k ?? defaultSettings?.top_k ?? fallbackSettings.top_k;
+    maxTokens.value = settings.max_tokens ?? defaultSettings?.max_tokens ?? fallbackSettings.max_tokens;
+    forceJson.checked = settings.json_mode ?? defaultSettings?.json_mode ?? fallbackSettings.json_mode;
     setDefault.checked = modelName === defaultModel;
+    
+    console.log('Settings panel updated with values:', {
+        systemPrompt: systemPrompt.value,
+        temperature: temperature.value,
+        topP: topP.value,
+        topK: topK.value,
+        maxTokens: maxTokens.value,
+        forceJson: forceJson.checked,
+        setDefault: setDefault.checked
+    });
 }
 
 // Update model selection handler
@@ -521,9 +554,15 @@ modelSelect.addEventListener('change', async () => {
         return;
     }
 
+    console.log('Model selection changed to:', selectedModel);
     currentModel = selectedModel;
     updateFavoriteButtonState(selectedModel);
-    updateSettingsPanel(selectedModel);
+    
+    // Ensure settings are loaded with a small delay to handle any race conditions
+    setTimeout(() => {
+        updateSettingsPanel(selectedModel);
+        validateAndFixSettings();
+    }, 50);
 });
 
 // Handle generate button click
@@ -582,8 +621,45 @@ generateButton.addEventListener('click', async () => {
     }
 });
 
+// Function to validate and fix missing settings
+function validateAndFixSettings() {
+    if (!currentModel) return;
+    
+    console.log('Validating settings for current model:', currentModel);
+    
+    // Check if settings are missing or invalid
+    const hasValidSettings = systemPrompt.value && 
+                            temperature.value && 
+                            topP.value && 
+                            topK.value && 
+                            maxTokens.value;
+    
+    if (!hasValidSettings) {
+        console.warn('Settings appear to be missing or invalid, reloading...');
+        updateSettingsPanel(currentModel);
+    }
+}
+
 // Initialize
-loadModels();
+loadModels().then(() => {
+    // Validate settings after models are loaded
+    setTimeout(validateAndFixSettings, 100);
+    
+    // Set up periodic settings validation (every 30 seconds)
+    setInterval(() => {
+        if (currentModel && document.visibilityState === 'visible') {
+            validateAndFixSettings();
+        }
+    }, 30000);
+    
+    // Handle page visibility changes to reload settings when user returns
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && currentModel) {
+            console.log('Page became visible, validating settings...');
+            setTimeout(validateAndFixSettings, 500);
+        }
+    });
+});
 
 // Home Assistant Functionality
 

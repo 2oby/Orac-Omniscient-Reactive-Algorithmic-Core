@@ -29,6 +29,30 @@
 - Default grammar file (default.gbnf) created and integrated
 - Test script created for validation
 
+### Model Settings Persistence Fixes - IN PROGRESS
+
+#### Issues Identified
+- **Incorrect API endpoints** in reset settings function (`/api/` instead of `/v1/`)
+- **Missing error handling** in settings loading
+- **Race conditions** between model loading and settings application
+- **Insufficient fallback logic** for missing settings
+
+#### Fixes Implemented
+- ✅ Fixed API endpoints in reset settings function
+- ✅ Enhanced `updateSettingsPanel()` with robust fallback logic
+- ✅ Added settings validation and auto-recovery
+- ✅ Implemented periodic settings validation (every 30 seconds)
+- ✅ Added page visibility change handling
+- ✅ Enhanced model selection handler with delay to prevent race conditions
+- ✅ Added comprehensive logging for debugging
+- ✅ Created settings persistence test script
+
+#### Files Modified
+- `orac/static/js/main.js` - Enhanced settings persistence and validation
+- `test_settings_persistence.py` - New test script for settings validation
+
+#### Status: 🔄 **READY FOR DEPLOYMENT**
+
 #### Files Modified
 - `orac/homeassistant/grammar_scheduler.py` - New scheduler module
 - `orac/api.py` - Enhanced grammar update endpoints and model settings sync
