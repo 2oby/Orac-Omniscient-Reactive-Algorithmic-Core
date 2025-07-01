@@ -222,6 +222,9 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
         
         // Collapse the panel after successful save
         collapseSettingsPanel();
+        
+        // Validate settings after save to ensure they're properly applied
+        setTimeout(validateAndFixSettings, 100);
 
         setTimeout(() => {
             saveButton.textContent = originalText;
@@ -644,13 +647,6 @@ function validateAndFixSettings() {
 loadModels().then(() => {
     // Validate settings after models are loaded
     setTimeout(validateAndFixSettings, 100);
-    
-    // Set up periodic settings validation (every 30 seconds)
-    setInterval(() => {
-        if (currentModel && document.visibilityState === 'visible') {
-            validateAndFixSettings();
-        }
-    }, 30000);
     
     // Handle page visibility changes to reload settings when user returns
     document.addEventListener('visibilitychange', () => {
