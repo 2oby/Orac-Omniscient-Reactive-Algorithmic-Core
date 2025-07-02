@@ -26,7 +26,17 @@ pip install -e .
 
 3. Place your GGUF models in the `models/gguf` directory.
 
-4. Use the CLI to interact with models:
+4. **Set up Docker permissions** (if using Docker):
+```bash
+# Run the setup script to fix permissions
+./scripts/setup_permissions.sh
+
+# Or manually set environment variables
+export UID=$(id -u)
+export GID=$(id -g)
+```
+
+5. Use the CLI to interact with models:
 ```bash
 # Check system status
 python -m orac.cli status

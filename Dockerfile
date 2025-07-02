@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user that matches the host user (UID 1000)
+# Create a non-root user that can be overridden at runtime
 RUN groupadd -r orac && useradd -r -g orac -u 1000 orac
 
 # Install Python dependencies
