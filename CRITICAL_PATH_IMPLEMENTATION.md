@@ -2,7 +2,38 @@
 
 > **Development Setup**: For environment setup, deployment procedures, and SSH access to the Jetson Orin, see [ORAC Development Instructions](instructions.md).
 
-## 🎯 **CURRENT PRIORITY - Dynamic Grammar Updates and Web UI Integration**
+## 🎯 **CURRENT PRIORITY - Temperature Grammar Issue and System Prompt Fix**
+
+### Temperature Grammar Issue - IN PROGRESS
+
+#### Problem Identified
+- **Temperature commands not working properly** - Most temperature commands return `{"device":"heating","action":"on","location":"living room"}` instead of the temperature value
+- **Percentage commands not working** - Percentage commands return heating actions instead of percentage values
+- **System prompt overriding grammar** - The model is following the system prompt instructions instead of strictly following the grammar rules
+- **Default model missing from config** - `Qwen3-0.6B-Q8_0.gguf` not properly configured in model_configs.yaml
+
+#### Root Cause
+The system prompt is too generic and doesn't provide specific guidance for temperature and percentage handling. The grammar has the correct rules, but the model isn't using them properly.
+
+#### Solution
+Update the system prompt for the default model to be more specific about temperature and percentage handling:
+
+```
+/no_think You are a JSON-only formatter. For each user input, map the device to the grammar-defined device ("heating" for heater/temperature, "blinds" for curtains/blinds, "lights" for lighting) and select the most appropriate action for that device (e.g., "on", "off", "set <temp>" for heating; "open", "close", "set <pct>%" for blinds; "on", "off", "set <pct>%", "warm" for lights) based on the grammar. Use "UNKNOWN" for unrecognized inputs. Output only the single-line JSON object with keys: "device", "action", "location".
+
+Examples:
+"set bathroom temp to 20 degrees" → {"device":"heating","action":"set 20C","location":"bathroom"}
+"set the lights to warm in the bedroom" → {"device":"lights","action":"warm","location":"bedroom"}
+```
+
+#### Recommended Settings
+- **Temperature**: 0.1
+- **Top P**: 0.2  
+- **Top-K**: 10
+- **Max Tokens**: 50
+- **JSON Mode**: True
+
+#### Status: 🔄 **READY FOR DEPLOYMENT**
 
 ### Dynamic Grammar Update System - IN PROGRESS
 

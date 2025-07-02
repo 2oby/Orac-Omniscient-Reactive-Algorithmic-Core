@@ -71,6 +71,24 @@ DEFAULT_MODEL_CONFIGS = {
                 "max_tokens": 50
             }
         },
+        "Qwen3-0.6B-Q8_0.gguf": {
+            "description": "Qwen 3 0.6B Chat Model (Default)",
+            "context_size": 2048,
+            "prompt_format": {
+                "template": "<|im_start|>system\n{system_prompt}\n<|im_end|>\n<|im_start|>user\n{user_prompt}\n<|im_end|>\n<|im_start|>assistant\n",
+                "system_role": "system",
+                "user_role": "user",
+                "assistant_role": "assistant"
+            },
+            "system_prompt": "/no_think You are a JSON-only formatter. For each user input, map the device to the grammar-defined device (\"heating\" for heater/temperature, \"blinds\" for curtains/blinds, \"lights\" for lighting) and select the most appropriate action for that device (e.g., \"on\", \"off\", \"set <temp>\" for heating; \"open\", \"close\", \"set <pct>%\" for blinds; \"on\", \"off\", \"set <pct>%\", \"warm\" for lights) based on the grammar. Use \"UNKNOWN\" for unrecognized inputs. Output only the single-line JSON object with keys: \"device\", \"action\", \"location\".\nExamples:\n\"set bathroom temp to 20 degrees\" → {\"device\":\"heating\",\"action\":\"set 20C\",\"location\":\"bathroom\"}\n\"set the lights to warm in the bedroom\" → {\"device\":\"lights\",\"action\":\"warm\",\"location\":\"bedroom\"}",
+            "recommended_settings": {
+                "temperature": 0.1,
+                "top_p": 0.2,
+                "top_k": 10,
+                "max_tokens": 50,
+                "json_mode": True
+            }
+        },
         "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf": {
             "description": "TinyLlama 1.1B Chat Model",
             "context_size": 2048,

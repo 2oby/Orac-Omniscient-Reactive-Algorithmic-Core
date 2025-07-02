@@ -430,6 +430,9 @@ ws ::= [ \\t\\n]*"""
     async def save_gbnf_grammar(self, output_path: str = None) -> str:
         """Save GBNF grammar to file for llama.cpp compatibility.
         
+        Note: This saves the HA-generated grammar. For production use, the system
+        uses the static default.gbnf grammar file, not the dynamically generated one.
+        
         Args:
             output_path: Path to save the GBNF file (optional)
             

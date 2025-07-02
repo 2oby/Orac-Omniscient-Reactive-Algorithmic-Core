@@ -3,6 +3,10 @@ Grammar Scheduler for Home Assistant Integration.
 
 This module handles scheduled grammar updates and validation,
 including daily updates at 3am and manual triggers with validation.
+
+IMPORTANT: The HA-generated grammar is saved to ha_grammar.gbnf for reference,
+but the system uses the static default.gbnf grammar file for production LLM calls.
+This keeps the system simple and avoids complexity from dynamic grammar changes.
 """
 
 import asyncio
@@ -129,9 +133,9 @@ class GrammarScheduler:
             logger.info("Step 3: Generating GBNF grammar...")
             gbnf_content = await self.grammar_manager.generate_gbnf_grammar(force_regenerate=True)
             
-            # Step 4: Save to default.gbnf
-            logger.info("Step 4: Saving grammar to default.gbnf...")
-            grammar_file = await self.grammar_manager.save_gbnf_grammar("data/test_grammars/default.gbnf")
+            # Step 4: Save to ha_grammar.gbnf (not default.gbnf to keep things simple)
+            logger.info("Step 4: Saving HA-generated grammar to ha_grammar.gbnf...")
+            grammar_file = await self.grammar_manager.save_gbnf_grammar("data/test_grammars/ha_grammar.gbnf")
             
             # Step 5: Validate grammar with test generation
             logger.info("Step 5: Validating grammar with test generation...")
@@ -200,56 +204,52 @@ class GrammarScheduler:
             model_path = os.getenv("ORAC_MODELS_PATH", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "models/gguf"))
             client = LlamaCppClient(model_path=model_path)
             
+            # Test generation with the HA-generated grammar (for validation only, not for production use)
+            response = await client.generate(
+                model=default_model,
+                prompt=test_prompt,
+                temperature=0.1,
+                top_p=0.9,
+                top_k=10,
+                max_tokens=50,
+                grammar_file=grammar_file
+            )
+            
+            # Validate response format
+            import json
             try:
-                # Test generation with the new grammar
-                response = await client.generate(
-                    model=default_model,
-                    prompt=test_prompt,
-                    temperature=0.1,
-                    top_p=0.9,
-                    top_k=10,
-                    max_tokens=50,
-                    grammar_file=grammar_file
-                )
+                # Try to parse as JSON
+                json_response = json.loads(response.text)
                 
-                # Validate response format
-                import json
-                try:
-                    # Try to parse as JSON
-                    json_response = json.loads(response.text)
-                    
-                    # Check for required fields
-                    required_fields = ["device", "action", "location"]
-                    missing_fields = [field for field in required_fields if field not in json_response]
-                    
-                    if missing_fields:
-                        return {
-                            "status": "error",
-                            "message": f"Generated response missing required fields: {missing_fields}",
-                            "test_prompt": test_prompt,
-                            "response": response.text,
-                            "parsed_json": json_response
-                        }
-                    
-                    return {
-                        "status": "success",
-                        "message": "Grammar validation successful",
-                        "test_prompt": test_prompt,
-                        "response": response.text,
-                        "parsed_json": json_response,
-                        "response_time": response.response_time
-                    }
-                    
-                except json.JSONDecodeError as e:
+                # Check for required fields
+                required_fields = ["device", "action", "location"]
+                missing_fields = [field for field in required_fields if field not in json_response]
+                
+                if missing_fields:
                     return {
                         "status": "error",
-                        "message": f"Generated response is not valid JSON: {e}",
+                        "message": f"Generated response missing required fields: {missing_fields}",
                         "test_prompt": test_prompt,
-                        "response": response.text
+                        "response": response.text,
+                        "parsed_json": json_response
                     }
-                    
-            finally:
-                await client.cleanup()
+                
+                return {
+                    "status": "success",
+                    "message": "Grammar validation successful",
+                    "test_prompt": test_prompt,
+                    "response": response.text,
+                    "parsed_json": json_response,
+                    "response_time": response.response_time
+                }
+                
+            except json.JSONDecodeError as e:
+                return {
+                    "status": "error",
+                    "message": f"Generated response is not valid JSON: {e}",
+                    "test_prompt": test_prompt,
+                    "response": response.text
+                }
                 
         except Exception as e:
             logger.error(f"Error during grammar validation: {e}")

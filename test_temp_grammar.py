@@ -20,7 +20,7 @@ async def test_temperature_grammar():
     client = None
     try:
         # Initialize client
-        client = LlamaCppClient()
+        client = LlamaCppClient(model_path="/app/models/gguf")
         await client.__aenter__()
         
         # Get default model

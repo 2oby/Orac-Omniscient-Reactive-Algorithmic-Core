@@ -235,10 +235,10 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
             logger.warning(f"Grammar file not found: {grammar_file}, falling back to JSON grammar")
             grammar_file = None
         elif not grammar_file and is_ha_command and request.json_mode:
-            # Use default.gbnf as default for Home Assistant commands
+            # Use default.gbnf as default for Home Assistant commands (static grammar, not HA-generated)
             grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "default.gbnf")
             if os.path.exists(grammar_file):
-                logger.info(f"Using default.gbnf grammar for HA command: {grammar_file}")
+                logger.info(f"Using default.gbnf grammar for HA command (static, not HA-generated): {grammar_file}")
             else:
                 logger.warning(f"default.gbnf not found at {grammar_file}, falling back to set_temp.gbnf")
                 fallback_grammar = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "set_temp.gbnf")
@@ -538,7 +538,11 @@ async def run_auto_discovery() -> Dict[str, Any]:
 
 @app.get("/v1/homeassistant/grammar", tags=["Home Assistant"])
 async def get_grammar() -> Dict[str, Any]:
-    """Get current grammar rules."""
+    """Get current grammar rules.
+    
+    Note: This returns the HA-generated grammar for reference. For production use,
+    the system uses the static default.gbnf grammar file, not this dynamic one.
+    """
     try:
         grammar_manager = await get_ha_grammar_manager()
         grammar = await grammar_manager.generate_grammar()
@@ -632,10 +636,10 @@ async def startup_event():
             try:
                 logger.info(f"Loading default model: {favorites['default_model']}")
                 
-                # Start with default.gbnf grammar for Home Assistant commands
+                # Start with default.gbnf grammar for Home Assistant commands (using static default, not HA-generated)
                 grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "default.gbnf")
                 if os.path.exists(grammar_file):
-                    logger.info(f"Starting default model with default.gbnf grammar: {grammar_file}")
+                    logger.info(f"Starting default model with default.gbnf grammar (static, not HA-generated): {grammar_file}")
                     await client._ensure_server_running(
                         model=favorites["default_model"],
                         temperature=0.1,  # Use 0.1 for grammar-constrained generation
