@@ -99,6 +99,21 @@ ssh "$REMOTE_ALIAS" "\
     # Clean untracked files but exclude logs and cache directories
     git clean -fd --exclude=logs/ --exclude=cache/; \
     
+    # Download Git LFS files (llama.cpp binaries)
+    echo '${BLUE}📥 Downloading Git LFS files...${NC}'; \
+    if command -v git-lfs &> /dev/null; then \
+        git lfs pull; \
+        echo '${GREEN}✓ Git LFS files downloaded successfully${NC}'; \
+    else \
+        echo '${YELLOW}⚠️  git-lfs not available, checking if binaries exist...${NC}'; \
+        if [ -s third_party/llama_cpp/bin/llama-server ]; then \
+            echo '${GREEN}✓ llama.cpp binaries found${NC}'; \
+        else \
+            echo '${RED}❌ llama.cpp binaries not found and git-lfs not available${NC}'; \
+            echo '${YELLOW}You may need to install git-lfs or manually copy binaries${NC}'; \
+        fi; \
+    fi; \
+    
     echo '${BLUE}🔍 Checking system resources...${NC}'; \
     echo 'Memory:'; \
     free -h; \

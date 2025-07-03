@@ -1,4 +1,0 @@
-root ::= "{" "\"device\":" "\"" device "\"" "," "\"action\":" "\"" action "\"" "," "\"location\":" "\"" location "\"" "}"
-device ::= "lights" | "heating" | "blinds" | "music" | "UNKNOWN"
-action ::= "on" | "off" | "toggle" | "open" | "shut"  | "high" | "low" | "medium" | "warm" | "cold" | "hot" | "up" | "down" | "loud" | "quiet" | "UNKNOWN"
-location ::= "bedroom" | "kitchen" | "hall" | "dining room" | "UNKNOWN"

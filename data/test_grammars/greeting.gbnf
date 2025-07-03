@@ -1,2 +1,0 @@
-root ::= "{" "\"greeting\":" "\"" greeting "\"" "}"
-greeting ::= "hello" | "hi" | "hey" 

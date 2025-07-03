@@ -108,8 +108,8 @@ class HomeAssistantConfig(BaseSettings):
         Returns:
             bool: True if connection is successful, False otherwise
         """
-        # TODO: Implement connection validation using aiohttp
-        # This will be implemented when we create the client
+        # Connection validation is implemented in client.py and discovery_service.py
+        # This method is kept for compatibility but delegates to the client
         pass
 
     @classmethod

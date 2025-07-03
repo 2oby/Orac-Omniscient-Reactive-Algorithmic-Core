@@ -1,2 +1,0 @@
-root ::= "{" "\"device\":" "\"" device "\"" "}"
-device ::= "lights" | "heating" | "blinds" | "music" 
