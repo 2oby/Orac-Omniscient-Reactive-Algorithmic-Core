@@ -1,5 +1,9 @@
 models/
 
+# Logs
+logs/
+*.log
+
 # Environment files
 .env
 .env.*
@@ -69,4 +73,5 @@ data/.DS_Store
 
 # Client-specific configuration files
 data/favorites.json
-data/model_configs.yaml
+# Removed model_configs.yaml to allow version control
+# !data/grammars.yaml  # Explicitly allow grammars.yaml to be tracked

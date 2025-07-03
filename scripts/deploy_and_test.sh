@@ -2,14 +2,16 @@
 set -euo pipefail
 
 # Improved deploy_and_test.sh script with llama.cpp integration
-# Usage: ./scripts/deploy_and_test.sh [commit_message] [branch] [service_name]
+# Usage: ./scripts/deploy_and_test.sh [commit_message] [branch] [service_name] [cleanup_level]
+# cleanup_level: normal (default) or aggressive
 
 # Default parameters
 COMMIT_MSG=${1:-"Update ORAC MVP"}
-DEPLOY_BRANCH=${2:-"mvp"}   # Default to 'mvp' branch if not specified
+DEPLOY_BRANCH=${2:-"Grammar"}   # Default to 'Grammar' branch if not specified
 SERVICE_NAME=${3:-"orac"}   # Docker Compose service to exec into
-REMOTE_ALIAS="orin"
-SSH_ORIGIN="git@github.com:2oby/Orac-Omniscient-Reactive-Algorithmic-Core.git"
+CLEANUP_LEVEL=${4:-"light"}   # light, normal, or aggressive
+REMOTE_ALIAS="orin3"
+SSH_ORIGIN="https://github.com/2oby/Orac-Omniscient-Reactive-Algorithmic-Core.git"
 
 # Terminal colors
 GREEN='\033[0;32m'
@@ -21,8 +23,10 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}🚀 ORAC Deployment Script for Jetson${NC}"
 echo -e "${BLUE}===============================${NC}"
 echo -e "${YELLOW}Deploying branch: $DEPLOY_BRANCH${NC}"
-echo -e "${YELLOW}Usage: ./scripts/deploy_and_test.sh [commit_message] [branch] [service_name]${NC}"
+echo -e "${YELLOW}Usage: ./scripts/deploy_and_test.sh [commit_message] [branch] [service_name] [cleanup_level]${NC}"
 echo -e "${YELLOW}Example: ./scripts/deploy_and_test.sh \"Update API\" MVP_API${NC}"
+echo -e "${YELLOW}Example: ./scripts/deploy_and_test.sh \"Update API\" MVP_API orac light${NC}"
+echo -e "${YELLOW}Cleanup levels: light (default), normal, aggressive${NC}"
 echo -e "${BLUE}===============================${NC}"
 
 # Check if we're on the correct branch
@@ -90,31 +94,31 @@ ssh "$REMOTE_ALIAS" "\
     git remote set-url origin $SSH_ORIGIN || true; \
     git fetch origin; \
     
-    # Handle configuration files
-    echo '${BLUE}📝 Handling configuration files...${NC}'; \
-    echo 'Preserving existing configuration files...'; \
-    git add data/favorites.json data/model_configs.yaml 2>/dev/null || true; \
-    if git diff --cached --quiet; then \
-        echo 'No changes to commit in config files'; \
+    # Force reset to remote branch, discarding any local changes
+    echo '${BLUE}📝 Resetting to remote state...${NC}'; \
+    git reset --hard origin/$DEPLOY_BRANCH; \
+    # Clean untracked files but exclude logs and cache directories
+    git clean -fd --exclude=logs/ --exclude=cache/; \
+    
+    # Download Git LFS files (llama.cpp binaries) - only if needed
+    echo '${BLUE}📥 Checking Git LFS files...${NC}'; \
+    if command -v git-lfs &> /dev/null; then \
+        # Check if binaries already exist and are up to date
+        if [ -s third_party/llama_cpp/bin/llama-server ] && [ -s third_party/llama_cpp/bin/llama-cli ]; then \
+            echo '${GREEN}✓ llama.cpp binaries already exist, skipping download${NC}'; \
+        else \
+            echo '${YELLOW}📥 Downloading Git LFS files...${NC}'; \
+            git lfs pull; \
+            echo '${GREEN}✓ Git LFS files downloaded successfully${NC}'; \
+        fi; \
     else \
-        git commit -m 'Update local configuration files' || true; \
-    fi; \
-    
-    # Stash any other local changes
-    echo 'Stashing any other local changes...'; \
-    git stash push -m 'Temporary stash during deployment' || true; \
-    
-    if git show-ref --verify --quiet refs/heads/$DEPLOY_BRANCH; then \
-        git checkout $DEPLOY_BRANCH; \
-    else \
-        git checkout -b $DEPLOY_BRANCH origin/$DEPLOY_BRANCH; \
-    fi; \
-    git pull origin $DEPLOY_BRANCH; \
-    
-    # Restore stashed changes if any
-    if git stash list | grep -q 'Temporary stash during deployment'; then \
-        echo 'Restoring stashed changes...'; \
-        git stash pop || true; \
+        echo '${YELLOW}⚠️  git-lfs not available, checking if binaries exist...${NC}'; \
+        if [ -s third_party/llama_cpp/bin/llama-server ]; then \
+            echo '${GREEN}✓ llama.cpp binaries found${NC}'; \
+        else \
+            echo '${RED}❌ llama.cpp binaries not found and git-lfs not available${NC}'; \
+            echo '${YELLOW}You may need to install git-lfs or manually copy binaries${NC}'; \
+        fi; \
     fi; \
     
     echo '${BLUE}🔍 Checking system resources...${NC}'; \
@@ -128,6 +132,14 @@ ssh "$REMOTE_ALIAS" "\
     else \
         echo 'nvidia-smi not available'; \
         jetson_release 2>/dev/null || echo 'jetson_release not available'; \
+    fi; \
+    \
+    echo '${BLUE}🔍 Checking disk space thresholds...${NC}'; \
+    if [ -f 'scripts/monitor_disk_space.sh' ]; then \
+        echo 'Running disk space check...'; \
+        bash scripts/monitor_disk_space.sh check; \
+    else \
+        echo 'Disk space monitoring script not found'; \
     fi; \
     
     echo '${BLUE}🔍 Checking llama.cpp binaries...${NC}'; \
@@ -159,8 +171,86 @@ ssh "$REMOTE_ALIAS" "\
         echo 'Using: docker-compose'; \
     fi; \
     
+    echo '${BLUE}🧹 Cleaning up old Docker resources...${NC}'; \
+    echo '${YELLOW}Cleanup level: $CLEANUP_LEVEL${NC}'; \
+    \
+    echo '${YELLOW}Disk space before cleanup:${NC}'; \
+    df -h | grep -E '/$|/home'; \
+    \
+    echo '${YELLOW}Docker disk usage before cleanup:${NC}'; \
+    docker system df 2>/dev/null || echo 'Docker system df not available'; \
+    \
+    echo '${YELLOW}Stopping and removing old containers...${NC}'; \
+    \$DOCKER_CMD down --remove-orphans 2>/dev/null || true; \
+    docker container prune -f 2>/dev/null || true; \
+    \
+    if [ "$CLEANUP_LEVEL" = "aggressive" ]; then \
+        echo '${YELLOW}🔄 Aggressive cleanup mode - removing ALL unused Docker resources...${NC}'; \
+        echo '${YELLOW}Removing all unused images (including dangling)...${NC}'; \
+        docker image prune -a -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Removing all unused volumes...${NC}'; \
+        docker volume prune -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Removing all unused networks...${NC}'; \
+        docker network prune -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Removing build cache...${NC}'; \
+        docker builder prune -a -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Full system prune...${NC}'; \
+        docker system prune -a -f --volumes 2>/dev/null || true; \
+    elif [ "$CLEANUP_LEVEL" = "normal" ]; then \
+        echo '${YELLOW}Normal cleanup mode - removing unused resources...${NC}'; \
+        echo '${YELLOW}Removing unused images...${NC}'; \
+        docker image prune -a -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Removing unused volumes...${NC}'; \
+        docker volume prune -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Removing unused networks...${NC}'; \
+        docker network prune -f 2>/dev/null || true; \
+    else \
+        echo '${YELLOW}Light cleanup mode - preserving images, cleaning minimal resources...${NC}'; \
+        echo '${YELLOW}Removing stopped containers...${NC}'; \
+        docker container prune -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Removing unused networks...${NC}'; \
+        docker network prune -f 2>/dev/null || true; \
+        \
+        echo '${YELLOW}Cleaning build cache if needed...${NC}'; \
+        # Only clean build cache if it's getting large
+        BUILD_CACHE_SIZE=\$(docker system df 2>/dev/null | grep "Build Cache" | awk '{print \$4}' | sed 's/GB//' || echo "0"); \
+        if [ "\$BUILD_CACHE_SIZE" != "0" ] && [ "\$BUILD_CACHE_SIZE" -gt 20 ]; then \
+            echo '${YELLOW}Build cache is \${BUILD_CACHE_SIZE}GB, cleaning...${NC}'; \
+            docker builder prune -a -f 2>/dev/null || true; \
+        else \
+            echo '${GREEN}Build cache size is acceptable (\${BUILD_CACHE_SIZE}GB)${NC}'; \
+        fi; \
+    fi; \
+    \
+    echo '${YELLOW}Disk space after cleanup:${NC}'; \
+    df -h | grep -E '/$|/home'; \
+    \
+    echo '${YELLOW}Docker disk usage after cleanup:${NC}'; \
+    docker system df 2>/dev/null || echo 'Docker system df not available'; \
+    \
+    echo '${GREEN}✓ Docker cleanup completed${NC}'; \
+    
     echo '${BLUE}🐳 Building & starting containers...${NC}'; \
-    \$DOCKER_CMD up --build -d; \
+    # Check if we need to rebuild using the rebuild check script
+    if [ -f 'scripts/check_rebuild_needed.sh' ]; then \
+        if bash scripts/check_rebuild_needed.sh orac-orac:latest 24; then \
+            echo '${GREEN}✓ No rebuild needed, using existing image${NC}'; \
+            \$DOCKER_CMD up -d; \
+        else \
+            echo '${YELLOW}📦 Rebuild needed, building container...${NC}'; \
+            \$DOCKER_CMD up --build -d; \
+        fi; \
+    else \
+        echo '${YELLOW}⚠️  Rebuild check script not found, building to be safe...${NC}'; \
+        \$DOCKER_CMD up --build -d; \
+    fi; \
     
     echo '${BLUE}🔍 Checking container logs...${NC}'; \
     sleep 5; \
@@ -179,6 +269,9 @@ ssh "$REMOTE_ALIAS" "\
     
     echo '${BLUE}📊 Checking container stats...${NC}'; \
     \$DOCKER_CMD stats --no-stream; \
+
+    echo '${BLUE}🧪 Testing Home Assistant integration...${NC}'; \
+    \$DOCKER_CMD exec -T $SERVICE_NAME python3 -m pytest tests/test_homeassistant.py -v; \
 "
 
 echo -e "${GREEN}🎉 All deployment and test operations completed successfully!${NC}"

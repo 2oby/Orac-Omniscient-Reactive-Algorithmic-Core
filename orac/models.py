@@ -21,16 +21,6 @@ class ModelListResponse(BaseModel):
     """Response for model listing endpoint."""
     models: List[ModelInfo] = Field(..., description="List of available models")
 
-class PromptRequest(BaseModel):
-    """Request for text generation."""
-    model: str = Field(..., description="Model name to use")
-    prompt: str = Field(..., description="Text prompt")
-    stream: bool = Field(False, description="Whether to stream the response")
-    temperature: float = Field(0.7, description="Sampling temperature")
-    top_p: float = Field(0.7, description="Top-p sampling parameter")
-    top_k: int = Field(40, description="Top-k sampling parameter")
-    max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
-
 class PromptResponse(BaseModel):
     """Response from text generation."""
     text: str = Field(..., description="Generated text")
@@ -80,6 +70,7 @@ class GenerationRequest(BaseModel):
     stop: Optional[List[str]] = Field(None, description="Stop sequences")
     max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
     json_mode: bool = Field(False, description="Whether to force JSON output using grammar")
+    grammar_file: Optional[str] = Field(None, description="Path to GBNF grammar file to use for generation")
 
 
 class GenerationResponse(BaseModel):
@@ -91,21 +82,3 @@ class GenerationResponse(BaseModel):
     model: Optional[str] = Field(None, description="Model used for generation")
 
 
-class ModelShowResponse(BaseModel):
-    """Response containing details about a model."""
-    status: str = Field(..., description="Status of the operation")
-    model: Optional[Dict[str, Any]] = Field(None, description="Model details")
-    error: Optional[str] = Field(None, description="Error message if operation failed")
-
-
-# System resource models for Jetson monitoring
-class JetsonResources(BaseModel):
-    """System resource information specific to Jetson platforms."""
-    cpu_percent: float = Field(..., description="CPU usage percentage")
-    memory_percent: float = Field(..., description="Memory usage percentage")
-    memory_available_mb: float = Field(..., description="Available memory in MB")
-    memory_used_mb: float = Field(..., description="Used memory in MB")
-    memory_total_mb: float = Field(..., description="Total memory in MB")
-    gpu_percent: Optional[float] = Field(None, description="GPU usage percentage")
-    temperature_cpu: Optional[float] = Field(None, description="CPU temperature in Celsius")
-    temperature_gpu: Optional[float] = Field(None, description="GPU temperature in Celsius")

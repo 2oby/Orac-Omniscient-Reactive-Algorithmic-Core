@@ -1,0 +1,165 @@
+STT integration plan:
+- USB microphone input for speech capture.
+- Porcupine for wake word detection (“ORAC”) to save power.
+- Distil-Whisper via whisper.cpp for STT.
+
+Integration with your ORAC project (/home/toby/ORAC), Home Assistant, dynamic grammar, post-processing, and web UI.
+It remains high-level, focusing on what to achieve, without code, and ensures <0.2s processing overhead on the Jetson Orin Nano (8GB RAM, large HDD).
+
+Step 1: Set Up USB Microphone for Speech Input
+Use a USB microphone (e.g., Blue Snowball iCE) plugged into the Jetson’s USB port to capture audio for STT.
+
+Configure Ubuntu’s audio system (ALSA/PulseAudio) to recognize the microphone as an input device (e.g., /dev/snd).
+
+Ensure the ORAC service can access the microphone within the Docker container by mapping the audio device.
+
+Prepare to capture short audio clips (1–3s) for processing by Distil-Whisper.
+
+Step 2: Integrate Porcupine for Wake Word Detection
+Use Porcupine to detect the wake word “ORAC” in real-time audio input from the USB microphone.
+
+Configure Porcupine to run as an always-on, low-power listener (~1MB RAM, ~0.1–0.2W) on the Jetson’s CPU.
+
+Trigger the full STT pipeline (Distil-Whisper + Qwen3) only when “ORAC” is detected, conserving power when idle.
+
+Store the Porcupine model or configuration in /Models/ (e.g., /Models/porcupine/orac.ppn).
+
+Step 3: Integrate Distil-Whisper for STT
+Use Distil-Whisper Tiny (~30M parameters, ~80–100MB RAM) for STT, activated after Porcupine detects “ORAC.”
+
+Store the Distil-Whisper model in /Models/gguf alongside Qwen3 0.6B.
+
+Process audio clips from the USB microphone to transcribe voice commands (e.g., “turn on the bedroom light”) into text, leveraging the Jetson’s GPU for acceleration.
+
+Step 4: Update Docker Configuration
+Modify the Dockerfile in the project root to include whisper.cpp (for Distil-Whisper) and Porcupine’s Python SDK (pvporcupine).
+
+Update docker-compose.yml to:
+Map the USB microphone device (e.g., --device /dev/snd) into the container.
+
+Include dependencies for audio processing (e.g., ffmpeg, pyaudio).
+
+Ensure the NVIDIA Container Toolkit supports CUDA for both Qwen3 and Distil-Whisper inference.
+
+Mount /Models/gguf/ for Distil-Whisper and /Models/porcupine/ for Porcupine, alongside /Models/config for data/.
+
+Step 5: Feed Transcribed Text to Existing Command Pipeline
+Use the transcribed text from Distil-Whisper as input to the existing command processing pipeline in orac.llama_cpp_client.py.
+
+Apply the dynamic JSON grammar (generated from data/home_assistant_config.yaml) to ensure Qwen3 outputs structured JSON (e.g., {"device": "light", "action": "turn_on", "location": "bedroom"}).
+
+Reuse the post-processing step to map outputs to Home Assistant’s REST API (e.g., {"domain": "home_assistant", "service": "light", "entity_id": "light_on", "parameters": {"turn_on": true}}), applying domain-specific mappings (e.g., bright → 75% brightness for lights, warm → 25°C for climate).
+
+Step 6: Enhance Configuration for Wake Word and STT
+Update data/home_assistant_config.yaml to include settings for:
+Wake word detection (e.g., Porcupine: /Models/porcupine/orac.ppn, sensitivity).
+
+STT (e.g., Distil-Whisper: /Models/gguf/distil-whisper-tiny.gguf, sample rate, language).
+
+Extend the web UI in orac/api.py to configure wake word and STT settings (e.g., wake word selection, microphone gain).
+
+Ensure auto-discovery (querying Home Assistant’s /api/states) and manual config updates via the web UI remain compatible, appending devices/locations without affecting wake word or STT settings.
+
+Step 7: Extend Web UI for Audio and Wake Word Support
+Add FastAPI endpoints in orac/api.py to:
+Accept audio input (e.g., /speech for WAV uploads, /speech_stream for WebSocket streams).
+
+Configure wake word settings (e.g., sensitivity, alternate words).
+
+Display wake word detection status (e.g., “ORAC detected”), transcribed text, and Home Assistant command results in the UI (http://jetson-ip:8000/docs).
+
+Update /config and /config/update endpoints to manage wake word and STT settings, saving changes to data/home_assistant_config.yaml.
+
+Step 8: Optimize for Power Efficiency and Performance
+Run Porcupine on the CPU in a low-power mode (~0.1–0.2W) to detect “ORAC”, activating Distil-Whisper and Qwen3 only when needed.
+
+Use Distil-Whisper Tiny with 4-bit quantization (~80MB RAM, ~0.08s latency for 1–3s audio).
+
+Process audio in short chunks (e.g., 1s) to minimize STT latency.
+
+Schedule GPU tasks to avoid contention between Distil-Whisper and Qwen3, ensuring total pipeline latency (wake word <0.01s + STT ~0.08s + inference ~0.08s + post-processing ~0.02s ≈ 0.19s) meets the <0.2s target.
+
+Cache Porcupine, Distil-Whisper, and config in memory to reduce disk I/O.
+
+Minimize memory usage (~1.1–1.5GB total: ~80MB + Qwen3 ~0.5–1GB + FastAPI ~100MB + config ~1MB), fitting within 8GB RAM.
+
+Step 9: Integrate with Existing Architecture
+Add a wake word module (e.g., orac/wake_word.py) to handle Porcupine processing.
+
+Add an STT module (e.g., orac/stt_processor.py) to interface with whisper.cpp for Distil-Whisper.
+
+Reuse existing modules (orac/config_manager.py, grammar_generator.py, synonym_processor.py, ha_client.py) for text processing, grammar generation, post-processing, and Home Assistant integration.
+
+Store wake word and STT logs in logs/ using orac.logger.
+
+Update orac/api.py to handle audio endpoints and wake word/STT configuration.
+
+Step 10: Test and Deploy
+Test Wake Word:
+Verify Porcupine detects “ORAC” in various audio conditions (e.g., quiet, noisy).
+
+Ensure it triggers Distil-Whisper only after detection, saving power.
+
+Test STT:
+Test with sample voice commands (e.g., “ORAC, brighten the living room lamp”).
+
+Verify transcription accuracy and Home Assistant command execution (e.g., {"domain": "light", "service": "turn_on", "entity_id": "light.living_room_light", "parameters": {"brightness_pct": 70}}).
+
+Test Pipeline:
+Measure latency to ensure <0.2s (~0.19s) for the full pipeline (wake word + STT + inference + post-processing).
+
+Test edge cases (e.g., noisy audio, wrong wake word, invalid commands) and confirm error responses (e.g., {"error": "Invalid command or device"}).
+
+Deploy:
+Update Dockerfile and docker-compose.yml to include Porcupine, whisper.cpp, and audio device mappings (/dev/snd).
+
+Mount /Models/porcupine/ for Porcupine and /Models/gguf for Distil-Whisper and Qwen3.
+
+Update scripts/deploy_and_test.sh to initialize wake word, STT, and test audio commands.
+
+Update README.md with instructions for microphone setup, wake word configuration, and model downloads.
+
+Tests: Add wake word and STT tests to tests/ (e.g., test_wake_word.py, test_stt.py).
+
+Integration with ORAC Project Structure
+Config: Add wake word and STT settings to data/home_assistant_config.yaml, alongside devices, locations, actions, and synonyms.
+
+Modules: Add to orac/:
+wake_word.py: Handle Porcupine for “ORAC” detection.
+
+stt_processor.py: Manage Distil-Whisper via whisper.cpp.
+
+Reuse config_manager.py, grammar_generator.py, synonym_processor.py, ha_client.py for existing functionality.
+
+API: Extend orac/api.py with audio endpoints (e.g., /speech, /speech_stream) and wake word/STT config management.
+
+Models: Store Distil-Whisper in /Models/gguf and Porcupine in /Models/porcupine.
+
+Docker: Update Dockerfile and docker-compose.yml to include Porcupine, whisper.cpp, and /dev/snd mapping.
+
+Tests: Add tests to tests/ for wake word and STT.
+
+Logs: Log wake word and STT errors to logs/ using orac.logger.
+
+Scripts: Update scripts/deploy_and_test.sh for wake word and STT setup.
+
+Performance and Power Considerations
+Latency: Wake word (<0.01s) + STT (0.08s) + Qwen3 inference (0.08s) + post-processing (~0.02s) ≈ 0.19s, meeting <0.2s.
+
+Memory: Porcupine (1MB) + Distil-Whisper (80–100MB) + Qwen3 (0.5–1GB) + FastAPI (100MB) + config (~1MB) ≈ 1.1–1.5GB, within 8GB.
+
+Power: Porcupine (0.1–0.2W idle) minimizes consumption until “ORAC” is detected, then full pipeline (10–15W) runs briefly.
+
+Storage: Porcupine (1MB), Distil-Whisper (100MB), Qwen3 (~0.6GB) fit on the large HDD.
+
+Why This Approach
+USB Microphone: Plug-and-play, reliable, and low-latency, integrating seamlessly with Docker and whisper.cpp.
+
+Porcupine: Ultra-lightweight, power-efficient, and fast, ideal for always-on wake word detection on the Jetson.
+
+Distil-Whisper: Fast, small, and compatible with whisper.cpp, ensuring efficient STT within your pipeline.
+
+Integration: Aligns with your project structure (/home/toby/ORAC), reusing Docker, orac.llama_cpp_client.py, and Home Assistant components.
+
+Performance: Meets <0.2s latency and 8GB RAM constraints, with power savings via wake word.
+

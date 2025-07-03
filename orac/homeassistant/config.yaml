@@ -1,0 +1,14 @@
+# Home Assistant Configuration
+
+# Connection Settings
+host: "192.168.8.99"
+port: 8123
+token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJmYzE2YzNhNmMwNzk0Y2M4OTMzNGY2Y2Q5OWUxM2Q2NCIsImlhdCI6MTc0ODc4OTE3MCwiZXhwIjoyMDY0MTQ5MTcwfQ._EOatUbWo5ax3Vm_rVISdl0y1S3w6pvSam5bo3kZQxA"
+ssl: false  # Set to true if you're using HTTPS
+verify_ssl: false  # Set to true if you have valid SSL certificates
+timeout: 10
+
+# Cache Settings
+cache_ttl: 300  # 5 minutes
+cache_max_size: 1000
+cache_dir: "/app/cache/homeassistant"  # Absolute path for Docker container 

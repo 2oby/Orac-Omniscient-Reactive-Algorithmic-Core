@@ -9,9 +9,29 @@ services:
       - ./third_party/llama_cpp:/app/third_party/llama_cpp:ro
       - ./logs:/app/logs
       - ./data:/app/data
+      - ./cache:/app/cache
+    # Use current user's UID/GID for proper permissions
+    user: "${UID:-1000}:${GID:-1000}"
+    # Override entrypoint to fix permissions before starting
+    entrypoint: []
+    command: >
+      sh -c "
+        mkdir -p /app/cache/homeassistant &&
+        chown -R $$(id -u):$$(id -g) /app/cache &&
+        chmod -R 755 /app/cache &&
+        uvicorn orac.api:app --host 0.0.0.0 --port 8000
+      "
     environment:
       - LOG_LEVEL=INFO
       - LOG_DIR=/app/logs
+      - PYTHONPATH=/app
+      - CACHE_DIR=/app/cache
+      - DATA_DIR=/app/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     deploy:
       resources:
         reservations:
@@ -19,9 +39,3 @@ services:
             - driver: nvidia
               capabilities: [gpu]
     restart: unless-stopped
-    networks:
-      - orac-network
-
-networks:
-  orac-network:
-    name: orac-network
