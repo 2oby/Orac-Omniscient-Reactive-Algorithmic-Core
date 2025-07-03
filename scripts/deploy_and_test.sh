@@ -238,19 +238,8 @@ ssh "$REMOTE_ALIAS" "\
     echo '${GREEN}✓ Docker cleanup completed${NC}'; \
     
     echo '${BLUE}🐳 Building & starting containers...${NC}'; \
-    # Check if we need to rebuild using the rebuild check script
-    if [ -f 'scripts/check_rebuild_needed.sh' ]; then \
-        if bash scripts/check_rebuild_needed.sh orac-orac:latest 24; then \
-            echo '${GREEN}✓ No rebuild needed, using existing image${NC}'; \
-            \$DOCKER_CMD up -d; \
-        else \
-            echo '${YELLOW}📦 Rebuild needed, building container...${NC}'; \
-            \$DOCKER_CMD up --build -d; \
-        fi; \
-    else \
-        echo '${YELLOW}⚠️  Rebuild check script not found, building to be safe...${NC}'; \
-        \$DOCKER_CMD up --build -d; \
-    fi; \
+    # Always force a rebuild for reliability
+    \$DOCKER_CMD up --build -d; \
     
     echo '${BLUE}🔍 Checking container logs...${NC}'; \
     sleep 5; \

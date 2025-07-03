@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+.gitmodules
+
+# Documentation
+README.md
+DEVELOPMENT_LOG.md
+CRITICAL_PATH_IMPLEMENTATION.md
+docs/
+*.md
+
+# Development files
+.DS_Store
+*.pyc
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Archive files
+*.tar.gz
+*.zip
+
+# Backup directories
+third_party/llama_cpp_backup_*/
+data/backup/
+orac/homeassistant/backup/ 
