@@ -1,3 +1,0 @@
-root ::= "{\"action\":" action_value "}"
-
-action_value ::= "\"turn on\"" | "\"turn off\"" | "\"toggle\"" 

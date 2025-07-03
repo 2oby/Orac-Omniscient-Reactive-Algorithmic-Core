@@ -1,4 +1,0 @@
-root ::= "{\"action\":" action_value ",\"device\":" device_value "}"
-
-action_value ::= "\"turn on\"" | "\"turn off\"" | "\"toggle\""
-device_value ::= "\"bedroom lights\"" | "\"kitchen lights\"" 
