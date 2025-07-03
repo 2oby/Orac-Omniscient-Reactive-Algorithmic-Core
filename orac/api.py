@@ -252,11 +252,12 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
         # Format the prompt based on whether we're using a grammar file
         if grammar_file and os.path.exists(grammar_file):
             # Use the same prompt format as the CLI test for grammar files
-            # But respect user-provided system prompt if available
+            # But respect user-provided system prompt if available, otherwise use model's default
             if request.system_prompt:
                 system_prompt = request.system_prompt
             else:
-                system_prompt = "You are a JSON-only formatter. For each user input, accurately interpret the intended command and respond with a single-line JSON object containing the keys: \"device\", \"action\", and \"location\". Match the \"device\" to the user-specified device (e.g., \"heating\" for heating, \"blinds\" for blinds) and select the \"action\" most appropriate for that device (e.g., \"on\", \"off\" for heating; \"open\", \"close\" for blinds) based on the provided grammar. Use \"UNKNOWN\" for unrecognized inputs. Output only the JSON object without explanations or additional text."
+                # Use the model's configured system prompt for grammar-based requests
+                system_prompt = model_config.get("system_prompt", "You are a JSON-only formatter. For each user input, accurately interpret the intended command and respond with a single-line JSON object containing the keys: \"device\", \"action\", and \"location\". Match the \"device\" to the user-specified device (e.g., \"heating\" for heating, \"blinds\" for blinds) and select the \"action\" most appropriate for that device (e.g., \"on\", \"off\" for heating; \"open\", \"close\" for blinds) based on the provided grammar. Use \"UNKNOWN\" for unrecognized inputs. Output only the JSON object without explanations or additional text.")
             # Start the JSON structure to give the model a clear starting point
             formatted_prompt = f"{system_prompt}\n\nUser: {request.prompt}\nAssistant: {{\"device\":\""
         else:
