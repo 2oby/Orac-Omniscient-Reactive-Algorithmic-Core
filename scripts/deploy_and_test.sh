@@ -126,6 +126,14 @@ ssh "$REMOTE_ALIAS" "\
         echo 'nvidia-smi not available'; \
         jetson_release 2>/dev/null || echo 'jetson_release not available'; \
     fi; \
+    \
+    echo '${BLUE}🔍 Checking disk space thresholds...${NC}'; \
+    if [ -f 'scripts/monitor_disk_space.sh' ]; then \
+        echo 'Running disk space check...'; \
+        bash scripts/monitor_disk_space.sh check; \
+    else \
+        echo 'Disk space monitoring script not found'; \
+    fi; \
     
     echo '${BLUE}🔍 Checking llama.cpp binaries...${NC}'; \
     if [ -d 'third_party/llama_cpp/bin' ]; then \

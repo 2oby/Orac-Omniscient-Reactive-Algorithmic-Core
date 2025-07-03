@@ -144,6 +144,40 @@ ssh orin3 "cd ~/ORAC && docker-compose restart"
 - **ORAC Web UI**: http://192.168.8.191:8000
 - **Home Assistant**: http://192.168.8.99:8123
 
+## Disk Space Management
+
+ORAC includes automated disk space monitoring and cleanup to prevent storage issues:
+
+### Monitoring
+- **Automatic checks**: Disk usage monitored during deployments
+- **Thresholds**: 
+  - Disk usage: 80%
+  - Docker build cache: 50GB
+  - Log files: 1GB
+  - Model files: 10GB
+
+### Cleanup Scripts
+- `scripts/monitor_disk_space.sh`: Monitors disk usage and triggers cleanup
+- `scripts/docker_cleanup.sh`: Safely removes unused Docker resources
+
+### Usage
+```bash
+# Check disk space
+./scripts/monitor_disk_space.sh check
+
+# Run continuous monitoring (every 60 minutes)
+./scripts/monitor_disk_space.sh monitor
+
+# Manual Docker cleanup
+./scripts/docker_cleanup.sh normal
+./scripts/docker_cleanup.sh aggressive  # More thorough cleanup
+```
+
+### Prevention
+- Docker log rotation configured (10MB max, 3 files)
+- Build cache automatically cleaned when exceeding 20GB
+- Essential data (models, cache, logs) preserved during cleanup
+
 ## License
 
 MIT License

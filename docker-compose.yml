@@ -27,6 +27,11 @@ services:
       - PYTHONPATH=/app
       - CACHE_DIR=/app/cache
       - DATA_DIR=/app/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     deploy:
       resources:
         reservations:
