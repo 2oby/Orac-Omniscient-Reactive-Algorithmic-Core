@@ -7,7 +7,7 @@ set -euo pipefail
 
 # Default parameters
 COMMIT_MSG=${1:-"Update ORAC MVP"}
-DEPLOY_BRANCH=${2:-"Grammar"}   # Default to 'Grammar' branch if not specified
+DEPLOY_BRANCH=${2:-"master"}   # Default to 'master' branch if not specified
 SERVICE_NAME=${3:-"orac"}   # Docker Compose service to exec into
 CLEANUP_LEVEL=${4:-"light"}   # light, normal, or aggressive
 REMOTE_ALIAS="orin3"
