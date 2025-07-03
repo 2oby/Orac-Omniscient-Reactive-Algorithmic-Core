@@ -178,6 +178,41 @@ ORAC includes automated disk space monitoring and cleanup to prevent storage iss
 - Build cache automatically cleaned when exceeding 20GB
 - Essential data (models, cache, logs) preserved during cleanup
 
+## Deployment Optimizations
+
+ORAC includes several optimizations to minimize unnecessary downloads and rebuilds:
+
+### Smart Rebuild Detection
+- **Automatic rebuild check**: `scripts/check_rebuild_needed.sh` analyzes if rebuild is needed
+- **File timestamp comparison**: Only rebuilds when source files are newer than image
+- **Age-based rebuilds**: Automatically rebuilds images older than 24 hours
+- **Preserves Docker layers**: Uses Docker layer caching to speed up builds
+
+### Git LFS Optimization
+- **Skip unnecessary downloads**: Checks if llama.cpp binaries already exist
+- **Conditional downloads**: Only downloads Git LFS files when missing
+- **Binary validation**: Verifies binary integrity before skipping download
+
+### Cleanup Levels
+- **Light (default)**: Preserves Docker images, minimal cleanup
+- **Normal**: Removes unused images and volumes
+- **Aggressive**: Full system cleanup (use sparingly)
+
+### Usage Examples
+```bash
+# Deploy with light cleanup (preserves images)
+./scripts/deploy_and_test.sh "Update API" Grammar
+
+# Deploy with normal cleanup
+./scripts/deploy_and_test.sh "Update API" Grammar orac normal
+
+# Force aggressive cleanup (removes all unused resources)
+./scripts/deploy_and_test.sh "Update API" Grammar orac aggressive
+
+# Check if rebuild is needed
+./scripts/check_rebuild_needed.sh orac-orac:latest 24
+```
+
 ## License
 
 MIT License

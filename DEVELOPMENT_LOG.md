@@ -62,6 +62,18 @@ This document tracks the current development progress of ORAC's Home Assistant a
 - Files created: `scripts/monitor_disk_space.sh`, `scripts/docker_cleanup.sh`
 - Success criteria: Disk usage below 80%, automated cleanup ✅
 
+**Deployment Optimizations**:
+- Status: ✅ **COMPLETED** (2025-07-03)
+- Goal: Minimize unnecessary downloads and rebuilds during deployment
+- Files created: `scripts/check_rebuild_needed.sh`
+- Files modified: `scripts/deploy_and_test.sh`
+- Optimizations:
+  - Smart rebuild detection based on file timestamps and image age
+  - Git LFS optimization to skip unnecessary binary downloads
+  - Light cleanup mode (default) to preserve Docker images
+  - Docker layer caching improvements
+- Success criteria: Faster deployments, reduced bandwidth usage ✅
+
 **Grammar Testing Optimization**:
 - Status: ✅ **COMPLETED** (2025-01-27)
 - Accuracy: 67% success rate with room for improvement
