@@ -432,7 +432,7 @@ async def list_entity_mappings() -> Dict[str, Any]:
     """List all entity mappings."""
     try:
         mapping_config = await get_ha_mapping_config()
-        summary = mapping_config.get_mapping_summary()
+        summary = mapping_config.get_entity_mapping_summary()
         
         # Get the actual mappings from the internal attribute
         mappings = mapping_config._mappings

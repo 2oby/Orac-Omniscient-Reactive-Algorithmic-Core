@@ -31,7 +31,7 @@ async def test_grammar_generation():
         
         # Show current mappings
         print("1. Current entity mappings:")
-        mappings = mapping_config.get_mapping_summary()
+        mappings = mapping_config.get_entity_mapping_summary()
         for entity_id, friendly_name in mapping_config._mappings.items():
             status = "✅" if friendly_name and friendly_name.lower() != 'null' else "❌ NULL"
             print(f"   {status} {entity_id} -> {friendly_name}")

@@ -85,7 +85,7 @@ async def test_discovery_pipeline():
         
         # Show mapping summary
         print("6. Mapping Summary:")
-        mapping_summary = mapping_builder.get_mapping_summary(mapping)
+        mapping_summary = mapping_builder.get_mapping_structure_summary(mapping)
         print(f"   - Device types: {mapping_summary['total_devices']}")
         print(f"   - Actions: {mapping_summary['total_actions']}")
         print(f"   - Locations: {mapping_summary['total_locations']}")

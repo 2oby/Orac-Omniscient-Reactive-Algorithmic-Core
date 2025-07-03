@@ -296,11 +296,11 @@ class EntityMappingConfig:
         """Reload the configuration from the file."""
         self._load_mappings()
     
-    def get_mapping_summary(self) -> Dict[str, Any]:
-        """Get a summary of the current mappings.
+    def get_entity_mapping_summary(self) -> Dict[str, Any]:
+        """Get a summary of the current entity mappings.
         
         Returns:
-            Dictionary containing mapping statistics
+            Dictionary containing entity mapping statistics
         """
         total_entities = len(self._mappings)
         entities_with_names = len([name for name in self._mappings.values() if name and name.lower() != 'null'])

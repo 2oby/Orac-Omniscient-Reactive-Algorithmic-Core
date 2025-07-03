@@ -261,6 +261,7 @@ class HomeAssistantClient:
         """Clean up expired cache entries."""
         self._cache.cleanup_expired()
 
+
 async def main():
     """Example usage of the Home Assistant client."""
     # Load configuration
@@ -321,3 +322,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+

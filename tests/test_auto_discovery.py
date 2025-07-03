@@ -29,7 +29,7 @@ async def test_auto_discovery():
         
         # Show existing mappings (if any)
         print("1. Existing mappings from YAML file:")
-        existing_mappings = mapping_config.get_mapping_summary()
+        existing_mappings = mapping_config.get_entity_mapping_summary()
         print(f"   - Total entities: {existing_mappings['total_entities']}")
         print(f"   - Entities with friendly names: {existing_mappings['entities_with_friendly_names']}")
         print(f"   - Entities needing friendly names: {existing_mappings['entities_needing_friendly_names']}")
@@ -47,7 +47,7 @@ async def test_auto_discovery():
         
         # Show auto-discovery results
         print("3. Auto-discovery results:")
-        summary = mapping_config.get_mapping_summary()
+        summary = mapping_config.get_entity_mapping_summary()
         print(f"   - Total entities discovered: {summary['total_entities']}")
         print(f"   - Entities with friendly names: {summary['entities_with_friendly_names']}")
         print(f"   - Entities needing friendly names: {summary['entities_needing_friendly_names']}")

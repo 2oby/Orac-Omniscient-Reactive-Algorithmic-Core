@@ -133,18 +133,3 @@ class LoggerAdapter(logging.LoggerAdapter):
         return msg, kwargs
 
 
-def get_context_logger(name, context=None):
-    """
-    Get a logger with context.
-    
-    Args:
-        name: The name of the module
-        context: A dictionary with context information
-        
-    Returns:
-        A logger adapter with context
-    """
-    logger = get_logger(name)
-    if context is None:
-        context = {}
-    return LoggerAdapter(logger, context)

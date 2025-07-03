@@ -218,7 +218,7 @@ class HAMappingBuilder:
             "activate": ["scene.turn_on", "automation.trigger"]
         }
     
-    def get_mapping_summary(self, mapping: Dict[str, Any]) -> Dict[str, Any]:
+    def get_mapping_structure_summary(self, mapping: Dict[str, Any]) -> Dict[str, Any]:
         """Generate a summary of the mapping structure.
         
         Args:

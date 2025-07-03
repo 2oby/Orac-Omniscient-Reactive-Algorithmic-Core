@@ -244,61 +244,9 @@ class LocationDetector:
         
         return location_mapping.get(normalized, normalized)
     
-    def get_discovered_locations(self, entities: List[Dict[str, Any]], **kwargs) -> Set[str]:
-        """Get all discovered locations from entities.
-        
-        Args:
-            entities: List of Home Assistant entities
-            **kwargs: Additional arguments for detect_location
-            
-        Returns:
-            Set of discovered location names
-        """
-        locations = set()
-        
-        for entity in entities:
-            location = self.detect_location(entity, **kwargs)
-            if location and location not in ['unknown', 'all', 'everywhere']:
-                locations.add(location)
-        
-        return locations
+
     
-    def validate_location_detection(self, entities: List[Dict[str, Any]], **kwargs) -> Dict[str, Any]:
-        """Validate location detection results.
-        
-        Args:
-            entities: List of Home Assistant entities
-            **kwargs: Additional arguments for detect_location
-            
-        Returns:
-            Dictionary with validation results and statistics
-        """
-        results = {
-            'total_entities': len(entities),
-            'entities_with_locations': 0,
-            'entities_without_locations': 0,
-            'detection_methods': {
-                'entity_area': 0,
-                'device_area': 0,
-                'entity_id_parse': 0,
-                'friendly_name_parse': 0,
-                'device_info_parse': 0
-            },
-            'locations_found': set(),
-            'entities_without_location': []
-        }
-        
-        for entity in entities:
-            # Track which method was used (simplified tracking)
-            location = self.detect_location(entity, **kwargs)
-            if location:
-                results['entities_with_locations'] += 1
-                results['locations_found'].add(location)
-            else:
-                results['entities_without_locations'] += 1
-                results['entities_without_location'].append(entity['entity_id'])
-        
-        return results
+
     
     def build_location_mapping(self, entities: List[Dict[str, Any]], **kwargs) -> Dict[str, Dict[str, List[str]]]:
         """Build a mapping of locations to device types to entity IDs.
