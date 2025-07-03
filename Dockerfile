@@ -27,9 +27,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # Create necessary directories with proper permissions
 # These will be overridden by volume mounts, but ensures proper initial state
-RUN mkdir -p /app/data /app/logs /app/cache && \
-    chown -R orac:orac /app/data /app/logs /app/cache && \
-    chmod 755 /app/data /app/logs /app/cache
+RUN mkdir -p /app/data /app/logs /app/cache /app/test_logs && \
+    chown -R orac:orac /app/data /app/logs /app/cache /app/test_logs && \
+    chmod 755 /app/data /app/logs /app/cache /app/test_logs
 
 # Copy application code and configuration files
 COPY . /app/
