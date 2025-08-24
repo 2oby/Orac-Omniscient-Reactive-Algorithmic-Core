@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Model Selection -->
+        <div class="model-selection">
+            <div class="model-controls">
+                <select id="modelSelect" class="model-dropdown">
+                    <option value="">Select a model...</option>
+                </select>
+                <button id="favoriteToggle" class="favorite-button" title="Toggle favorite">
+                    <span class="star-icon"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Model Settings Panel -->
+        <div class="settings-panel" id="settingsPanel">
+            <button class="settings-toggle" id="settingsToggle">Model Settings</button>
+            <div class="settings-content" id="settingsContent">
+                <div class="settings-group">
+                    <label for="systemPrompt">System Prompt:</label>
+                    <textarea id="systemPrompt" rows="3"></textarea>
+                </div>
+                <div class="settings-group">
+                    <label for="temperature">Temperature:</label>
+                    <input type="number" id="temperature" step="0.1" min="0" max="2">
+                </div>
+                <div class="settings-group">
+                    <label for="topP">Top P:</label>
+                    <input type="number" id="topP" step="0.1" min="0" max="1">
+                </div>
+                <div class="settings-group">
+                    <label for="topK">Top K:</label>
+                    <input type="number" id="topK" min="1" max="100">
+                </div>
+                <div class="settings-group">
+                    <label for="maxTokens">Max Tokens:</label>
+                    <input type="number" id="maxTokens" min="1">
+                </div>
+                <div class="settings-group">
+                    <label for="forceJson" class="checkbox-label">
+                        <input type="checkbox" id="forceJson">
+                        Force JSON Output
+                    </label>
+                </div>
+                <div class="settings-group">
+                    <label for="setDefault" class="checkbox-label">
+                        <input type="checkbox" id="setDefault">
+                        Set as Default Model
+                    </label>
+                </div>
+                <div class="settings-actions">
+                    <button id="resetSettings">Reset to Default</button>
+                    <button id="cancelSettings">Cancel</button>
+                    <button id="saveSettings">Save Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Prompt Interface -->
+        <div class="prompt-interface">
+            <div class="system-prompt-display" id="systemPromptDisplay"></div>
+            <textarea id="promptInput" placeholder="Enter your prompt here..." rows="4"></textarea>
+            <button id="generateButton">Generate</button>
+        </div>
+
+        <!-- Response Area -->
+        <div class="response-area">
+            <div id="responseOutput"></div>
+            <div id="generatingIndicator" class="hidden">Generating...</div>
+            <button id="copyResponse" class="hidden">Copy Response</button>
+        </div>
+
+        <!-- Home Assistant Entity Mapping Modal -->
+        <div id="entityMappingModal" class="modal hidden" role="dialog" aria-labelledby="modalTitle" aria-describedby="modalDescription">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Home Assistant Entity Mapping</h2>
+                    <button class="close" id="closeEntityModal" aria-label="Close modal">&times;</button>
+                </div>
+                <div class="modal-body" id="modalDescription">
+                    <!-- Error Display -->
+                    <div id="modalError" class="error-message hidden" role="alert"></div>
+                    
+                    <div id="mappingProgress">
+                        <p>Checking for entities that need friendly names...</p>
+                        <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                            <div class="progress-fill" id="mappingProgressFill"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="mappingForm" class="hidden">
+                        <div class="entity-mapping-item">
+                            <div class="entity-info">
+                                <strong>Entity ID:</strong> <span id="currentEntityId"></span>
+                                <br>
+                                <strong>Current Name:</strong> <span id="currentEntityName"></span>
+                            </div>
+                            <div class="friendly-name-input">
+                                <label for="friendlyNameInput">Friendly Name:</label>
+                                <input type="text" id="friendlyNameInput" placeholder="Enter a friendly name..." aria-describedby="nameSuggestions">
+                                <div class="suggestions" id="nameSuggestions" role="listbox" aria-label="Name suggestions"></div>
+                            </div>
+                            <div class="mapping-actions">
+                                <button id="skipEntity" class="secondary-button" type="button">Skip</button>
+                                <button id="saveEntityMapping" class="primary-button" type="button">Save & Continue</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="mappingComplete" class="hidden">
+                        <p>✅ All entity mappings have been processed!</p>
+                        <div class="mapping-summary" id="mappingSummary"></div>
+                        <button id="closeMappingModal" class="primary-button">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Home Assistant Status Panel -->
+        <div class="ha-status-panel" id="haStatusPanel">
+            <div class="ha-status-header">
+                <h3>Home Assistant Status</h3>
+                <button id="refreshHAStatus" class="refresh-button" aria-label="Refresh status">🔄</button>
+            </div>
+            <div class="ha-status-content">
+                <div class="status-item">
+                    <span class="status-label">Connection:</span>
+                    <span id="haConnectionStatus" class="status-value">Checking...</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Entities:</span>
+                    <span id="haEntityCount" class="status-value">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Grammar:</span>
+                    <span id="haGrammarStatus" class="status-value">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Mappings:</span>
+                    <span id="haMappingStatus" class="status-value">-</span>
+                </div>
+            </div>
+            <div class="ha-actions">
+                <button id="checkNullMappings" class="secondary-button" type="button">Check Mappings</button>
+                <button id="runAutoDiscovery" class="secondary-button" type="button">Auto-Discover</button>
+                <button id="updateGrammar" class="primary-button" type="button">Update Grammar</button>
+                <button id="forceUpdateGrammar" class="secondary-button" type="button">Force Update</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', path='/js/main.js') }}"></script>
+</body>
+</html> 

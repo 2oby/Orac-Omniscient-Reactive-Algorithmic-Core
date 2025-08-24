@@ -1,13 +1,28 @@
+/* ORAC Core Cyberpunk Theme - Green on Black Retro Terminal */
+
 :root {
-    --bg-color: #1a1a1a;
-    --text-color: #e0e0e0;
-    --border-color: #333;
-    --input-bg: #2d2d2d;
-    --button-bg: #404040;
-    --button-hover: #505050;
-    --accent-color: #4a9eff;
-    --error-color: #ff4a4a;
-    --success-color: #4aff4a;
+    /* Primary Colors - Cyberpunk Green Theme */
+    --bg-color: #000000;
+    --secondary-bg: #0a0a0a;
+    --text-color: #00ff41;
+    --primary-green: #00ff41;
+    --secondary-green: #00cc33;
+    --active-green: #90EE90;
+    --orange-accent: #cc7000;
+    --error-color: #ff0066;
+    --warning-color: #ff9500;
+    --success-color: #00ff41;
+    
+    /* UI Elements */
+    --border-color: #00ff41;
+    --input-bg: #1a1a1a;
+    --button-bg: #1a1a1a;
+    --button-hover: rgba(0, 255, 65, 0.2);
+    --accent-color: #00ff41;
+    
+    /* Gradients */
+    --card-gradient: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+    --active-gradient: linear-gradient(145deg, #90EE90, #7FDD7F);
 }
 
 * {
@@ -16,17 +31,65 @@
     box-sizing: border-box;
 }
 
+/* Body with scanline effect */
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: 'Courier New', monospace;
     background-color: var(--bg-color);
     color: var(--text-color);
     line-height: 1.6;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+}
+
+/* Scanlines overlay effect */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        transparent 50%,
+        rgba(0, 255, 65, 0.02) 50%
+    );
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Glitch animation */
+@keyframes glitch {
+    0% { transform: translate(0); }
+    20% { transform: translate(-2px, 2px); }
+    40% { transform: translate(-2px, -2px); }
+    60% { transform: translate(2px, 2px); }
+    80% { transform: translate(2px, -2px); }
+    100% { transform: translate(0); }
+}
+
+/* Pulse animation */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
 }
 
 .container {
     max-width: 1200px;
     margin: 2rem auto;
     padding: 0 1rem;
+    position: relative;
+    z-index: 2;
+}
+
+/* Headers with glow effect */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--primary-green);
+    text-shadow: 0 0 10px var(--primary-green);
+    text-transform: uppercase;
+    letter-spacing: 2px;
 }
 
 /* Model Selection */
@@ -43,32 +106,40 @@ body {
     gap: 0.5rem;
     flex-wrap: nowrap;
     box-sizing: border-box;
-    /* border: 2px dashed #ff4a4a;  DEBUG: Remove after fixing */
 }
 
 .model-dropdown {
     flex: 1 1 auto;
     min-width: 0;
-    /* width: 100%; */
     padding: 0.5rem;
     background-color: var(--input-bg);
     color: var(--text-color);
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     border-radius: 4px;
     font-size: 1rem;
     height: 100%;
     box-sizing: border-box;
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+}
+
+.model-dropdown:focus {
+    outline: none;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+    border-color: var(--active-green);
 }
 
 .favorite-button {
     flex: 0 0 auto;
     background-color: var(--input-bg);
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     cursor: pointer;
     padding: 0.5rem;
     font-size: 1.5rem;
     color: var(--text-color);
-    transition: transform 0.2s, color 0.2s, background-color 0.2s;
+    transition: transform 0.2s, color 0.2s, background-color 0.2s, box-shadow 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -78,15 +149,17 @@ body {
     outline: none;
     pointer-events: auto;
     z-index: 10;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
 }
 
 .favorite-button:focus {
-    box-shadow: 0 0 0 2px var(--accent-color);
+    box-shadow: 0 0 20px var(--primary-green);
 }
 
 .favorite-button:hover {
     background-color: var(--button-hover);
     transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
 }
 
 .favorite-button:active {
@@ -95,19 +168,20 @@ body {
 
 .favorite-button.favorited {
     background-color: var(--button-hover);
+    box-shadow: 0 0 30px rgba(0, 255, 65, 0.5);
 }
 
 .favorite-button.favorited .star-icon {
-    color: #ffd700;
+    color: var(--primary-green);
+    text-shadow: 0 0 10px var(--primary-green);
 }
 
 .favorite-button:not(.favorited) .star-icon {
-    color: var(--text-color);
+    color: var(--orange-accent);
 }
 
 .favorite-button .star-icon::before {
     content: "★";
-    color: gold;
     font-size: 1.5rem;
 }
 
@@ -116,11 +190,7 @@ body {
     cursor: not-allowed;
     background-color: var(--input-bg);
     pointer-events: none;
-}
-
-.favorite-button:disabled:hover {
-    transform: none;
-    background-color: var(--input-bg);
+    box-shadow: none;
 }
 
 /* Feedback Message */
@@ -129,14 +199,17 @@ body {
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    background-color: var(--accent-color);
-    color: white;
+    background-color: var(--primary-green);
+    color: #000;
     padding: 0.5rem 1rem;
     border-radius: 4px;
     font-size: 0.9rem;
     margin-top: 0.5rem;
     animation: fadeInOut 2s ease-in-out;
     z-index: 1000;
+    text-transform: uppercase;
+    font-weight: bold;
+    box-shadow: 0 0 20px var(--primary-green);
 }
 
 @keyframes fadeInOut {
@@ -149,9 +222,11 @@ body {
 /* Settings Panel */
 .settings-panel {
     margin-bottom: 1rem;
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     border-radius: 4px;
     overflow: hidden;
+    background: var(--card-gradient);
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
 }
 
 .settings-toggle {
@@ -162,10 +237,15 @@ body {
     border: none;
     cursor: pointer;
     text-align: left;
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 2px solid var(--border-color);
 }
 
 .settings-toggle:hover {
     background-color: var(--button-hover);
+    text-shadow: 0 0 10px var(--primary-green);
 }
 
 .settings-content {
@@ -185,6 +265,10 @@ body {
 .settings-group label {
     display: block;
     margin-bottom: 0.5rem;
+    color: var(--primary-green);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 0 5px var(--primary-green);
 }
 
 .settings-group input,
@@ -193,17 +277,19 @@ body {
     padding: 0.5rem;
     background-color: var(--bg-color);
     color: var(--text-color);
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    text-transform: none;
+    letter-spacing: normal;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
 }
 
-.settings-group textarea {
-    width: 100%;
-    padding: 0.5rem;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
+.settings-group input:focus,
+.settings-group textarea:focus {
+    outline: none;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+    border-color: var(--active-green);
 }
 
 .checkbox-label {
@@ -211,12 +297,14 @@ body {
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
+    text-transform: uppercase;
 }
 
 .checkbox-label input[type="checkbox"] {
     width: 1rem;
     height: 1rem;
     cursor: pointer;
+    accent-color: var(--primary-green);
 }
 
 .settings-actions {
@@ -233,11 +321,13 @@ body {
 .system-prompt-display {
     padding: 0.5rem;
     background-color: var(--input-bg);
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     border-radius: 4px;
     margin-bottom: 0.5rem;
-    color: #888;
+    color: var(--secondary-green);
     font-style: italic;
+    text-transform: none;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
 }
 
 #promptInput {
@@ -245,29 +335,45 @@ body {
     padding: 0.5rem;
     background-color: var(--input-bg);
     color: var(--text-color);
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     border-radius: 4px;
     resize: vertical;
     margin-bottom: 0.5rem;
+    font-family: 'Courier New', monospace;
+    text-transform: none;
+    letter-spacing: normal;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+}
+
+#promptInput:focus {
+    outline: none;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+    border-color: var(--active-green);
 }
 
 /* Response Area */
 .response-area {
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     border-radius: 4px;
     padding: 1rem;
     background-color: var(--input-bg);
     min-height: 100px;
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
 }
 
 #responseOutput {
     white-space: pre-wrap;
     word-wrap: break-word;
+    text-transform: none;
+    letter-spacing: normal;
+    font-family: 'Courier New', monospace;
 }
 
 #generatingIndicator {
-    color: var(--accent-color);
+    color: var(--primary-green);
     font-style: italic;
+    text-transform: uppercase;
+    animation: pulse 1s infinite;
 }
 
 .hidden {
@@ -279,22 +385,38 @@ button {
     padding: 0.5rem 1rem;
     background-color: var(--button-bg);
     color: var(--text-color);
-    border: none;
+    border: 2px solid var(--border-color);
     border-radius: 4px;
     cursor: pointer;
     font-size: 1rem;
+    font-family: 'Courier New', monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
 }
 
 button:hover {
     background-color: var(--button-hover);
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
+    text-shadow: 0 0 10px var(--primary-green);
+    transform: translateY(-2px);
+}
+
+button:active {
+    transform: translateY(0);
 }
 
 #generateButton {
-    background-color: var(--accent-color);
+    background-color: var(--primary-green);
+    color: #000;
+    font-weight: bold;
+    box-shadow: 0 0 20px var(--primary-green);
 }
 
 #generateButton:hover {
-    background-color: #5aaeff;
+    background-color: var(--active-green);
+    box-shadow: 0 0 30px var(--primary-green);
 }
 
 #copyResponse {
@@ -302,7 +424,7 @@ button:hover {
     background-color: var(--button-bg);
 }
 
-/* Modal Styles - Improved Accessibility and Error Handling */
+/* Modal Styles */
 .modal {
     position: fixed;
     z-index: 1000;
@@ -310,14 +432,13 @@ button:hover {
     top: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
+    background-color: rgba(0, 0, 0, 0.8);
     display: flex;
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(2px);
 }
 
-/* Ensure hidden class overrides modal display with higher specificity */
 .modal.hidden {
     display: none !important;
     visibility: hidden !important;
@@ -326,14 +447,14 @@ button:hover {
 }
 
 .modal-content {
-    background-color: var(--input-bg);
-    border: 1px solid var(--border-color);
+    background: var(--card-gradient);
+    border: 2px solid var(--border-color);
     border-radius: 8px;
     width: 90%;
     max-width: 600px;
     max-height: 80vh;
     overflow-y: auto;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 30px var(--primary-green);
     animation: modalSlideIn 0.3s ease-out;
 }
 
@@ -353,7 +474,7 @@ button:hover {
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 2px solid var(--border-color);
     background-color: var(--button-bg);
     border-radius: 8px 8px 0 0;
 }
@@ -362,6 +483,7 @@ button:hover {
     margin: 0;
     color: var(--text-color);
     font-size: 1.25rem;
+    text-shadow: 0 0 10px var(--primary-green);
 }
 
 .close {
@@ -379,16 +501,17 @@ button:hover {
     align-items: center;
     justify-content: center;
     border-radius: 4px;
-    transition: background-color 0.2s, color 0.2s;
+    transition: all 0.2s;
 }
 
 .close:hover {
-    color: var(--accent-color);
+    color: var(--active-green);
     background-color: var(--button-hover);
+    text-shadow: 0 0 10px var(--primary-green);
 }
 
 .close:focus {
-    outline: 2px solid var(--accent-color);
+    outline: 2px solid var(--primary-green);
     outline-offset: 2px;
 }
 
@@ -396,23 +519,26 @@ button:hover {
     padding: 1rem;
 }
 
-/* Progress Bar - Improved */
+/* Progress Bar */
 .progress-bar {
     width: 100%;
     height: 8px;
-    background-color: var(--border-color);
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     overflow: hidden;
     margin: 1rem 0;
     position: relative;
+    box-shadow: inset 0 0 10px rgba(0, 255, 65, 0.2);
 }
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent-color), #3a8eff);
+    background: linear-gradient(90deg, var(--primary-green), var(--active-green));
     width: 0%;
     transition: width 0.3s ease;
     border-radius: 4px;
+    box-shadow: 0 0 20px var(--primary-green);
 }
 
 .progress-fill::after {
@@ -431,7 +557,7 @@ button:hover {
     100% { transform: translateX(100%); }
 }
 
-/* Entity Mapping Form - Improved Validation */
+/* Entity Mapping Form */
 .entity-mapping-item {
     margin-bottom: 1rem;
 }
@@ -441,7 +567,8 @@ button:hover {
     padding: 0.75rem;
     border-radius: 4px;
     margin-bottom: 1rem;
-    border-left: 3px solid var(--accent-color);
+    border-left: 3px solid var(--primary-green);
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
 }
 
 .friendly-name-input {
@@ -453,6 +580,7 @@ button:hover {
     margin-bottom: 0.5rem;
     font-weight: bold;
     color: var(--text-color);
+    text-shadow: 0 0 5px var(--primary-green);
 }
 
 .friendly-name-input input {
@@ -460,26 +588,24 @@ button:hover {
     padding: 0.5rem;
     background-color: var(--bg-color);
     color: var(--text-color);
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     border-radius: 4px;
     font-size: 1rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: 'Courier New', monospace;
+    text-transform: none;
+    transition: all 0.2s;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
 }
 
 .friendly-name-input input:focus {
     outline: none;
-    border-color: var(--accent-color);
-    box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+    border-color: var(--active-green);
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
 }
 
 .friendly-name-input input.error {
     border-color: var(--error-color);
-    box-shadow: 0 0 0 2px rgba(255, 74, 74, 0.2);
-}
-
-.friendly-name-input input.error:focus {
-    border-color: var(--error-color);
-    box-shadow: 0 0 0 2px rgba(255, 74, 74, 0.3);
+    box-shadow: 0 0 15px var(--error-color);
 }
 
 .suggestions {
@@ -497,23 +623,22 @@ button:hover {
     font-size: 0.8rem;
     cursor: pointer;
     border: 1px solid var(--border-color);
-    transition: background-color 0.2s, color 0.2s, transform 0.1s;
+    transition: all 0.2s;
     user-select: none;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 0 5px rgba(0, 255, 65, 0.3);
 }
 
 .suggestion-chip:hover {
-    background-color: var(--accent-color);
-    color: white;
+    background-color: var(--primary-green);
+    color: #000;
     transform: translateY(-1px);
+    box-shadow: 0 0 15px var(--primary-green);
 }
 
 .suggestion-chip:active {
     transform: translateY(0);
-}
-
-.suggestion-chip:focus {
-    outline: 2px solid var(--accent-color);
-    outline-offset: 2px;
 }
 
 .mapping-actions {
@@ -524,66 +649,66 @@ button:hover {
 }
 
 .primary-button {
-    background-color: var(--accent-color);
-    color: white;
+    background-color: var(--primary-green);
+    color: #000;
     border: none;
     padding: 0.5rem 1rem;
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.9rem;
-    transition: background-color 0.2s, transform 0.1s;
-    font-weight: 500;
+    transition: all 0.2s;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 0 20px var(--primary-green);
 }
 
 .primary-button:hover {
-    background-color: #3a8eff;
+    background-color: var(--active-green);
     transform: translateY(-1px);
+    box-shadow: 0 0 30px var(--primary-green);
 }
 
 .primary-button:active {
     transform: translateY(0);
 }
 
-.primary-button:focus {
-    outline: 2px solid var(--accent-color);
-    outline-offset: 2px;
-}
-
 .primary-button:disabled {
-    background-color: var(--border-color);
+    background-color: var(--orange-accent);
     cursor: not-allowed;
     transform: none;
+    box-shadow: 0 0 10px var(--orange-accent);
 }
 
 .secondary-button {
     background-color: var(--button-bg);
     color: var(--text-color);
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     padding: 0.5rem 1rem;
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.9rem;
-    transition: background-color 0.2s, transform 0.1s;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
 }
 
 .secondary-button:hover {
     background-color: var(--button-hover);
     transform: translateY(-1px);
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
 }
 
 .secondary-button:active {
     transform: translateY(0);
 }
 
-.secondary-button:focus {
-    outline: 2px solid var(--accent-color);
-    outline-offset: 2px;
-}
-
 .secondary-button:disabled {
-    background-color: var(--border-color);
+    background-color: var(--bg-color);
     cursor: not-allowed;
     transform: none;
+    opacity: 0.5;
 }
 
 /* Error and Success Message Styles */
@@ -597,7 +722,9 @@ button:hover {
     max-width: 400px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     animation: messageSlideIn 0.3s ease-out;
-    font-weight: 500;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 @keyframes messageSlideIn {
@@ -615,12 +742,14 @@ button:hover {
     background-color: var(--error-color);
     color: white;
     border-left: 4px solid #cc0000;
+    box-shadow: 0 0 20px var(--error-color);
 }
 
 .success-message {
     background-color: var(--success-color);
     color: black;
-    border-left: 4px solid #00cc00;
+    border-left: 4px solid var(--secondary-green);
+    box-shadow: 0 0 20px var(--success-color);
 }
 
 /* Loading States */
@@ -637,10 +766,11 @@ button:hover {
     width: 20px;
     height: 20px;
     margin: -10px 0 0 -10px;
-    border: 2px solid var(--accent-color);
+    border: 2px solid var(--primary-green);
     border-top: 2px solid transparent;
     border-radius: 50%;
     animation: spin 1s linear infinite;
+    box-shadow: 0 0 20px var(--primary-green);
 }
 
 @keyframes spin {
@@ -648,50 +778,14 @@ button:hover {
     100% { transform: rotate(360deg); }
 }
 
-/* Accessibility Improvements */
-@media (prefers-reduced-motion: reduce) {
-    .modal-content,
-    .error-message,
-    .success-message,
-    .suggestion-chip,
-    .primary-button,
-    .secondary-button {
-        animation: none;
-        transition: none;
-    }
-}
-
-/* Focus visible for better accessibility */
-button:focus-visible,
-input:focus-visible,
-.suggestion-chip:focus-visible {
-    outline: 2px solid var(--accent-color);
-    outline-offset: 2px;
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-    .modal-content {
-        border: 2px solid var(--text-color);
-    }
-    
-    .suggestion-chip {
-        border: 2px solid var(--text-color);
-    }
-    
-    .primary-button,
-    .secondary-button {
-        border: 2px solid var(--text-color);
-    }
-}
-
 /* Home Assistant Status Panel */
 .ha-status-panel {
     margin-top: 2rem;
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     border-radius: 8px;
-    background-color: var(--input-bg);
+    background: var(--card-gradient);
     overflow: hidden;
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
 }
 
 .ha-status-header {
@@ -700,12 +794,13 @@ input:focus-visible,
     align-items: center;
     padding: 1rem;
     background-color: var(--button-bg);
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 2px solid var(--border-color);
 }
 
 .ha-status-header h3 {
     margin: 0;
     color: var(--text-color);
+    text-shadow: 0 0 10px var(--primary-green);
 }
 
 .refresh-button {
@@ -716,11 +811,12 @@ input:focus-visible,
     cursor: pointer;
     padding: 0.25rem;
     border-radius: 4px;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
 }
 
 .refresh-button:hover {
     background-color: var(--button-hover);
+    text-shadow: 0 0 10px var(--primary-green);
 }
 
 .ha-status-content {
@@ -735,31 +831,37 @@ input:focus-visible,
     padding: 0.5rem;
     background-color: var(--bg-color);
     border-radius: 4px;
+    border: 1px solid rgba(0, 255, 65, 0.3);
 }
 
 .status-label {
     font-weight: bold;
     color: var(--text-color);
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .status-value {
-    color: var(--accent-color);
-    font-family: monospace;
+    color: var(--primary-green);
+    font-family: 'Courier New', monospace;
+    text-shadow: 0 0 5px var(--primary-green);
 }
 
 .status-value.error {
     color: var(--error-color);
+    text-shadow: 0 0 5px var(--error-color);
 }
 
 .status-value.success {
     color: var(--success-color);
+    text-shadow: 0 0 5px var(--success-color);
 }
 
 .ha-actions {
     display: flex;
     gap: 0.5rem;
     padding: 1rem;
-    border-top: 1px solid var(--border-color);
+    border-top: 2px solid var(--border-color);
     background-color: var(--bg-color);
 }
 
@@ -769,7 +871,7 @@ input:focus-visible,
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.9rem;
-    transition: background-color 0.2s;
+    transition: all 0.2s;
 }
 
 /* Mapping Summary */
@@ -779,14 +881,94 @@ input:focus-visible,
     border-radius: 4px;
     margin: 1rem 0;
     border-left: 3px solid var(--success-color);
+    box-shadow: 0 0 10px var(--success-color);
 }
 
 .mapping-summary h4 {
     margin: 0 0 0.5rem 0;
     color: var(--success-color);
+    text-shadow: 0 0 10px var(--success-color);
 }
 
 .mapping-summary p {
     margin: 0.25rem 0;
     color: var(--text-color);
-} 
+}
+
+/* ORAC STT Connection Status Panel */
+.stt-status-panel {
+    margin-top: 2rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-gradient);
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+}
+
+.stt-status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: var(--button-bg);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.stt-status-header h3 {
+    margin: 0;
+    color: var(--text-color);
+    text-shadow: 0 0 10px var(--primary-green);
+}
+
+.stt-status-content {
+    padding: 1rem;
+}
+
+.connection-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+    box-shadow: 0 0 10px currentColor;
+}
+
+.connection-indicator.connected {
+    background-color: var(--success-color);
+    animation: pulse 2s infinite;
+}
+
+.connection-indicator.disconnected {
+    background-color: var(--error-color);
+}
+
+.connection-indicator.pending {
+    background-color: var(--warning-color);
+    animation: pulse 1s infinite;
+}
+
+/* Accessibility Improvements */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* Focus visible for better accessibility */
+button:focus-visible,
+input:focus-visible,
+.suggestion-chip:focus-visible {
+    outline: 2px solid var(--primary-green);
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .modal-content,
+    .suggestion-chip,
+    .primary-button,
+    .secondary-button {
+        border: 2px solid var(--text-color);
+    }
+}

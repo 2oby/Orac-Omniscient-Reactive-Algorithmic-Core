@@ -373,6 +373,52 @@ ssh orin3 "docker logs -f orac-core | grep -E 'generate|home_assistant'"
 
 ---
 
+## 🧹 **Clean Up Tasks - ORAC Core WebGUI**
+
+### Goal: Update ORAC Core to be consistent with other modules
+Make ORAC Core WebGUI consistent with Hey ORAC and ORAC STT in terms of styling, status monitoring, and configuration patterns.
+
+### Tasks:
+1. **Update Look & Feel** - ✅ **COMPLETED**
+   - Implemented green-on-black retro cyberpunk theme
+   - Added monospace font (Courier New)
+   - Added text shadows and glow effects
+   - Added scanline overlay effect
+   - Updated all UI components with consistent styling
+
+2. **ORAC STT Connection Status** - ⏳ **PENDING**
+   - Add status panel showing ORAC STT connection state
+   - Implement periodic health check pings to ORAC STT
+   - Show last connection time and received data status
+   - Add visual indicators (green/red/amber) for connection state
+
+3. **Display Home Assistant Entity Details** - ⏳ **PENDING**
+   - Enhance existing HA status panel to show more entity details
+   - Add entity list view with search/filter capability
+   - Show entity states and last update times
+   - Consider adding entity control capabilities
+
+4. **Verify Configuration File Handling** - ⏳ **PENDING**
+   - Check that ORAC Core uses same config pattern as other modules
+   - Verify YAML/JSON file handling consistency
+   - Ensure settings persistence works the same way
+   - Document any differences that need to be maintained
+
+5. **Check WebGUI Pattern Consistency** - ⏳ **PENDING**
+   - Compare web server patterns (FastAPI vs Flask)
+   - Check API endpoint naming conventions
+   - Verify WebSocket usage patterns
+   - Document architectural differences
+
+### Implementation Notes:
+- **Periodic Pings**: Need to implement bidirectional health checks:
+  - Hey ORAC → ORAC STT (every 30 seconds)
+  - ORAC STT → ORAC Core (every 30 seconds)
+  - Display connection status in each module's UI
+- **Documentation**: Update INTEGRATION_CURRENT_FOCUS.md with ping architecture
+
+---
+
 ## 📁 **Archive**
 
 For historic development information and resolved issues, see:

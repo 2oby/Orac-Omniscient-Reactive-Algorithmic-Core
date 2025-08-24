@@ -5,158 +5,229 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <style>
+        /* Page-specific styles for the landing page */
+        .orac-header {
+            text-align: center;
+            padding: 2rem 0;
+            background: var(--card-gradient);
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 2rem;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.4);
+        }
+        
+        .orac-banner {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--primary-green);
+            text-shadow: 0 0 20px var(--primary-green),
+                         0 0 40px var(--primary-green),
+                         0 0 60px var(--primary-green);
+            letter-spacing: 4px;
+            animation: glitch 3s infinite;
+            margin-bottom: 1rem;
+        }
+        
+        .orac-subtitle {
+            font-size: 1.2rem;
+            color: var(--secondary-green);
+            text-shadow: 0 0 10px var(--secondary-green);
+            letter-spacing: 2px;
+        }
+        
+        .stack-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+        
+        .module-card {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .module-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.5);
+        }
+        
+        .module-title {
+            color: var(--primary-green);
+            text-shadow: 0 0 10px var(--primary-green);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+        
+        .module-status {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            box-shadow: 0 0 10px currentColor;
+        }
+        
+        .status-indicator.online {
+            background-color: var(--success-color);
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.offline {
+            background-color: var(--error-color);
+        }
+        
+        .status-indicator.unknown {
+            background-color: var(--warning-color);
+        }
+        
+        .nav-links {
+            text-align: center;
+            margin: 3rem 0;
+        }
+        
+        .nav-link {
+            display: inline-block;
+            margin: 0 1rem;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--button-bg);
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+        }
+        
+        .nav-link:hover {
+            background-color: var(--primary-green);
+            color: #000;
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px var(--primary-green);
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 2rem 0;
+            margin-top: 4rem;
+            border-top: 2px solid var(--border-color);
+            color: var(--secondary-green);
+            text-shadow: 0 0 5px var(--secondary-green);
+        }
+        
+        @keyframes glitch {
+            0%, 100% { 
+                text-shadow: 0 0 20px var(--primary-green),
+                             0 0 40px var(--primary-green),
+                             0 0 60px var(--primary-green);
+            }
+            25% { 
+                text-shadow: -2px 0 20px var(--primary-green),
+                             0 2px 40px var(--primary-green),
+                             2px 0 60px var(--primary-green);
+            }
+            50% { 
+                text-shadow: 2px 0 20px var(--primary-green),
+                             0 -2px 40px var(--primary-green),
+                             -2px 0 60px var(--primary-green);
+            }
+            75% { 
+                text-shadow: 0 2px 20px var(--primary-green),
+                             -2px 0 40px var(--primary-green),
+                             0 -2px 60px var(--primary-green);
+            }
+        }
+    </style>
 </head>
 <body>
+    <!-- Header with ORAC_CORE_Banner -->
+    <header class="orac-header">
+        <h1 class="orac-banner">ORAC_CORE_BANNER</h1>
+        <p class="orac-subtitle">Omniscient Reactive Algorithmic Core</p>
+    </header>
+
     <div class="container">
-        <!-- Model Selection -->
-        <div class="model-selection">
-            <div class="model-controls">
-                <select id="modelSelect" class="model-dropdown">
-                    <option value="">Select a model...</option>
-                </select>
-                <button id="favoriteToggle" class="favorite-button" title="Toggle favorite">
-                    <span class="star-icon"></span>
-                </button>
+        <!-- Stack Overview -->
+        <section class="stack-overview">
+            <!-- Hey ORAC Module -->
+            <div class="module-card">
+                <h2 class="module-title">HEY ORAC</h2>
+                <div class="module-status">
+                    <span class="status-indicator unknown" id="hey-orac-status"></span>
+                    <span>Wake Word Detection</span>
+                </div>
+                <p>Raspberry Pi 4B (192.168.8.99)</p>
+                <p>Listens for "Computer" wake word</p>
+                <p>Port: 7171</p>
             </div>
-        </div>
+            
+            <!-- ORAC STT Module -->
+            <div class="module-card">
+                <h2 class="module-title">ORAC STT</h2>
+                <div class="module-status">
+                    <span class="status-indicator unknown" id="orac-stt-status"></span>
+                    <span>Speech to Text</span>
+                </div>
+                <p>NVIDIA Orin Nano (192.168.8.191)</p>
+                <p>Whisper.cpp GPU transcription</p>
+                <p>Port: 7272</p>
+            </div>
+            
+            <!-- ORAC Core Module -->
+            <div class="module-card">
+                <h2 class="module-title">ORAC CORE</h2>
+                <div class="module-status">
+                    <span class="status-indicator online" id="orac-core-status"></span>
+                    <span>AI Processing</span>
+                </div>
+                <p>NVIDIA Jetson Orin (192.168.8.191)</p>
+                <p>LLaMA.cpp with GGUF models</p>
+                <p>Port: 8000</p>
+            </div>
+        </section>
 
-        <!-- Model Settings Panel -->
-        <div class="settings-panel" id="settingsPanel">
-            <button class="settings-toggle" id="settingsToggle">Model Settings</button>
-            <div class="settings-content" id="settingsContent">
-                <div class="settings-group">
-                    <label for="systemPrompt">System Prompt:</label>
-                    <textarea id="systemPrompt" rows="3"></textarea>
-                </div>
-                <div class="settings-group">
-                    <label for="temperature">Temperature:</label>
-                    <input type="number" id="temperature" step="0.1" min="0" max="2">
-                </div>
-                <div class="settings-group">
-                    <label for="topP">Top P:</label>
-                    <input type="number" id="topP" step="0.1" min="0" max="1">
-                </div>
-                <div class="settings-group">
-                    <label for="topK">Top K:</label>
-                    <input type="number" id="topK" min="1" max="100">
-                </div>
-                <div class="settings-group">
-                    <label for="maxTokens">Max Tokens:</label>
-                    <input type="number" id="maxTokens" min="1">
-                </div>
-                <div class="settings-group">
-                    <label for="forceJson" class="checkbox-label">
-                        <input type="checkbox" id="forceJson">
-                        Force JSON Output
-                    </label>
-                </div>
-                <div class="settings-group">
-                    <label for="setDefault" class="checkbox-label">
-                        <input type="checkbox" id="setDefault">
-                        Set as Default Model
-                    </label>
-                </div>
-                <div class="settings-actions">
-                    <button id="resetSettings">Reset to Default</button>
-                    <button id="cancelSettings">Cancel</button>
-                    <button id="saveSettings">Save Settings</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Prompt Interface -->
-        <div class="prompt-interface">
-            <div class="system-prompt-display" id="systemPromptDisplay"></div>
-            <textarea id="promptInput" placeholder="Enter your prompt here..." rows="4"></textarea>
-            <button id="generateButton">Generate</button>
-        </div>
-
-        <!-- Response Area -->
-        <div class="response-area">
-            <div id="responseOutput"></div>
-            <div id="generatingIndicator" class="hidden">Generating...</div>
-            <button id="copyResponse" class="hidden">Copy Response</button>
-        </div>
-
-        <!-- Home Assistant Entity Mapping Modal -->
-        <div id="entityMappingModal" class="modal hidden" role="dialog" aria-labelledby="modalTitle" aria-describedby="modalDescription">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 id="modalTitle">Home Assistant Entity Mapping</h2>
-                    <button class="close" id="closeEntityModal" aria-label="Close modal">&times;</button>
-                </div>
-                <div class="modal-body" id="modalDescription">
-                    <!-- Error Display -->
-                    <div id="modalError" class="error-message hidden" role="alert"></div>
-                    
-                    <div id="mappingProgress">
-                        <p>Checking for entities that need friendly names...</p>
-                        <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-                            <div class="progress-fill" id="mappingProgressFill"></div>
-                        </div>
-                    </div>
-                    
-                    <div id="mappingForm" class="hidden">
-                        <div class="entity-mapping-item">
-                            <div class="entity-info">
-                                <strong>Entity ID:</strong> <span id="currentEntityId"></span>
-                                <br>
-                                <strong>Current Name:</strong> <span id="currentEntityName"></span>
-                            </div>
-                            <div class="friendly-name-input">
-                                <label for="friendlyNameInput">Friendly Name:</label>
-                                <input type="text" id="friendlyNameInput" placeholder="Enter a friendly name..." aria-describedby="nameSuggestions">
-                                <div class="suggestions" id="nameSuggestions" role="listbox" aria-label="Name suggestions"></div>
-                            </div>
-                            <div class="mapping-actions">
-                                <button id="skipEntity" class="secondary-button" type="button">Skip</button>
-                                <button id="saveEntityMapping" class="primary-button" type="button">Save & Continue</button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div id="mappingComplete" class="hidden">
-                        <p>✅ All entity mappings have been processed!</p>
-                        <div class="mapping-summary" id="mappingSummary"></div>
-                        <button id="closeMappingModal" class="primary-button">Close</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Home Assistant Status Panel -->
-        <div class="ha-status-panel" id="haStatusPanel">
-            <div class="ha-status-header">
-                <h3>Home Assistant Status</h3>
-                <button id="refreshHAStatus" class="refresh-button" aria-label="Refresh status">🔄</button>
-            </div>
-            <div class="ha-status-content">
-                <div class="status-item">
-                    <span class="status-label">Connection:</span>
-                    <span id="haConnectionStatus" class="status-value">Checking...</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">Entities:</span>
-                    <span id="haEntityCount" class="status-value">-</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">Grammar:</span>
-                    <span id="haGrammarStatus" class="status-value">-</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">Mappings:</span>
-                    <span id="haMappingStatus" class="status-value">-</span>
-                </div>
-            </div>
-            <div class="ha-actions">
-                <button id="checkNullMappings" class="secondary-button" type="button">Check Mappings</button>
-                <button id="runAutoDiscovery" class="secondary-button" type="button">Auto-Discover</button>
-                <button id="updateGrammar" class="primary-button" type="button">Update Grammar</button>
-                <button id="forceUpdateGrammar" class="secondary-button" type="button">Force Update</button>
-            </div>
-        </div>
+        <!-- Navigation Links -->
+        <nav class="nav-links">
+            <a href="/model-config" class="nav-link">Model Configuration</a>
+            <a href="/api/docs" class="nav-link">API Documentation</a>
+            <a href="/metrics" class="nav-link">System Metrics</a>
+        </nav>
     </div>
 
-    <script src="{{ url_for('static', path='/js/main.js') }}"></script>
+    <!-- Footer -->
+    <footer class="footer">
+        <p>ORAC SYSTEM v1.0 | INTEGRATION STATUS: OPERATIONAL</p>
+        <p>© 2025 OMNISCIENT REACTIVE ALGORITHMIC CORE</p>
+    </footer>
+
+    <script>
+        // Placeholder for future status checking functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('ORAC Core Landing Page Initialized');
+            
+            // Future: Add periodic health checks for all modules
+            // checkModuleHealth();
+            // setInterval(checkModuleHealth, 30000); // Every 30 seconds
+        });
+        
+        // Placeholder function for module health checks
+        function checkModuleHealth() {
+            // TODO: Implement health checks for:
+            // - Hey ORAC (http://192.168.8.99:7171/api/v1/health)
+            // - ORAC STT (http://192.168.8.191:7272/stt/v1/health)
+            // - ORAC Core (http://192.168.8.191:8000/v1/status)
+        }
+    </script>
 </body>
-</html> 
+</html>

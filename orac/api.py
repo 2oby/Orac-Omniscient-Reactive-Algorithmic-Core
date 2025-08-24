@@ -719,4 +719,12 @@ async def home(request: Request):
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "title": "ORAC - Omniscient Reactive Algorithmic Core"}
+    )
+
+@app.get("/model-config", response_class=HTMLResponse)
+async def model_config(request: Request):
+    """Serve the model configuration interface."""
+    return templates.TemplateResponse(
+        "temp_HA_Topic.html",
+        {"request": request, "title": "ORAC - Model Configuration"}
     ) 
