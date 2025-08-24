@@ -725,6 +725,6 @@ async def home(request: Request):
 async def model_config(request: Request):
     """Serve the model configuration interface."""
     return templates.TemplateResponse(
-        "temp_HA_Topic.html",
+        "model_config.html",
         {"request": request, "title": "ORAC - Model Configuration"}
     ) 

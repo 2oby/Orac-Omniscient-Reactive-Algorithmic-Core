@@ -17,15 +17,12 @@
         }
         
         .orac-banner {
-            font-size: 3rem;
-            font-weight: bold;
-            color: var(--primary-green);
-            text-shadow: 0 0 20px var(--primary-green),
-                         0 0 40px var(--primary-green),
-                         0 0 60px var(--primary-green);
-            letter-spacing: 4px;
+            max-width: 600px;
+            height: auto;
+            margin: 0 auto 1rem;
+            display: block;
+            filter: drop-shadow(0 0 20px var(--primary-green));
             animation: glitch 3s infinite;
-            margin-bottom: 1rem;
         }
         
         .orac-subtitle {
@@ -153,7 +150,7 @@
 <body>
     <!-- Header with ORAC_CORE_Banner -->
     <header class="orac-header">
-        <h1 class="orac-banner">ORAC_CORE_BANNER</h1>
+        <img src="{{ url_for('static', path='/images/ORAC_CORE_Banner.png') }}" alt="ORAC Core Banner" class="orac-banner">
         <p class="orac-subtitle">Omniscient Reactive Algorithmic Core</p>
     </header>
 
