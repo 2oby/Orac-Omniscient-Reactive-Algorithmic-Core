@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Topic Configuration - {{ topic_id }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <style>
+        .config-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .config-header {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.4);
+        }
+        
+        .config-title {
+            color: var(--primary-green);
+            text-shadow: 0 0 20px var(--primary-green);
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .topic-id {
+            color: var(--secondary-green);
+            font-family: monospace;
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+        
+        .config-form {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+        }
+        
+        .form-section {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .form-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .section-title {
+            color: var(--primary-green);
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--primary-green);
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            color: var(--text-color);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 0.75rem;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-color);
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+        
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary-green);
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+        }
+        
+        .form-textarea {
+            min-height: 150px;
+            resize: vertical;
+            font-family: monospace;
+        }
+        
+        .form-checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .form-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .form-slider {
+            flex-grow: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            outline: none;
+        }
+        
+        .form-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--primary-green);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--primary-green);
+        }
+        
+        .form-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: var(--primary-green);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--primary-green);
+        }
+        
+        .slider-value {
+            min-width: 60px;
+            text-align: center;
+            color: var(--primary-green);
+            font-family: monospace;
+            font-weight: bold;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: space-between;
+            margin-top: 2rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 2rem;
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--button-bg);
+            color: var(--text-color);
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-green);
+            color: #000;
+            font-weight: bold;
+        }
+        
+        .btn-primary:hover {
+            box-shadow: 0 0 20px var(--primary-green);
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--secondary-green);
+            color: #000;
+            box-shadow: 0 0 15px var(--secondary-green);
+        }
+        
+        .btn-danger {
+            border-color: var(--error-color);
+            color: var(--error-color);
+        }
+        
+        .btn-danger:hover {
+            background-color: var(--error-color);
+            color: #000;
+            box-shadow: 0 0 15px var(--error-color);
+        }
+        
+        .nav-bar {
+            margin-bottom: 2rem;
+        }
+        
+        .nav-link {
+            color: var(--secondary-green);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: color 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            color: var(--primary-green);
+            text-shadow: 0 0 10px var(--primary-green);
+        }
+        
+        .status-message {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            text-align: center;
+            display: none;
+        }
+        
+        .status-message.success {
+            background-color: rgba(0, 255, 65, 0.1);
+            border: 2px solid var(--success-color);
+            color: var(--success-color);
+        }
+        
+        .status-message.error {
+            background-color: rgba(255, 0, 0, 0.1);
+            border: 2px solid var(--error-color);
+            color: var(--error-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="config-container">
+        <!-- Navigation -->
+        <nav class="nav-bar">
+            <a href="/topics" class="nav-link">← Back to Topics</a>
+        </nav>
+        
+        <!-- Header -->
+        <div class="config-header">
+            <h1 class="config-title">Topic Configuration</h1>
+            <div class="topic-id">ID: <span id="topicId">{{ topic_id }}</span></div>
+        </div>
+        
+        <!-- Status Message -->
+        <div id="statusMessage" class="status-message"></div>
+        
+        <!-- Configuration Form -->
+        <form id="configForm" class="config-form">
+            <!-- Basic Information -->
+            <div class="form-section">
+                <h2 class="section-title">Basic Information</h2>
+                
+                <div class="form-group">
+                    <label class="form-label">Topic Name</label>
+                    <input type="text" id="name" class="form-input" placeholder="Enter topic name">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea id="description" class="form-textarea" placeholder="Enter topic description"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <div class="form-checkbox-wrapper">
+                        <input type="checkbox" id="enabled" class="form-checkbox">
+                        <label for="enabled" class="form-label" style="margin-bottom: 0;">Enable this topic</label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Model Configuration -->
+            <div class="form-section">
+                <h2 class="section-title">Model Configuration</h2>
+                
+                <div class="form-group">
+                    <label class="form-label">Model</label>
+                    <select id="model" class="form-select">
+                        <option value="">Loading models...</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Generation Settings -->
+            <div class="form-section">
+                <h2 class="section-title">Generation Settings</h2>
+                
+                <div class="form-group">
+                    <label class="form-label">System Prompt</label>
+                    <textarea id="systemPrompt" class="form-textarea" placeholder="Enter system prompt for this topic"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Temperature (0.0 - 2.0)</label>
+                    <div class="slider-group">
+                        <input type="range" id="temperature" class="form-slider" min="0" max="2" step="0.1" value="0.7">
+                        <span class="slider-value" id="temperatureValue">0.7</span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Top P (0.0 - 1.0)</label>
+                    <div class="slider-group">
+                        <input type="range" id="topP" class="form-slider" min="0" max="1" step="0.05" value="0.9">
+                        <span class="slider-value" id="topPValue">0.9</span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Top K (1 - 100)</label>
+                    <div class="slider-group">
+                        <input type="range" id="topK" class="form-slider" min="1" max="100" step="1" value="40">
+                        <span class="slider-value" id="topKValue">40</span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Max Tokens</label>
+                    <input type="number" id="maxTokens" class="form-input" min="1" max="4096" value="500">
+                </div>
+                
+                <div class="form-group">
+                    <div class="form-checkbox-wrapper">
+                        <input type="checkbox" id="noThink" class="form-checkbox">
+                        <label for="noThink" class="form-label" style="margin-bottom: 0;">Add /no_think prefix</label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <div class="form-checkbox-wrapper">
+                        <input type="checkbox" id="forceJson" class="form-checkbox">
+                        <label for="forceJson" class="form-label" style="margin-bottom: 0;">Force JSON output</label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Grammar Configuration -->
+            <div class="form-section">
+                <h2 class="section-title">Grammar Configuration</h2>
+                
+                <div class="form-group">
+                    <div class="form-checkbox-wrapper">
+                        <input type="checkbox" id="grammarEnabled" class="form-checkbox">
+                        <label for="grammarEnabled" class="form-label" style="margin-bottom: 0;">Enable grammar</label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Grammar File</label>
+                    <select id="grammarFile" class="form-select" disabled>
+                        <option value="">No grammar selected</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="button-group">
+                <button type="button" id="deleteBtn" class="btn btn-danger">Delete Topic</button>
+                <div>
+                    <button type="button" id="testBtn" class="btn btn-secondary">Test Topic</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <script src="{{ url_for('static', path='/js/topic_config.js') }}"></script>
+</body>
+</html>

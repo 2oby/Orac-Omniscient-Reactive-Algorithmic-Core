@@ -34,8 +34,15 @@ from orac.homeassistant.config import HomeAssistantConfig
 from orac.homeassistant.mapping_config import EntityMappingConfig
 from orac.homeassistant.grammar_manager import HomeAssistantGrammarManager
 
+# Add Topic management imports
+from orac.topic_manager import TopicManager
+from orac.api_topics import router as topics_router
+
 # Configure logger
 logger = get_logger(__name__)
+
+# Initialize topic manager
+topic_manager = TopicManager()
 
 # Create FastAPI app
 app = FastAPI(
@@ -63,6 +70,9 @@ os.makedirs(TEMPLATES_DIR, exist_ok=True)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Include routers
+app.include_router(topics_router)
 
 # Set up templates
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -195,31 +205,55 @@ async def generate_gbnf_grammar() -> Dict[str, Any]:
         logger.error(f"Error generating GBNF grammar: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/v1/generate/{topic}", response_model=GenerationResponse, tags=["Generation"])
+async def generate_text_with_topic(topic: str, request: GenerationRequest) -> GenerationResponse:
+    """Generate text using a specific topic configuration."""
+    return await _generate_text_impl(request, topic)
+
 @app.post("/v1/generate", response_model=GenerationResponse, tags=["Generation"])
 async def generate_text(request: GenerationRequest) -> GenerationResponse:
-    """Generate text from a model."""
+    """Generate text from a model (defaults to 'general' topic for backward compatibility)."""
+    return await _generate_text_impl(request, "general")
+
+async def _generate_text_impl(request: GenerationRequest, topic_id: str = "general") -> GenerationResponse:
+    """Internal implementation of text generation with topic support."""
     try:
-        # Get the model to use (default or specified)
-        favorites = load_favorites()
-        model_to_use = request.model or favorites.get("default_model")
+        # Get or auto-discover topic
+        topic = topic_manager.get_topic(topic_id)
+        if not topic:
+            # Auto-discover new topic
+            logger.info(f"Auto-discovering new topic: {topic_id}")
+            topic = topic_manager.auto_discover_topic(topic_id)
+        
+        # Check if topic is enabled
+        if not topic.enabled:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Topic '{topic_id}' is disabled"
+            )
+        
+        # Mark topic as used
+        topic_manager.mark_topic_used(topic_id)
+        
+        # Get the model from topic or request
+        model_to_use = request.model or topic.model
         
         if not model_to_use:
             raise HTTPException(
                 status_code=400,
-                detail="No model specified in request and no default model configured"
+                detail="No model configured for topic and none specified in request"
             )
         
         # Load model configs to get default settings for the model
         model_configs = load_model_configs()
         model_config = model_configs.get("models", {}).get(model_to_use, {})
-        default_settings = model_config.get("recommended_settings", {})
         
-        # Use request settings or fall back to model's default settings
-        temperature = request.temperature if request.temperature is not None else default_settings.get("temperature", 0.7)
-        top_p = request.top_p if request.top_p is not None else default_settings.get("top_p", 0.7)
-        top_k = request.top_k if request.top_k is not None else default_settings.get("top_k", 40)
-        max_tokens = request.max_tokens if request.max_tokens is not None else default_settings.get("max_tokens", 2048)
-        json_mode = request.json_mode if request.json_mode is not None else default_settings.get("json_mode", False)
+        # Use request settings, then topic settings, then model defaults
+        temperature = request.temperature if request.temperature is not None else topic.settings.temperature
+        top_p = request.top_p if request.top_p is not None else topic.settings.top_p
+        top_k = request.top_k if request.top_k is not None else topic.settings.top_k
+        max_tokens = request.max_tokens if request.max_tokens is not None else topic.settings.max_tokens
+        json_mode = request.json_mode if request.json_mode is not None else topic.settings.force_json
         
         # Load model configs to get the prompt format
         model_configs = load_model_configs()
@@ -229,8 +263,15 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
         ha_keywords = ["turn on", "turn off", "light", "switch", "thermostat", "bedroom", "kitchen"]
         is_ha_command = any(keyword in request.prompt.lower() for keyword in ha_keywords)
         
-        # Use GBNF grammar for Home Assistant commands
-        grammar_file = request.grammar_file  # Use grammar_file from request
+        # Use grammar from topic or request
+        grammar_file = request.grammar_file  # Use grammar_file from request first
+        
+        # If no grammar in request, check topic configuration
+        if not grammar_file and topic.grammar.enabled and topic.grammar.file:
+            grammar_path = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", topic.grammar.file)
+            if os.path.exists(grammar_path):
+                grammar_file = grammar_path
+                logger.info(f"Using grammar from topic configuration: {topic.grammar.file}")
         if grammar_file and not os.path.exists(grammar_file):
             logger.warning(f"Grammar file not found: {grammar_file}, falling back to JSON grammar")
             grammar_file = None
@@ -269,8 +310,12 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
             if request.json_mode:
                 system_prompt = "You must respond with valid JSON only. Do not include any explanations, thinking, or commentary outside the JSON structure. Your response should be clean, properly formatted JSON that directly answers the request."
             else:
-                # Use provided system prompt or fall back to model's default
-                system_prompt = request.system_prompt or model_config.get("system_prompt", "")
+                # Use provided system prompt, then topic's, then model's default
+                system_prompt = request.system_prompt or topic.settings.system_prompt or model_config.get("system_prompt", "")
+            
+            # Add /no_think prefix if configured in topic
+            if topic.settings.no_think and not system_prompt.startswith("/no_think"):
+                system_prompt = "/no_think\n\n" + system_prompt
             
             # Format the prompt using the template
             formatted_prompt = template.format(
@@ -719,6 +764,22 @@ async def home(request: Request):
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "title": "ORAC - Omniscient Reactive Algorithmic Core"}
+    )
+
+@app.get("/topics", response_class=HTMLResponse)
+async def topics_page(request: Request):
+    """Serve the topics management interface."""
+    return templates.TemplateResponse(
+        "topics.html",
+        {"request": request, "title": "ORAC - Topics Management"}
+    )
+
+@app.get("/topics/{topic_id}", response_class=HTMLResponse)
+async def topic_config_page(request: Request, topic_id: str):
+    """Serve the topic configuration interface."""
+    return templates.TemplateResponse(
+        "topic_config.html",
+        {"request": request, "topic_id": topic_id, "title": f"Topic Config - {topic_id}"}
     )
 
 @app.get("/model-config", response_class=HTMLResponse)
