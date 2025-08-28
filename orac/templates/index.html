@@ -260,6 +260,20 @@
             font-size: 14px;
         }
 
+        .status-item a {
+            color: inherit;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+
+        .status-item a:hover {
+            color: #00ff41;
+            text-shadow: 0 0 5px #00ff41;
+        }
+
         .status-indicator {
             width: 10px;
             height: 10px;
@@ -355,12 +369,22 @@
     <!-- Status Footer -->
     <div class="status-footer">
         <div class="status-item">
-            <span class="status-indicator online" id="oracSttStatus"></span>
-            <span>ORAC STT</span>
+            <a href="http://192.168.8.191:7272" target="_blank">
+                <span class="status-indicator online" id="oracSttStatus"></span>
+                <span>ORAC STT</span>
+            </a>
         </div>
         <div class="status-item">
-            <span class="status-indicator online" id="heyOracStatus"></span>
-            <span>HEY ORAC</span>
+            <a href="http://192.168.8.99:7171" target="_blank">
+                <span class="status-indicator online" id="heyOracStatus"></span>
+                <span>HEY ORAC</span>
+            </a>
+        </div>
+        <div class="status-item">
+            <a href="http://192.168.8.99:8123" target="_blank">
+                <span class="status-indicator online" id="homeAssistantStatus"></span>
+                <span>HOME ASSISTANT</span>
+            </a>
         </div>
     </div>
 
@@ -401,6 +425,24 @@
                 }
             } catch (error) {
                 document.getElementById('heyOracStatus').className = 'status-indicator offline';
+            }
+
+            // Check Home Assistant
+            try {
+                const haResponse = await fetch('http://192.168.8.99:8123/api/', {
+                    method: 'GET',
+                    mode: 'cors',
+                    signal: AbortSignal.timeout(5000)
+                }).catch(() => null);
+                
+                const haStatus = document.getElementById('homeAssistantStatus');
+                if (haResponse && haResponse.ok) {
+                    haStatus.className = 'status-indicator online';
+                } else {
+                    haStatus.className = 'status-indicator offline';
+                }
+            } catch (error) {
+                document.getElementById('homeAssistantStatus').className = 'status-indicator offline';
             }
         }
 
