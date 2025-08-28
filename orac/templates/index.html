@@ -39,21 +39,38 @@
             box-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
         }
 
-        .orac-logo {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: transparent;
+        .logo-wrapper {
             display: flex;
             justify-content: center;
-            align-items: center;
+            margin-bottom: 30px;
         }
 
-        .banner-image {
-            max-width: 400px;
-            width: auto;
-            height: auto;
-            display: block;
+        .orac-logo {
+            text-align: center;
+            padding: 20px 40px;
+            border: 2px solid #00ff41;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            display: inline-block;
+        }
+        
+        .logo-text {
+            font-size: 72px;
+            font-weight: bold;
+            color: #00ff41;
+            text-shadow: 0 0 20px #00ff41;
+            letter-spacing: 8px;
+            font-family: 'Courier New', monospace;
+            line-height: 1;
+        }
+        
+        .logo-subtitle {
+            font-size: 28px;
+            color: #00ff41;
+            opacity: 0.9;
+            margin-top: 5px;
+            letter-spacing: 12px;
+            padding-left: 12px;
         }
 
         .last-command {
@@ -157,6 +174,10 @@
             font-size: 18px;
             border-bottom: 1px solid rgba(0, 255, 65, 0.2);
         }
+        
+        .topic-table tr.empty-row td {
+            border-bottom: none;
+        }
 
         .topic-table tr:hover {
             background: rgba(0, 255, 65, 0.05);
@@ -184,6 +205,11 @@
             text-align: center;
             font-size: 16px;
             letter-spacing: 1px;
+        }
+        
+        .topic-badge:empty {
+            border: none;
+            background: none;
         }
 
         .topic-badge.general {
@@ -276,9 +302,12 @@
 <body>
     <div class="orac-container">
         <div class="orac-frame">
-            <!-- ORAC Logo using banner image -->
-            <div class="orac-logo">
-                <img src="{{ url_for('static', path='/images/ORAC_CORE_Banner.png') }}" alt="ORAC Core" class="banner-image">
+            <!-- ORAC Logo -->
+            <div class="logo-wrapper">
+                <div class="orac-logo">
+                    <div class="logo-text">ORAC</div>
+                    <div class="logo-subtitle">core</div>
+                </div>
             </div>
 
             <!-- Last Command Display -->
@@ -313,30 +342,27 @@
                                 </div>
                             </td>
                         </tr>
-                        <tr>
+                        <tr class="empty-row">
                             <td class="source-cell"></td>
                             <td>
                                 <div class="topic-cell">
                                     <span class="topic-badge"></span>
-                                    <span class="config-icon"></span>
                                 </div>
                             </td>
                         </tr>
-                        <tr>
+                        <tr class="empty-row">
                             <td class="source-cell"></td>
                             <td>
                                 <div class="topic-cell">
                                     <span class="topic-badge"></span>
-                                    <span class="config-icon"></span>
                                 </div>
                             </td>
                         </tr>
-                        <tr>
+                        <tr class="empty-row">
                             <td class="source-cell"></td>
                             <td>
                                 <div class="topic-cell">
                                     <span class="topic-badge"></span>
-                                    <span class="config-icon"></span>
                                 </div>
                             </td>
                         </tr>
@@ -452,12 +478,12 @@
             const emptyRowsNeeded = Math.max(0, 4 - tbody.children.length);
             for (let i = 0; i < emptyRowsNeeded; i++) {
                 const emptyRow = document.createElement('tr');
+                emptyRow.className = 'empty-row';
                 emptyRow.innerHTML = `
                     <td class="source-cell"></td>
                     <td>
                         <div class="topic-cell">
                             <span class="topic-badge"></span>
-                            <span class="config-icon"></span>
                         </div>
                     </td>
                 `;
