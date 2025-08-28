@@ -19,6 +19,7 @@ from fastapi.responses import HTMLResponse
 from typing import List, Dict, Any
 import os
 import asyncio
+from datetime import datetime
 
 from orac.logger import get_logger
 from orac.llama_cpp_client import LlamaCppClient
@@ -85,6 +86,13 @@ ha_client = None
 ha_mapping_config = None
 ha_grammar_manager = None
 ha_grammar_scheduler = None
+
+# Store for last command
+last_command_storage = {
+    "command": "",
+    "topic": "",
+    "timestamp": None
+}
 
 async def get_client() -> LlamaCppClient:
     """Get or create the llama.cpp client instance."""
@@ -154,6 +162,16 @@ async def get_status() -> Dict[str, Any]:
         logger.error(f"Error getting status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/last-command", tags=["System"])
+async def get_last_command() -> Dict[str, Any]:
+    """Get the last command that was processed."""
+    global last_command_storage
+    return {
+        "command": last_command_storage.get("command", ""),
+        "topic": last_command_storage.get("topic", ""),
+        "timestamp": last_command_storage.get("timestamp").isoformat() if last_command_storage.get("timestamp") else None
+    }
+
 @app.get("/v1/models", response_model=ModelListResponse, tags=["Models"])
 async def list_models() -> ModelListResponse:
     """List available models."""
@@ -218,6 +236,12 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
 async def _generate_text_impl(request: GenerationRequest, topic_id: str = "general") -> GenerationResponse:
     """Internal implementation of text generation with topic support."""
     try:
+        # Store the last command
+        global last_command_storage
+        last_command_storage["command"] = request.prompt
+        last_command_storage["topic"] = topic_id
+        last_command_storage["timestamp"] = datetime.now()
+        
         # Get or auto-discover topic
         topic = topic_manager.get_topic(topic_id)
         if not topic:

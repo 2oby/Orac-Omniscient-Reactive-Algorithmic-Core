@@ -3,229 +3,479 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }}</title>
+    <title>ORAC Core</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
     <style>
-        /* Page-specific styles for the landing page */
-        .orac-header {
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000;
+            color: #00ff41;
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .orac-container {
+            flex: 1;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .orac-frame {
+            border: 3px solid #00ff41;
+            border-radius: 12px;
+            padding: 30px;
+            min-height: calc(100vh - 120px);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+        }
+
+        .orac-logo {
             text-align: center;
-            padding: 2rem 0;
-            background: var(--card-gradient);
-            border-bottom: 2px solid var(--border-color);
-            margin-bottom: 2rem;
-            box-shadow: 0 0 30px rgba(0, 255, 65, 0.4);
-        }
-        
-        .orac-banner {
-            max-width: 600px;
-            height: auto;
-            margin: 0 auto 1rem;
-            display: block;
-            filter: drop-shadow(0 0 20px var(--primary-green));
-            animation: glitch 3s infinite;
-        }
-        
-        .orac-subtitle {
-            font-size: 1.2rem;
-            color: var(--secondary-green);
-            text-shadow: 0 0 10px var(--secondary-green);
-            letter-spacing: 2px;
-        }
-        
-        .stack-overview {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin: 2rem 0;
-        }
-        
-        .module-card {
-            background: var(--card-gradient);
-            border: 2px solid var(--border-color);
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #00ff41;
             border-radius: 8px;
-            padding: 1.5rem;
-            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
-            transition: all 0.3s ease;
+            background: rgba(0, 255, 65, 0.05);
         }
-        
-        .module-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 0 30px rgba(0, 255, 65, 0.5);
+
+        .orac-logo h1 {
+            font-size: 48px;
+            color: #00ff41;
+            text-shadow: 0 0 15px #00ff41;
+            letter-spacing: 4px;
+            margin-bottom: 10px;
         }
-        
-        .module-title {
-            color: var(--primary-green);
-            text-shadow: 0 0 10px var(--primary-green);
-            margin-bottom: 1rem;
-            font-size: 1.5rem;
+
+        .orac-logo .subtitle {
+            font-size: 20px;
+            color: #00ff41;
+            opacity: 0.8;
         }
-        
-        .module-status {
+
+        .last-command {
+            border: 2px solid #00ff41;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: rgba(0, 255, 65, 0.02);
+            position: relative;
+        }
+
+        .last-command-content {
+            font-size: 18px;
+            color: #ffa500;
+            min-height: 30px;
             display: flex;
             align-items: center;
-            margin-bottom: 0.5rem;
         }
-        
-        .status-indicator {
-            display: inline-block;
+
+        .last-command-label {
+            color: #00ff41;
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+
+        .active-topic {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .active-topic-label {
+            font-size: 12px;
+            color: #00ff41;
+            opacity: 0.7;
+        }
+
+        .active-topic-name {
+            padding: 5px 15px;
+            border: 2px solid #00ff41;
+            border-radius: 20px;
+            background: rgba(0, 255, 65, 0.1);
+            color: #00ff41;
+            font-weight: bold;
+        }
+
+        .status-dot {
             width: 12px;
             height: 12px;
             border-radius: 50%;
-            margin-right: 0.5rem;
-            box-shadow: 0 0 10px currentColor;
-        }
-        
-        .status-indicator.online {
-            background-color: var(--success-color);
+            background: #00ff41;
+            box-shadow: 0 0 10px #00ff41;
             animation: pulse 2s infinite;
         }
-        
-        .status-indicator.offline {
-            background-color: var(--error-color);
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 10px #00ff41;
+            }
+            50% {
+                box-shadow: 0 0 20px #00ff41;
+            }
         }
-        
-        .status-indicator.unknown {
-            background-color: var(--warning-color);
+
+        .topic-table {
+            flex: 1;
+            border: 2px solid #00ff41;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
         }
-        
-        .nav-links {
-            text-align: center;
-            margin: 3rem 0;
+
+        .topic-table table {
+            width: 100%;
+            border-collapse: collapse;
         }
-        
-        .nav-link {
-            display: inline-block;
-            margin: 0 1rem;
-            padding: 0.75rem 1.5rem;
-            background-color: var(--button-bg);
-            border: 2px solid var(--border-color);
-            color: var(--text-color);
-            text-decoration: none;
+
+        .topic-table th {
+            background: rgba(0, 255, 65, 0.1);
+            padding: 15px;
+            text-align: left;
+            color: #00ff41;
+            font-size: 20px;
+            font-weight: bold;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+            letter-spacing: 2px;
+            border-bottom: 2px solid #00ff41;
         }
-        
-        .nav-link:hover {
-            background-color: var(--primary-green);
-            color: #000;
-            transform: translateY(-2px);
-            box-shadow: 0 0 20px var(--primary-green);
+
+        .topic-table td {
+            padding: 15px;
+            font-size: 18px;
+            border-bottom: 1px solid rgba(0, 255, 65, 0.2);
         }
-        
-        .footer {
+
+        .topic-table tr:hover {
+            background: rgba(0, 255, 65, 0.05);
+        }
+
+        .source-cell {
+            color: #00ff41;
             text-align: center;
-            padding: 2rem 0;
-            margin-top: 4rem;
-            border-top: 2px solid var(--border-color);
-            color: var(--secondary-green);
-            text-shadow: 0 0 5px var(--secondary-green);
         }
-        
-        @keyframes glitch {
-            0%, 100% { 
-                text-shadow: 0 0 20px var(--primary-green),
-                             0 0 40px var(--primary-green),
-                             0 0 60px var(--primary-green);
-            }
-            25% { 
-                text-shadow: -2px 0 20px var(--primary-green),
-                             0 2px 40px var(--primary-green),
-                             2px 0 60px var(--primary-green);
-            }
-            50% { 
-                text-shadow: 2px 0 20px var(--primary-green),
-                             0 -2px 40px var(--primary-green),
-                             -2px 0 60px var(--primary-green);
-            }
-            75% { 
-                text-shadow: 0 2px 20px var(--primary-green),
-                             -2px 0 40px var(--primary-green),
-                             0 -2px 60px var(--primary-green);
-            }
+
+        .topic-cell {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .topic-badge {
+            padding: 5px 15px;
+            border: 2px solid;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .topic-badge.home-assistant {
+            border-color: #00ff41;
+            color: #00ff41;
+            background: rgba(0, 255, 65, 0.1);
+        }
+
+        .topic-badge.media-player {
+            border-color: #ffa500;
+            color: #ffa500;
+            background: rgba(255, 165, 0, 0.1);
+        }
+
+        .topic-badge.other {
+            border-color: #ff6b35;
+            color: #ff6b35;
+            background: rgba(255, 107, 53, 0.1);
+        }
+
+        .topic-badge.unknown {
+            border-color: #666;
+            color: #666;
+        }
+
+        .config-icon {
+            cursor: pointer;
+            font-size: 24px;
+            color: #00ff41;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            padding: 5px;
+        }
+
+        .config-icon:hover {
+            transform: rotate(90deg);
+            text-shadow: 0 0 10px #00ff41;
+        }
+
+        .status-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #000;
+            border-top: 2px solid #00ff41;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .status-indicator.online {
+            background: #00ff41;
+            box-shadow: 0 0 10px #00ff41;
+        }
+
+        .status-indicator.offline {
+            background: #ff0000;
+            box-shadow: 0 0 10px #ff0000;
+        }
+
+        .status-indicator.warning {
+            background: #ffa500;
+            box-shadow: 0 0 10px #ffa500;
         }
     </style>
 </head>
 <body>
-    <!-- Header with ORAC_CORE_Banner -->
-    <header class="orac-header">
-        <img src="{{ url_for('static', path='/images/ORAC_CORE_Banner.png') }}" alt="ORAC Core Banner" class="orac-banner">
-        <p class="orac-subtitle">Omniscient Reactive Algorithmic Core</p>
-    </header>
+    <div class="orac-container">
+        <div class="orac-frame">
+            <!-- ORAC Logo -->
+            <div class="orac-logo">
+                <h1>ORAC</h1>
+                <div class="subtitle">core</div>
+            </div>
 
-    <div class="container">
-        <!-- Stack Overview -->
-        <section class="stack-overview">
-            <!-- Hey ORAC Module -->
-            <div class="module-card">
-                <h2 class="module-title">HEY ORAC</h2>
-                <div class="module-status">
-                    <span class="status-indicator unknown" id="hey-orac-status"></span>
-                    <span>Wake Word Detection</span>
+            <!-- Last Command Display -->
+            <div class="last-command">
+                <div class="last-command-label">last command</div>
+                <div class="last-command-content" id="lastCommand">
+                    engine room, increase temperature by three degrees
                 </div>
-                <p>Raspberry Pi 4B (192.168.8.99)</p>
-                <p>Listens for "Computer" wake word</p>
-                <p>Port: 7171</p>
-            </div>
-            
-            <!-- ORAC STT Module -->
-            <div class="module-card">
-                <h2 class="module-title">ORAC STT</h2>
-                <div class="module-status">
-                    <span class="status-indicator unknown" id="orac-stt-status"></span>
-                    <span>Speech to Text</span>
+                <div class="active-topic">
+                    <span class="active-topic-label">active</span>
+                    <span class="active-topic-name">HOME ASSISTANT</span>
+                    <span class="status-dot"></span>
                 </div>
-                <p>NVIDIA Orin Nano (192.168.8.191)</p>
-                <p>Whisper.cpp GPU transcription</p>
-                <p>Port: 7272</p>
             </div>
-            
-            <!-- ORAC Core Module -->
-            <div class="module-card">
-                <h2 class="module-title">ORAC CORE</h2>
-                <div class="module-status">
-                    <span class="status-indicator online" id="orac-core-status"></span>
-                    <span>AI Processing</span>
-                </div>
-                <p>NVIDIA Jetson Orin (192.168.8.191)</p>
-                <p>LLaMA.cpp with GGUF models</p>
-                <p>Port: 8000</p>
-            </div>
-        </section>
 
-        <!-- Navigation Links -->
-        <nav class="nav-links">
-            <a href="/topics" class="nav-link">Topic Management</a>
-            <a href="/model-config" class="nav-link">Model Configuration</a>
-            <a href="/api/docs" class="nav-link">API Documentation</a>
-            <a href="/metrics" class="nav-link">System Metrics</a>
-        </nav>
+            <!-- Topic Management Table -->
+            <div class="topic-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">SOURCE</th>
+                            <th style="width: 60%;">TOPIC</th>
+                        </tr>
+                    </thead>
+                    <tbody id="topicTableBody">
+                        <tr>
+                            <td class="source-cell">ORAC STT</td>
+                            <td>
+                                <div class="topic-cell">
+                                    <span class="topic-badge home-assistant">HOME ASSISTANT</span>
+                                    <a href="/topic-config?source=orac_stt&topic=home_assistant" class="config-icon">⚙</a>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="source-cell">ORAC STT</td>
+                            <td>
+                                <div class="topic-cell">
+                                    <span class="topic-badge media-player">MEDIA PLAYER</span>
+                                    <a href="/topic-config?source=orac_stt&topic=media_player" class="config-icon">⚙</a>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="source-cell">UNKNOWN</td>
+                            <td>
+                                <div class="topic-cell">
+                                    <span class="topic-badge other">OTHER</span>
+                                    <a href="/topic-config?source=unknown&topic=other" class="config-icon">⚙</a>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <p>ORAC SYSTEM v1.0 | INTEGRATION STATUS: OPERATIONAL</p>
-        <p>© 2025 OMNISCIENT REACTIVE ALGORITHMIC CORE</p>
-    </footer>
+    <!-- Status Footer -->
+    <div class="status-footer">
+        <div class="status-item">
+            <span class="status-indicator online" id="oracSttStatus"></span>
+            <span>ORAC STT</span>
+        </div>
+        <div class="status-item">
+            <span class="status-indicator online" id="heyOracStatus"></span>
+            <span>HEY ORAC</span>
+        </div>
+    </div>
 
     <script>
-        // Placeholder for future status checking functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('ORAC Core Landing Page Initialized');
-            
-            // Future: Add periodic health checks for all modules
-            // checkModuleHealth();
-            // setInterval(checkModuleHealth, 30000); // Every 30 seconds
-        });
-        
-        // Placeholder function for module health checks
-        function checkModuleHealth() {
-            // TODO: Implement health checks for:
-            // - Hey ORAC (http://192.168.8.99:7171/api/v1/health)
-            // - ORAC STT (http://192.168.8.191:7272/stt/v1/health)
-            // - ORAC Core (http://192.168.8.191:8000/v1/status)
+        // Function to check service health
+        async function checkServiceHealth() {
+            // Check ORAC STT
+            try {
+                const sttResponse = await fetch('http://192.168.8.191:7272/stt/v1/health', {
+                    method: 'GET',
+                    mode: 'cors',
+                    signal: AbortSignal.timeout(5000)
+                }).catch(() => null);
+                
+                const sttStatus = document.getElementById('oracSttStatus');
+                if (sttResponse && sttResponse.ok) {
+                    sttStatus.className = 'status-indicator online';
+                } else {
+                    sttStatus.className = 'status-indicator offline';
+                }
+            } catch (error) {
+                document.getElementById('oracSttStatus').className = 'status-indicator offline';
+            }
+
+            // Check Hey ORAC
+            try {
+                const heyResponse = await fetch('http://192.168.8.99:7171/api/v1/health', {
+                    method: 'GET',
+                    mode: 'cors',
+                    signal: AbortSignal.timeout(5000)
+                }).catch(() => null);
+                
+                const heyStatus = document.getElementById('heyOracStatus');
+                if (heyResponse && heyResponse.ok) {
+                    heyStatus.className = 'status-indicator online';
+                } else {
+                    heyStatus.className = 'status-indicator offline';
+                }
+            } catch (error) {
+                document.getElementById('heyOracStatus').className = 'status-indicator offline';
+            }
         }
+
+        // Load topics from API
+        async function loadTopics() {
+            try {
+                const response = await fetch('/api/topics');
+                if (response.ok) {
+                    const topics = await response.json();
+                    updateTopicTable(topics);
+                }
+            } catch (error) {
+                console.error('Failed to load topics:', error);
+            }
+        }
+
+        // Update topic table
+        function updateTopicTable(topics) {
+            const tbody = document.getElementById('topicTableBody');
+            tbody.innerHTML = '';
+            
+            // Group topics by source
+            const groupedTopics = {};
+            for (const [topicName, topicData] of Object.entries(topics)) {
+                const source = topicData.source || 'UNKNOWN';
+                if (!groupedTopics[source]) {
+                    groupedTopics[source] = [];
+                }
+                groupedTopics[source].push({ name: topicName, data: topicData });
+            }
+
+            // Create table rows
+            for (const [source, sourceTopics] of Object.entries(groupedTopics)) {
+                sourceTopics.forEach(topic => {
+                    const row = document.createElement('tr');
+                    
+                    // Source cell
+                    const sourceCell = document.createElement('td');
+                    sourceCell.className = 'source-cell';
+                    sourceCell.textContent = source.toUpperCase().replace('_', ' ');
+                    row.appendChild(sourceCell);
+                    
+                    // Topic cell
+                    const topicCell = document.createElement('td');
+                    const topicDiv = document.createElement('div');
+                    topicDiv.className = 'topic-cell';
+                    
+                    const badge = document.createElement('span');
+                    badge.className = `topic-badge ${topic.name.toLowerCase().replace('_', '-')}`;
+                    badge.textContent = topic.name.toUpperCase().replace('_', ' ');
+                    
+                    const configLink = document.createElement('a');
+                    configLink.href = `/topic-config?topic=${topic.name}`;
+                    configLink.className = 'config-icon';
+                    configLink.textContent = '⚙';
+                    
+                    topicDiv.appendChild(badge);
+                    topicDiv.appendChild(configLink);
+                    topicCell.appendChild(topicDiv);
+                    row.appendChild(topicCell);
+                    
+                    tbody.appendChild(row);
+                });
+            }
+        }
+
+        // Get last command from WebSocket or API
+        async function getLastCommand() {
+            try {
+                const response = await fetch('/api/last-command');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.command) {
+                        document.getElementById('lastCommand').textContent = data.command;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to get last command:', error);
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkServiceHealth();
+            loadTopics();
+            getLastCommand();
+            
+            // Periodic health checks
+            setInterval(checkServiceHealth, 30000);
+            
+            // Periodic topic refresh
+            setInterval(loadTopics, 60000);
+            
+            // Periodic last command refresh
+            setInterval(getLastCommand, 5000);
+        });
     </script>
 </body>
 </html>
