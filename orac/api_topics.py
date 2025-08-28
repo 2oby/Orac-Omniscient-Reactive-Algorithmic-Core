@@ -8,7 +8,7 @@ from pydantic import BaseModel
 import logging
 
 from orac.topic_manager import TopicManager
-from orac.models.topic import Topic
+from orac.topic_models.topic import Topic
 
 logger = logging.getLogger(__name__)
 

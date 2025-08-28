@@ -5,7 +5,7 @@ from typing import Dict, Optional, Any
 from datetime import datetime
 import logging
 
-from orac.models.topic import Topic, TopicSettings, GrammarConfig
+from orac.topic_models.topic import Topic, TopicSettings, GrammarConfig
 
 logger = logging.getLogger(__name__)
 
