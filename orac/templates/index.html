@@ -42,17 +42,18 @@
         .orac-logo {
             text-align: center;
             margin-bottom: 30px;
-            padding: 15px;
-            border: 2px solid #00ff41;
-            border-radius: 8px;
-            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            background: transparent;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .banner-image {
             max-width: 400px;
-            width: 100%;
+            width: auto;
             height: auto;
-            filter: brightness(1.2) contrast(1.1);
+            display: block;
         }
 
         .last-command {
@@ -138,13 +139,17 @@
         .topic-table th {
             background: rgba(0, 255, 65, 0.1);
             padding: 15px;
-            text-align: left;
+            text-align: center;
             color: #00ff41;
             font-size: 20px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 2px;
             border-bottom: 2px solid #00ff41;
+        }
+        
+        .topic-table th:last-child {
+            text-align: center;
         }
 
         .topic-table td {
@@ -165,7 +170,8 @@
         .topic-cell {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
+            gap: 20px;
         }
 
         .topic-badge {
@@ -180,6 +186,12 @@
             letter-spacing: 1px;
         }
 
+        .topic-badge.general {
+            border-color: #00ff41;
+            color: #00ff41;
+            background: rgba(0, 255, 65, 0.1);
+        }
+        
         .topic-badge.home-assistant {
             border-color: #00ff41;
             color: #00ff41;
@@ -277,7 +289,7 @@
                 </div>
                 <div class="active-topic">
                     <span class="active-topic-label">active</span>
-                    <span class="active-topic-name">HOME ASSISTANT</span>
+                    <span class="active-topic-name" id="activeTopicName">GENERAL</span>
                     <span class="status-dot"></span>
                 </div>
             </div>
@@ -296,26 +308,17 @@
                             <td class="source-cell">ORAC STT</td>
                             <td>
                                 <div class="topic-cell">
-                                    <span class="topic-badge home-assistant">HOME ASSISTANT</span>
-                                    <a href="/topics/home_assistant" class="config-icon">⚙</a>
+                                    <span class="topic-badge general">GENERAL</span>
+                                    <a href="/topics/general" class="config-icon">⚙</a>
                                 </div>
                             </td>
                         </tr>
                         <tr>
-                            <td class="source-cell">ORAC STT</td>
+                            <td class="source-cell"></td>
                             <td>
                                 <div class="topic-cell">
-                                    <span class="topic-badge media-player">MEDIA PLAYER</span>
-                                    <a href="/topics/media_player" class="config-icon">⚙</a>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="source-cell">UNKNOWN</td>
-                            <td>
-                                <div class="topic-cell">
-                                    <span class="topic-badge other">OTHER</span>
-                                    <a href="/topics/other" class="config-icon">⚙</a>
+                                    <span class="topic-badge"></span>
+                                    <span class="config-icon"></span>
                                 </div>
                             </td>
                         </tr>
@@ -413,48 +416,52 @@
             const tbody = document.getElementById('topicTableBody');
             tbody.innerHTML = '';
             
-            // Group topics by source
-            const groupedTopics = {};
+            // Always show general topic first
+            const generalRow = document.createElement('tr');
+            generalRow.innerHTML = `
+                <td class="source-cell">ORAC STT</td>
+                <td>
+                    <div class="topic-cell">
+                        <span class="topic-badge general">GENERAL</span>
+                        <a href="/topics/general" class="config-icon">⚙</a>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(generalRow);
+            
+            // Add other configured topics
             for (const [topicName, topicData] of Object.entries(topics)) {
+                if (topicName === 'general') continue; // Skip general as we already added it
+                
+                const row = document.createElement('tr');
                 const source = topicData.source || 'UNKNOWN';
-                if (!groupedTopics[source]) {
-                    groupedTopics[source] = [];
-                }
-                groupedTopics[source].push({ name: topicName, data: topicData });
+                
+                row.innerHTML = `
+                    <td class="source-cell">${source.toUpperCase().replace('_', ' ')}</td>
+                    <td>
+                        <div class="topic-cell">
+                            <span class="topic-badge ${topicName.toLowerCase().replace('_', '-')}">${topicName.toUpperCase().replace('_', ' ')}</span>
+                            <a href="/topics/${topicName}" class="config-icon">⚙</a>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
             }
-
-            // Create table rows
-            for (const [source, sourceTopics] of Object.entries(groupedTopics)) {
-                sourceTopics.forEach(topic => {
-                    const row = document.createElement('tr');
-                    
-                    // Source cell
-                    const sourceCell = document.createElement('td');
-                    sourceCell.className = 'source-cell';
-                    sourceCell.textContent = source.toUpperCase().replace('_', ' ');
-                    row.appendChild(sourceCell);
-                    
-                    // Topic cell
-                    const topicCell = document.createElement('td');
-                    const topicDiv = document.createElement('div');
-                    topicDiv.className = 'topic-cell';
-                    
-                    const badge = document.createElement('span');
-                    badge.className = `topic-badge ${topic.name.toLowerCase().replace('_', '-')}`;
-                    badge.textContent = topic.name.toUpperCase().replace('_', ' ');
-                    
-                    const configLink = document.createElement('a');
-                    configLink.href = `/topics/${topic.name}`;
-                    configLink.className = 'config-icon';
-                    configLink.textContent = '⚙';
-                    
-                    topicDiv.appendChild(badge);
-                    topicDiv.appendChild(configLink);
-                    topicCell.appendChild(topicDiv);
-                    row.appendChild(topicCell);
-                    
-                    tbody.appendChild(row);
-                });
+            
+            // Add empty rows to maintain layout
+            const emptyRowsNeeded = Math.max(0, 4 - tbody.children.length);
+            for (let i = 0; i < emptyRowsNeeded; i++) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `
+                    <td class="source-cell"></td>
+                    <td>
+                        <div class="topic-cell">
+                            <span class="topic-badge"></span>
+                            <span class="config-icon"></span>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(emptyRow);
             }
         }
 
@@ -466,6 +473,10 @@
                     const data = await response.json();
                     if (data.command) {
                         document.getElementById('lastCommand').textContent = data.command;
+                    }
+                    if (data.topic) {
+                        const topicName = data.topic.toUpperCase().replace('_', ' ');
+                        document.getElementById('activeTopicName').textContent = topicName;
                     }
                 }
             } catch (error) {
