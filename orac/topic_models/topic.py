@@ -34,6 +34,12 @@ class Topic(BaseModel):
     first_seen: Optional[datetime] = Field(default=None, description="When topic was first created/discovered")
     last_used: Optional[datetime] = Field(default=None, description="When topic was last used for generation")
     
+    # Heartbeat tracking fields for live status
+    last_heartbeat: Optional[datetime] = Field(default=None, description="Last heartbeat from wake word system")
+    wake_word: Optional[str] = Field(default=None, description="Associated wake word phrase")
+    trigger_count: int = Field(default=0, description="Number of times wake word was triggered")
+    heartbeat_status: str = Field(default="unknown", description="Status from heartbeat: active, idle, unknown")
+    
     class Config:
         json_encoders = {
             datetime: lambda v: v.isoformat() if v else None

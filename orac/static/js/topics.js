@@ -1,6 +1,7 @@
 // Topics management JavaScript
 
 let topics = {};
+let heartbeatStatus = {};
 
 // Load and display topics
 async function loadTopics() {
@@ -13,6 +14,36 @@ async function loadTopics() {
         console.error('Error loading topics:', error);
         showError('Failed to load topics');
     }
+}
+
+// Load heartbeat status
+async function loadHeartbeatStatus() {
+    try {
+        const response = await fetch('/v1/topics/heartbeat/status');
+        if (response.ok) {
+            const data = await response.json();
+            heartbeatStatus = data.topics || {};
+            updateLiveStatus();
+        }
+    } catch (error) {
+        console.error('Error loading heartbeat status:', error);
+    }
+}
+
+// Update live status indicators
+function updateLiveStatus() {
+    Object.keys(heartbeatStatus).forEach(topicId => {
+        const status = heartbeatStatus[topicId];
+        const card = document.querySelector(`.topic-card[data-topic-id="${topicId}"]`);
+        if (card) {
+            const indicator = card.querySelector('.live-status-indicator');
+            if (indicator) {
+                indicator.className = 'live-status-indicator';
+                indicator.classList.add(status.live_status);
+                indicator.title = `Last heartbeat: ${status.last_heartbeat || 'Never'}`;
+            }
+        }
+    });
 }
 
 // Display topics in grid
@@ -36,6 +67,7 @@ function displayTopics() {
 function createTopicCard(topicId, topic) {
     const card = document.createElement('div');
     card.className = 'topic-card';
+    card.setAttribute('data-topic-id', topicId);
     
     // Add disabled class if topic is disabled
     if (!topic.enabled) {
@@ -51,9 +83,18 @@ function createTopicCard(topicId, topic) {
     const autoBadge = topic.auto_discovered ? 
         '<span class="auto-discovered-badge">AUTO</span>' : '';
     
+    // Get live status for this topic
+    const status = heartbeatStatus[topicId] || {};
+    const liveStatus = status.live_status || 'unknown';
+    const wakeWord = topic.wake_word || status.wake_word || '';
+    
     card.innerHTML = `
         ${autoBadge}
-        <div class="topic-name">${topic.name || topicId}</div>
+        <div class="topic-header">
+            <div class="live-status-indicator ${liveStatus}" title="Live Status: ${liveStatus}"></div>
+            <div class="topic-name">${topic.name || topicId}</div>
+        </div>
+        ${wakeWord ? `<div class="topic-wake-word">Wake: "${wakeWord}"</div>` : ''}
         <div class="topic-model">Model: ${topic.model || 'Not configured'}</div>
         <div class="topic-description">${topic.description || 'No description available'}</div>
         <div class="topic-status">
@@ -154,13 +195,21 @@ function showError(message) {
 
 // Auto-refresh topics periodically (to catch auto-discovered topics)
 function startAutoRefresh() {
+    // Refresh topics every 10 seconds
     setInterval(async () => {
         await loadTopics();
-    }, 10000); // Refresh every 10 seconds
+        await loadHeartbeatStatus();
+    }, 10000);
+    
+    // Refresh heartbeat status more frequently (every 3 seconds)
+    setInterval(async () => {
+        await loadHeartbeatStatus();
+    }, 3000);
 }
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadTopics();
+    loadHeartbeatStatus();
     startAutoRefresh();
 });

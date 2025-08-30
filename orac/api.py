@@ -38,6 +38,7 @@ from orac.homeassistant.grammar_manager import HomeAssistantGrammarManager
 # Add Topic management imports
 from orac.topic_manager import TopicManager
 from orac.api_topics import router as topics_router
+from orac.api_heartbeat import router as heartbeat_router
 
 # Configure logger
 logger = get_logger(__name__)
@@ -74,6 +75,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Include routers
 app.include_router(topics_router)
+app.include_router(heartbeat_router)
 
 # Set up templates
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
