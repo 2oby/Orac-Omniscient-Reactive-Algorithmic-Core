@@ -181,12 +181,14 @@
                 <img src="{{ url_for('static', path='/images/ORAC_CORE_Banner.png') }}" alt="ORAC Core" class="banner-image">
             </div>
 
-            <!-- Configure Topics Header -->
+            <!-- Active Topics Header -->
             <div class="last-command">
-                <a href="/topics" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 24px;">⚙</span>
-                    <span style="font-size: 18px; color: #00ff41;">Configure Topics</span>
-                </a>
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 20px; color: #00ff41; font-weight: bold; letter-spacing: 2px;">ACTIVE TOPICS</span>
+                    <a href="/topics" style="text-decoration: none; color: #00ff41; font-size: 24px; transition: transform 0.3s;" 
+                       onmouseover="this.style.transform='rotate(90deg)'" 
+                       onmouseout="this.style.transform='rotate(0deg)'">⚙</a>
+                </div>
             </div>
 
             <!-- Active Topics Display -->
