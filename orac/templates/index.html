@@ -60,186 +60,50 @@
             border: 2px solid #00ff41;
             border-radius: 8px;
             padding: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
             background: rgba(0, 255, 65, 0.02);
             position: relative;
-        }
-
-        .last-command-content {
-            font-size: 18px;
-            color: #ffa500;
-            min-height: 30px;
-            display: flex;
-            align-items: center;
-        }
-
-        .last-command-label {
-            color: #00ff41;
-            font-size: 12px;
-            opacity: 0.7;
-            margin-bottom: 5px;
-        }
-
-        .active-topic {
-            position: absolute;
-            right: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .active-topic-label {
-            font-size: 12px;
-            color: #00ff41;
-            opacity: 0.7;
-        }
-
-        .active-topic-name {
-            padding: 5px 15px;
-            border: 2px solid #00ff41;
-            border-radius: 20px;
-            background: rgba(0, 255, 65, 0.1);
-            color: #00ff41;
-            font-weight: bold;
-            text-decoration: none;
             transition: all 0.3s ease;
-            display: inline-block;
         }
         
-        a.active-topic-name:hover {
-            background: rgba(0, 255, 65, 0.3);
-            box-shadow: 0 0 15px rgba(0, 255, 65, 0.8);
-            transform: scale(1.05);
-        }
-
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #00ff41;
-            box-shadow: 0 0 10px #00ff41;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                box-shadow: 0 0 10px #00ff41;
-            }
-            50% {
-                box-shadow: 0 0 20px #00ff41;
-            }
-        }
-
-        .topic-table {
-            flex: 1;
-            border: 2px solid #00ff41;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-
-        .topic-table table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .topic-table th {
-            background: rgba(0, 255, 65, 0.1);
-            padding: 15px;
-            text-align: center;
-            color: #00ff41;
-            font-size: 20px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            border-bottom: 2px solid #00ff41;
-        }
-        
-        .topic-table th:last-child {
-            text-align: center;
-        }
-
-        .topic-table td {
-            padding: 15px;
-            font-size: 18px;
-            border-bottom: 1px solid rgba(0, 255, 65, 0.2);
-        }
-        
-        .topic-table tr.empty-row td {
-            border-bottom: none;
-        }
-
-        .topic-table tr:hover {
+        .last-command:hover {
             background: rgba(0, 255, 65, 0.05);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
         }
 
-        .source-cell {
-            color: #00ff41;
-            text-align: center;
-        }
-
-        .topic-cell {
+        .topics-container {
+            flex: 1;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            flex-wrap: wrap;
             gap: 20px;
+            align-content: flex-start;
+            padding: 20px 0;
         }
+
+
 
         .topic-badge {
-            padding: 8px 20px;
-            border: 2px solid;
+            padding: 12px 30px;
+            border: 2px solid #00ff41;
             border-radius: 25px;
             font-weight: bold;
             display: inline-block;
-            min-width: 250px;
             text-align: center;
-            font-size: 16px;
-            letter-spacing: 1px;
-        }
-        
-        .topic-badge:empty {
-            border: none;
-            background: none;
-        }
-
-        .topic-badge.general {
-            border-color: #00ff41;
+            font-size: 18px;
+            letter-spacing: 2px;
             color: #00ff41;
-            background: rgba(0, 255, 65, 0.1);
-        }
-        
-        .topic-badge.home-assistant {
-            border-color: #00ff41;
-            color: #00ff41;
-            background: rgba(0, 255, 65, 0.1);
-        }
-
-        .topic-badge.media-player {
-            border-color: #ffa500;
-            color: #ffa500;
-            background: rgba(255, 165, 0, 0.1);
-        }
-
-        .topic-badge.other {
-            border-color: #ff6b35;
-            color: #ff6b35;
-            background: rgba(255, 107, 53, 0.1);
-        }
-
-        .topic-badge.unknown {
-            border-color: #666;
-            color: #666;
-        }
-        
-        /* Active topics with heartbeat */
-        .topic-badge.active-badge {
-            color: #00ff41;
-            border-color: #00ff41;
             background: rgba(0, 255, 65, 0.15);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
             box-shadow: 0 0 20px rgba(0, 255, 65, 0.6);
             animation: pulse-glow 2s infinite;
+        }
+        
+        .topic-badge:hover {
+            transform: scale(1.05);
+            background: rgba(0, 255, 65, 0.25);
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.9);
         }
         
         @keyframes pulse-glow {
@@ -251,20 +115,6 @@
             }
         }
 
-        .config-icon {
-            cursor: pointer;
-            font-size: 24px;
-            color: #00ff41;
-            transition: all 0.3s;
-            text-decoration: none;
-            display: inline-block;
-            padding: 5px;
-        }
-
-        .config-icon:hover {
-            transform: rotate(90deg);
-            text-shadow: 0 0 10px #00ff41;
-        }
 
         .status-footer {
             position: fixed;
@@ -331,64 +181,17 @@
                 <img src="{{ url_for('static', path='/images/ORAC_CORE_Banner.png') }}" alt="ORAC Core" class="banner-image">
             </div>
 
-            <!-- Last Command Display -->
+            <!-- Configure Topics Header -->
             <div class="last-command">
-                <div class="last-command-label">last command</div>
-                <div class="last-command-content" id="lastCommand">
-                    engine room, increase temperature by three degrees
-                </div>
-                <div class="active-topic">
-                    <span class="active-topic-label">configure</span>
-                    <a href="/topics" class="active-topic-name" id="activeTopicName">TOPICS</a>
-                    <span class="status-dot"></span>
-                </div>
+                <a href="/topics" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 24px;">⚙</span>
+                    <span style="font-size: 18px; color: #00ff41;">Configure Topics</span>
+                </a>
             </div>
 
-            <!-- Topic Management Table -->
-            <div class="topic-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="width: 40%;">SOURCE</th>
-                            <th style="width: 60%;">TOPIC</th>
-                        </tr>
-                    </thead>
-                    <tbody id="topicTableBody">
-                        <tr>
-                            <td class="source-cell">ORAC STT</td>
-                            <td>
-                                <div class="topic-cell">
-                                    <span class="topic-badge general">GENERAL</span>
-                                    <a href="/topics/general" class="config-icon">⚙</a>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr class="empty-row">
-                            <td class="source-cell"></td>
-                            <td>
-                                <div class="topic-cell">
-                                    <span class="topic-badge"></span>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr class="empty-row">
-                            <td class="source-cell"></td>
-                            <td>
-                                <div class="topic-cell">
-                                    <span class="topic-badge"></span>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr class="empty-row">
-                            <td class="source-cell"></td>
-                            <td>
-                                <div class="topic-cell">
-                                    <span class="topic-badge"></span>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <!-- Active Topics Display -->
+            <div class="topics-container" id="topicsContainer">
+                <!-- Active topics will be dynamically loaded here -->
             </div>
         </div>
     </div>
@@ -485,95 +288,59 @@
                 if (topicsResponse.ok && heartbeatResponse.ok) {
                     const topicsData = await topicsResponse.json();
                     const heartbeatData = await heartbeatResponse.json();
-                    updateTopicTable(topicsData.topics, heartbeatData.topics);
+                    updateTopicsDisplay(topicsData.topics, heartbeatData.topics);
                 }
             } catch (error) {
                 console.error('Failed to load topics:', error);
             }
         }
 
-        // Update topic table
-        function updateTopicTable(topics, heartbeatStatus) {
-            const tbody = document.getElementById('topicTableBody');
-            tbody.innerHTML = '';
+        // Update topics display with only active heartbeat topics
+        function updateTopicsDisplay(topics, heartbeatStatus) {
+            const container = document.getElementById('topicsContainer');
+            container.innerHTML = '';
             
-            // Filter and sort topics by status (active first)
+            // Filter for active heartbeat topics only (NOT including GENERAL)
             const activeTopics = [];
             
             for (const [topicId, topicData] of Object.entries(topics)) {
                 const status = heartbeatStatus[topicId] || {};
                 const liveStatus = status.live_status || 'unknown';
                 
-                // Only show topics that are active or general
-                if (liveStatus === 'active' || topicId === 'general') {
+                // Only show topics with active heartbeat (exclude GENERAL)
+                if (liveStatus === 'active' && topicId.toLowerCase() !== 'general') {
                     activeTopics.push({
                         id: topicId,
-                        data: topicData,
-                        status: liveStatus,
-                        wakeWord: status.wake_word || topicData.wake_word || ''
+                        name: topicData.name || topicId,
+                        status: liveStatus
                     });
                 }
             }
             
-            // Sort: general first, then by status
-            activeTopics.sort((a, b) => {
-                if (a.id === 'general') return -1;
-                if (b.id === 'general') return 1;
-                return 0;
-            });
+            // Sort alphabetically by name
+            activeTopics.sort((a, b) => a.name.localeCompare(b.name));
             
-            // Add rows for active topics
+            // Create clickable badges for active topics
             for (const topic of activeTopics) {
-                const row = document.createElement('tr');
-                const source = topic.wakeWord ? 'HEY ORAC' : 'ORAC CORE';
-                const badgeClass = topic.status === 'active' ? 'active-badge' : topic.id.toLowerCase().replace('_', '-');
-                
-                row.innerHTML = `
-                    <td class="source-cell">${source}</td>
-                    <td>
-                        <div class="topic-cell">
-                            <span class="topic-badge ${badgeClass}">${topic.data.name.toUpperCase()}</span>
-                            <a href="/topics/${topic.id}" class="config-icon">⚙</a>
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(row);
+                const badge = document.createElement('a');
+                badge.href = `/topics/${topic.id}`;
+                badge.className = 'topic-badge';
+                badge.textContent = topic.name.toUpperCase();
+                container.appendChild(badge);
             }
             
-            // Add empty rows to maintain layout
-            const emptyRowsNeeded = Math.max(0, 4 - tbody.children.length);
-            for (let i = 0; i < emptyRowsNeeded; i++) {
-                const emptyRow = document.createElement('tr');
-                emptyRow.className = 'empty-row';
-                emptyRow.innerHTML = `
-                    <td class="source-cell"></td>
-                    <td>
-                        <div class="topic-cell">
-                            <span class="topic-badge"></span>
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(emptyRow);
+            // If no active topics, show a message
+            if (activeTopics.length === 0) {
+                const message = document.createElement('div');
+                message.style.cssText = 'color: #666; font-size: 16px; text-align: center; width: 100%; padding: 40px 0;';
+                message.textContent = 'No active topics detected. Waiting for Hey ORAC heartbeats...';
+                container.appendChild(message);
             }
         }
 
-        // Get last command from WebSocket or API
+        // Get last command from WebSocket or API (if needed in future)
         async function getLastCommand() {
-            try {
-                const response = await fetch('/api/last-command');
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.command) {
-                        document.getElementById('lastCommand').textContent = data.command;
-                    }
-                    if (data.topic) {
-                        const topicName = data.topic.toUpperCase().replace('_', ' ');
-                        document.getElementById('activeTopicName').textContent = topicName;
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to get last command:', error);
-            }
+            // Removed as we no longer display last command
         }
 
         // Initialize on page load
