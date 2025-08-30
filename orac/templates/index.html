@@ -103,6 +103,15 @@
             background: rgba(0, 255, 65, 0.1);
             color: #00ff41;
             font-weight: bold;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+        
+        a.active-topic-name:hover {
+            background: rgba(0, 255, 65, 0.3);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.8);
+            transform: scale(1.05);
         }
 
         .status-dot {
@@ -223,6 +232,24 @@
             border-color: #666;
             color: #666;
         }
+        
+        /* Active topics with heartbeat */
+        .topic-badge.active-badge {
+            color: #00ff41;
+            border-color: #00ff41;
+            background: rgba(0, 255, 65, 0.15);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.6);
+            animation: pulse-glow 2s infinite;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(0, 255, 65, 0.6);
+            }
+            50% {
+                box-shadow: 0 0 30px rgba(0, 255, 65, 0.9);
+            }
+        }
 
         .config-icon {
             cursor: pointer;
@@ -311,8 +338,8 @@
                     engine room, increase temperature by three degrees
                 </div>
                 <div class="active-topic">
-                    <span class="active-topic-label">active</span>
-                    <span class="active-topic-name" id="activeTopicName">GENERAL</span>
+                    <span class="active-topic-label">configure</span>
+                    <a href="/topics" class="active-topic-name" id="activeTopicName">TOPICS</a>
                     <span class="status-dot"></span>
                 </div>
             </div>
@@ -449,10 +476,16 @@
         // Load topics from API
         async function loadTopics() {
             try {
-                const response = await fetch('/api/topics');
-                if (response.ok) {
-                    const topics = await response.json();
-                    updateTopicTable(topics);
+                // Load both topics and heartbeat status
+                const [topicsResponse, heartbeatResponse] = await Promise.all([
+                    fetch('/api/topics'),
+                    fetch('/v1/topics/heartbeat/status')
+                ]);
+                
+                if (topicsResponse.ok && heartbeatResponse.ok) {
+                    const topicsData = await topicsResponse.json();
+                    const heartbeatData = await heartbeatResponse.json();
+                    updateTopicTable(topicsData.topics, heartbeatData.topics);
                 }
             } catch (error) {
                 console.error('Failed to load topics:', error);
@@ -460,36 +493,47 @@
         }
 
         // Update topic table
-        function updateTopicTable(topics) {
+        function updateTopicTable(topics, heartbeatStatus) {
             const tbody = document.getElementById('topicTableBody');
             tbody.innerHTML = '';
             
-            // Always show general topic first
-            const generalRow = document.createElement('tr');
-            generalRow.innerHTML = `
-                <td class="source-cell">ORAC STT</td>
-                <td>
-                    <div class="topic-cell">
-                        <span class="topic-badge general">GENERAL</span>
-                        <a href="/topics/general" class="config-icon">⚙</a>
-                    </div>
-                </td>
-            `;
-            tbody.appendChild(generalRow);
+            // Filter and sort topics by status (active first)
+            const activeTopics = [];
             
-            // Add other configured topics
-            for (const [topicName, topicData] of Object.entries(topics)) {
-                if (topicName === 'general') continue; // Skip general as we already added it
+            for (const [topicId, topicData] of Object.entries(topics)) {
+                const status = heartbeatStatus[topicId] || {};
+                const liveStatus = status.live_status || 'unknown';
                 
+                // Only show topics that are active or general
+                if (liveStatus === 'active' || topicId === 'general') {
+                    activeTopics.push({
+                        id: topicId,
+                        data: topicData,
+                        status: liveStatus,
+                        wakeWord: status.wake_word || topicData.wake_word || ''
+                    });
+                }
+            }
+            
+            // Sort: general first, then by status
+            activeTopics.sort((a, b) => {
+                if (a.id === 'general') return -1;
+                if (b.id === 'general') return 1;
+                return 0;
+            });
+            
+            // Add rows for active topics
+            for (const topic of activeTopics) {
                 const row = document.createElement('tr');
-                const source = topicData.source || 'UNKNOWN';
+                const source = topic.wakeWord ? 'HEY ORAC' : 'ORAC CORE';
+                const badgeClass = topic.status === 'active' ? 'active-badge' : topic.id.toLowerCase().replace('_', '-');
                 
                 row.innerHTML = `
-                    <td class="source-cell">${source.toUpperCase().replace('_', ' ')}</td>
+                    <td class="source-cell">${source}</td>
                     <td>
                         <div class="topic-cell">
-                            <span class="topic-badge ${topicName.toLowerCase().replace('_', '-')}">${topicName.toUpperCase().replace('_', ' ')}</span>
-                            <a href="/topics/${topicName}" class="config-icon">⚙</a>
+                            <span class="topic-badge ${badgeClass}">${topic.data.name.toUpperCase()}</span>
+                            <a href="/topics/${topic.id}" class="config-icon">⚙</a>
                         </div>
                     </td>
                 `;
@@ -541,8 +585,8 @@
             // Periodic health checks
             setInterval(checkServiceHealth, 30000);
             
-            // Periodic topic refresh
-            setInterval(loadTopics, 60000);
+            // Periodic topic refresh (every 10 seconds to catch status changes)
+            setInterval(loadTopics, 10000);
             
             // Periodic last command refresh
             setInterval(getLastCommand, 5000);

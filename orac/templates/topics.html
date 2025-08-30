@@ -57,10 +57,46 @@
             flex-direction: column;
         }
         
+        /* Status-based card styling */
+        .topic-card.status-active {
+            border-color: #00ff41;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.6);
+        }
+        
+        .topic-card.status-active .topic-name,
+        .topic-card.status-active .topic-wake-word {
+            color: #00ff41;
+            text-shadow: 0 0 15px #00ff41;
+        }
+        
+        .topic-card.status-idle {
+            border-color: #ffa500;
+            box-shadow: 0 0 25px rgba(255, 165, 0, 0.5);
+        }
+        
+        .topic-card.status-idle .topic-name,
+        .topic-card.status-idle .topic-wake-word {
+            color: #ffa500;
+            text-shadow: 0 0 15px #ffa500;
+        }
+        
+        .topic-card.status-stale,
+        .topic-card.status-unknown {
+            border-color: #ff0040;
+            box-shadow: 0 0 20px rgba(255, 0, 64, 0.4);
+        }
+        
+        .topic-card.status-stale .topic-name,
+        .topic-card.status-unknown .topic-name,
+        .topic-card.status-stale .topic-wake-word,
+        .topic-card.status-unknown .topic-wake-word {
+            color: #ff0040;
+            text-shadow: 0 0 10px #ff0040;
+        }
+        
         .topic-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 0 30px rgba(0, 255, 65, 0.5);
-            border-color: var(--primary-green);
+            filter: brightness(1.2);
         }
         
         .topic-card.disabled {

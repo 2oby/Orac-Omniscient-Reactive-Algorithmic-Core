@@ -36,6 +36,22 @@ function updateLiveStatus() {
         const status = heartbeatStatus[topicId];
         const card = document.querySelector(`.topic-card[data-topic-id="${topicId}"]`);
         if (card) {
+            // Update card status class
+            card.className = card.className.replace(/status-\w+/g, '');
+            card.classList.add('topic-card');
+            card.classList.add(`status-${status.live_status}`);
+            
+            // Re-add other classes if needed
+            if (topics[topicId]) {
+                if (!topics[topicId].enabled) {
+                    card.classList.add('disabled');
+                }
+                if (topics[topicId].auto_discovered) {
+                    card.classList.add('auto-discovered');
+                }
+            }
+            
+            // Update indicator
             const indicator = card.querySelector('.live-status-indicator');
             if (indicator) {
                 indicator.className = 'live-status-indicator';
@@ -69,6 +85,14 @@ function createTopicCard(topicId, topic) {
     card.className = 'topic-card';
     card.setAttribute('data-topic-id', topicId);
     
+    // Get live status for this topic
+    const status = heartbeatStatus[topicId] || {};
+    const liveStatus = status.live_status || 'unknown';
+    const wakeWord = topic.wake_word || status.wake_word || '';
+    
+    // Add status class for coloring
+    card.classList.add(`status-${liveStatus}`);
+    
     // Add disabled class if topic is disabled
     if (!topic.enabled) {
         card.classList.add('disabled');
@@ -82,11 +106,6 @@ function createTopicCard(topicId, topic) {
     // Auto-discovered badge
     const autoBadge = topic.auto_discovered ? 
         '<span class="auto-discovered-badge">AUTO</span>' : '';
-    
-    // Get live status for this topic
-    const status = heartbeatStatus[topicId] || {};
-    const liveStatus = status.live_status || 'unknown';
-    const wakeWord = topic.wake_word || status.wake_word || '';
     
     card.innerHTML = `
         ${autoBadge}
