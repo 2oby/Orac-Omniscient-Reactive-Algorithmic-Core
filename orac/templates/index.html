@@ -114,6 +114,15 @@
                 box-shadow: 0 0 30px rgba(0, 255, 65, 0.9);
             }
         }
+        
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 10px #00ff41;
+            }
+            50% {
+                box-shadow: 0 0 20px #00ff41;
+            }
+        }
 
 
         .status-footer {
@@ -181,14 +190,27 @@
                 <img src="{{ url_for('static', path='/images/ORAC_CORE_Banner.png') }}" alt="ORAC Core" class="banner-image">
             </div>
 
-            <!-- Active Topics Header -->
+            <!-- Last Command Display -->
             <div class="last-command">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <span style="font-size: 20px; color: #00ff41; font-weight: bold; letter-spacing: 2px;">ACTIVE TOPICS</span>
-                    <a href="/topics" style="text-decoration: none; color: #00ff41; font-size: 24px; transition: transform 0.3s;" 
-                       onmouseover="this.style.transform='rotate(90deg)'" 
-                       onmouseout="this.style.transform='rotate(0deg)'">⚙</a>
+                    <div style="display: flex; flex-direction: column; flex: 1;">
+                        <span style="color: #00ff41; font-size: 12px; opacity: 0.7; margin-bottom: 5px;">LAST COMMAND</span>
+                        <span id="lastCommand" style="color: #ffa500; font-size: 18px;">Waiting for command...</span>
+                    </div>
+                    <div id="activeTopicContainer" style="display: flex; align-items: center; gap: 20px;">
+                        <span style="color: #00ff41; font-size: 12px; opacity: 0.7;">ACTIVE</span>
+                        <a href="/topics/general" id="activeTopicBadge" style="padding: 8px 20px; border: 2px solid #00ff41; border-radius: 25px; background: rgba(0, 255, 65, 0.15); color: #00ff41; font-weight: bold; text-decoration: none; font-size: 16px; letter-spacing: 1px;">GENERAL</a>
+                        <span id="statusDot" style="width: 12px; height: 12px; border-radius: 50%; background: #00ff41; box-shadow: 0 0 10px #00ff41; animation: pulse 2s infinite;"></span>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Active Topics Header -->
+            <div class="topics-header" style="margin-top: 30px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 20px; color: #00ff41; font-weight: bold; letter-spacing: 2px;">ACTIVE TOPICS</span>
+                <a href="/topics" style="text-decoration: none; color: #00ff41; font-size: 24px; transition: transform 0.3s;" 
+                   onmouseover="this.style.transform='rotate(90deg)'" 
+                   onmouseout="this.style.transform='rotate(0deg)'">⚙</a>
             </div>
 
             <!-- Active Topics Display -->
@@ -340,9 +362,24 @@
             }
         }
 
-        // Get last command from WebSocket or API (if needed in future)
+        // Get last command from WebSocket or API
         async function getLastCommand() {
-            // Removed as we no longer display last command
+            try {
+                const response = await fetch('/api/last-command');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.command) {
+                        document.getElementById('lastCommand').textContent = data.command;
+                    }
+                    if (data.topic) {
+                        const badge = document.getElementById('activeTopicBadge');
+                        badge.textContent = data.topic.toUpperCase();
+                        badge.href = `/topics/${data.topic}`;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to get last command:', error);
+            }
         }
 
         // Initialize on page load
