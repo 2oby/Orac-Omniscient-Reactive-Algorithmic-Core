@@ -62,11 +62,37 @@ class HAExecutor:
             mapping_file = Path(__file__).parent / "entity_mappings.yaml"
             if mapping_file.exists():
                 with open(mapping_file, 'r') as f:
-                    data = yaml.safe_load(f)
-                    return data.get('mappings', {})
-            else:
-                logger.warning("Entity mappings file not found, using defaults")
-                return {
+                    raw_mappings = yaml.safe_load(f)
+                    
+                    # Convert flat entity mappings to our hierarchical structure
+                    mappings = {
+                        "lights": {},
+                        "heating": {},
+                        "blinds": {},
+                        "music": {}
+                    }
+                    
+                    for entity_id, friendly_name in raw_mappings.items():
+                        if isinstance(entity_id, str) and isinstance(friendly_name, str):
+                            # Parse entity domain and location from friendly name
+                            if entity_id.startswith("light."):
+                                # Extract location from friendly name (e.g., "bedroom lights" -> "bedroom")
+                                location = friendly_name.replace(" lights", "").replace(" light", "")
+                                mappings["lights"][location] = entity_id
+                            elif entity_id.startswith("climate."):
+                                location = friendly_name.replace(" heating", "").replace(" thermostat", "")
+                                mappings["heating"][location] = entity_id
+                            elif entity_id.startswith("cover."):
+                                location = friendly_name.replace(" blinds", "").replace(" curtains", "")
+                                mappings["blinds"][location] = entity_id
+                            elif entity_id.startswith("media_player."):
+                                location = friendly_name.replace(" music", "").replace(" player", "")
+                                mappings["music"][location] = entity_id
+                    
+                    # If no mappings found, use defaults
+                    if not any(mappings[k] for k in mappings):
+                        logger.warning("No valid mappings found in file, using defaults")
+                        return {
                     "lights": {
                         "bedroom": "light.bedroom_lights",
                         "bathroom": "light.bathroom_lights",
@@ -96,9 +122,37 @@ class HAExecutor:
                         "living room": "media_player.living_room"
                     }
                 }
+                    
+                    logger.info(f"Loaded entity mappings: {mappings}")
+                    return mappings
+            else:
+                logger.warning("Entity mappings file not found, using defaults")
+                return {
+                    "lights": {
+                        "bedroom": "light.bedroom_lights",
+                        "bathroom": "light.bathroom_lights",
+                        "kitchen": "light.kitchen_lights",
+                        "hall": "light.hall_lights",
+                        "living room": "light.lounge_lights"
+                    },
+                    "heating": {},
+                    "blinds": {},
+                    "music": {}
+                }
         except Exception as e:
             logger.error(f"Failed to load entity mappings: {e}")
-            return {}
+            return {
+                "lights": {
+                    "bedroom": "light.bedroom_lights",
+                    "bathroom": "light.bathroom_lights",
+                    "kitchen": "light.kitchen_lights",
+                    "hall": "light.hall_lights",
+                    "living room": "light.lounge_lights"
+                },
+                "heating": {},
+                "blinds": {},
+                "music": {}
+            }
     
     async def execute_json_command(self, command: Dict[str, str]) -> Dict[str, Any]:
         """
