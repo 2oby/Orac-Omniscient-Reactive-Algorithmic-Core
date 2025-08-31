@@ -64,11 +64,90 @@
             background: rgba(0, 255, 65, 0.02);
             position: relative;
             transition: all 0.3s ease;
+            cursor: pointer;
         }
         
         .last-command:hover {
             background: rgba(0, 255, 65, 0.05);
             box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+        }
+        
+        /* Command Details Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            background-color: #000;
+            margin: 10% auto;
+            padding: 30px;
+            border: 3px solid #00ff41;
+            border-radius: 12px;
+            width: 80%;
+            max-width: 800px;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.7);
+            color: #00ff41;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #00ff41;
+        }
+        
+        .modal-close {
+            color: #00ff41;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .modal-close:hover {
+            color: #ff4141;
+            transform: scale(1.2);
+        }
+        
+        .command-detail {
+            margin: 15px 0;
+            padding: 10px;
+            background: rgba(0, 255, 65, 0.05);
+            border-left: 3px solid #00ff41;
+        }
+        
+        .command-detail-label {
+            font-size: 12px;
+            opacity: 0.7;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        
+        .command-detail-value {
+            font-size: 16px;
+            margin-left: 20px;
+            word-break: break-all;
+        }
+        
+        .command-error {
+            color: #ff4141;
+            text-shadow: 0 0 5px #ff4141;
+        }
+        
+        .command-success {
+            color: #00ff41;
+            text-shadow: 0 0 5px #00ff41;
         }
 
         .topics-container {
@@ -191,10 +270,10 @@
             </div>
 
             <!-- Last Command Display -->
-            <div class="last-command">
+            <div class="last-command" onclick="showCommandDetails()">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                     <div style="display: flex; flex-direction: column; flex: 1;">
-                        <span style="color: #00ff41; font-size: 12px; opacity: 0.7; margin-bottom: 5px;">LAST COMMAND</span>
+                        <span style="color: #00ff41; font-size: 12px; opacity: 0.7; margin-bottom: 5px;">LAST COMMAND (click for details)</span>
                         <span id="lastCommand" style="color: #ffa500; font-size: 18px;">Waiting for command...</span>
                     </div>
                     <div id="activeTopicContainer" style="display: flex; align-items: center; gap: 20px;">
@@ -216,6 +295,19 @@
             <!-- Active Topics Display -->
             <div class="topics-container" id="topicsContainer">
                 <!-- Active topics will be dynamically loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Command Details Modal -->
+    <div id="commandModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>COMMAND DETAILS</h2>
+                <span class="modal-close" onclick="closeCommandModal()">&times;</span>
+            </div>
+            <div id="commandModalBody">
+                <!-- Command details will be inserted here -->
             </div>
         </div>
     </div>
@@ -362,6 +454,9 @@
             }
         }
 
+        // Store command details globally
+        let lastCommandDetails = null;
+        
         // Get last command from WebSocket or API
         async function getLastCommand() {
             try {
@@ -376,9 +471,117 @@
                         badge.textContent = data.topic.toUpperCase();
                         badge.href = `/topics/${data.topic}`;
                     }
+                    // Store full command details
+                    lastCommandDetails = data;
                 }
             } catch (error) {
                 console.error('Failed to get last command:', error);
+            }
+        }
+        
+        // Show command details modal
+        function showCommandDetails() {
+            const modal = document.getElementById('commandModal');
+            const modalBody = document.getElementById('commandModalBody');
+            
+            if (!lastCommandDetails || !lastCommandDetails.command) {
+                modalBody.innerHTML = '<div class="command-detail">No command details available yet.</div>';
+            } else {
+                let detailsHtml = '';
+                
+                // Original text
+                detailsHtml += `
+                    <div class="command-detail">
+                        <div class="command-detail-label">Original Text</div>
+                        <div class="command-detail-value">${lastCommandDetails.command || 'N/A'}</div>
+                    </div>
+                `;
+                
+                // Topic
+                detailsHtml += `
+                    <div class="command-detail">
+                        <div class="command-detail-label">Topic</div>
+                        <div class="command-detail-value">${lastCommandDetails.topic || 'general'}</div>
+                    </div>
+                `;
+                
+                // Generated JSON
+                if (lastCommandDetails.generated_json) {
+                    detailsHtml += `
+                        <div class="command-detail">
+                            <div class="command-detail-label">Generated JSON</div>
+                            <div class="command-detail-value">
+                                <pre>${JSON.stringify(lastCommandDetails.generated_json, null, 2)}</pre>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // HA Request
+                if (lastCommandDetails.ha_request) {
+                    detailsHtml += `
+                        <div class="command-detail">
+                            <div class="command-detail-label">Home Assistant Request</div>
+                            <div class="command-detail-value">
+                                <div>URL: ${lastCommandDetails.ha_request.url}</div>
+                                <div>Method: ${lastCommandDetails.ha_request.method}</div>
+                                <pre>Data: ${JSON.stringify(lastCommandDetails.ha_request.data, null, 2)}</pre>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // HA Response
+                if (lastCommandDetails.ha_response) {
+                    const statusClass = lastCommandDetails.ha_response.status === 200 ? 'command-success' : 'command-error';
+                    detailsHtml += `
+                        <div class="command-detail">
+                            <div class="command-detail-label">Home Assistant Response</div>
+                            <div class="command-detail-value ${statusClass}">
+                                <div>Status: ${lastCommandDetails.ha_response.status}</div>
+                                <div>Body: ${lastCommandDetails.ha_response.body || 'N/A'}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Error
+                if (lastCommandDetails.error) {
+                    detailsHtml += `
+                        <div class="command-detail">
+                            <div class="command-detail-label">Error</div>
+                            <div class="command-detail-value command-error">${lastCommandDetails.error}</div>
+                        </div>
+                    `;
+                }
+                
+                // Status
+                const success = lastCommandDetails.success || (lastCommandDetails.ha_response && lastCommandDetails.ha_response.status === 200);
+                detailsHtml += `
+                    <div class="command-detail">
+                        <div class="command-detail-label">Status</div>
+                        <div class="command-detail-value ${success ? 'command-success' : 'command-error'}">
+                            ${success ? '✓ Success' : '✗ Failed'}
+                        </div>
+                    </div>
+                `;
+                
+                modalBody.innerHTML = detailsHtml;
+            }
+            
+            modal.style.display = 'block';
+        }
+        
+        // Close command modal
+        function closeCommandModal() {
+            document.getElementById('commandModal').style.display = 'none';
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('commandModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
             }
         }
 

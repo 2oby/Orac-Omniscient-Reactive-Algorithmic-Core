@@ -38,6 +38,7 @@ from orac.homeassistant.grammar_manager import HomeAssistantGrammarManager
 # Add Topic management imports
 from orac.topic_manager import TopicManager
 from orac.api_topics import router as topics_router
+from orac.homeassistant.ha_executor import HAExecutor
 from orac.api_heartbeat import router as heartbeat_router
 
 # Configure logger
@@ -45,6 +46,9 @@ logger = get_logger(__name__)
 
 # Initialize topic manager
 topic_manager = TopicManager()
+
+# Initialize HA executor
+ha_executor = HAExecutor()
 
 # Create FastAPI app
 app = FastAPI(
@@ -93,7 +97,12 @@ ha_grammar_scheduler = None
 last_command_storage = {
     "command": "",
     "topic": "",
-    "timestamp": None
+    "timestamp": None,
+    "generated_json": None,
+    "ha_request": None,
+    "ha_response": None,
+    "error": None,
+    "success": False
 }
 
 async def get_client() -> LlamaCppClient:
@@ -171,7 +180,12 @@ async def get_last_command() -> Dict[str, Any]:
     return {
         "command": last_command_storage.get("command", ""),
         "topic": last_command_storage.get("topic", ""),
-        "timestamp": last_command_storage.get("timestamp").isoformat() if last_command_storage.get("timestamp") else None
+        "timestamp": last_command_storage.get("timestamp").isoformat() if last_command_storage.get("timestamp") else None,
+        "generated_json": last_command_storage.get("generated_json"),
+        "ha_request": last_command_storage.get("ha_request"),
+        "ha_response": last_command_storage.get("ha_response"),
+        "error": last_command_storage.get("error"),
+        "success": last_command_storage.get("success", False)
     }
 
 @app.get("/v1/models", response_model=ModelListResponse, tags=["Models"])
@@ -381,6 +395,37 @@ async def _generate_text_impl(request: GenerationRequest, topic_id: str = "gener
                         response_text += '"'
                     if not response_text.endswith('}'):
                         response_text += '}'
+        
+        # If this is a home_assistant topic and we got JSON, execute the command
+        ha_result = None
+        if topic_id == "home_assistant" and response_text:
+            try:
+                import json
+                parsed_json = json.loads(response_text)
+                last_command_storage["generated_json"] = parsed_json
+                
+                # Execute the command via HA executor
+                logger.info(f"Executing HA command: {parsed_json}")
+                ha_result = await ha_executor.execute_json_command(parsed_json)
+                
+                # Store HA execution details
+                last_command_storage["ha_request"] = ha_result.get("ha_request")
+                last_command_storage["ha_response"] = ha_result.get("ha_response")
+                last_command_storage["error"] = ha_result.get("error")
+                last_command_storage["success"] = ha_result.get("success", False)
+                
+                if ha_result.get("error"):
+                    logger.error(f"HA execution failed: {ha_result['error']}")
+                else:
+                    logger.info(f"HA execution successful")
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse generated JSON: {e}")
+                last_command_storage["error"] = f"Invalid JSON: {str(e)}"
+                last_command_storage["success"] = False
+            except Exception as e:
+                logger.error(f"Failed to execute HA command: {e}")
+                last_command_storage["error"] = str(e)
+                last_command_storage["success"] = False
         
         return GenerationResponse(
             status="success",
