@@ -2,26 +2,22 @@
 
 > **Development Setup**: For environment setup, deployment procedures, and SSH access to the Jetson Orin, see [ORAC Development Instructions](instructions.md).
 
-## 🚀 **CURRENT PRIORITY - ORAC STT to ORAC Core Integration**
+## 🚀 **CURRENT PRIORITY - Complete ORAC Core Integration**
 
 ### Goal: Enable end-to-end voice command pipeline
-Enable ORAC_STT to send transcribed text to ORAC Core, which will then control Home Assistant entities. Starting with: "Turn on the Bedroom Lights" as the test command.
+Complete the integration so ORAC STT forwards transcribed text to ORAC Core, which generates JSON commands for Home Assistant. Test command: "Computer, turn on the bedroom lights"
 
-### Architecture Design Principles
-1. **Topic-based routing**: Context flows from Hey ORAC → ORAC STT → ORAC Core via URL parameters
-2. **Separation of concerns**: 
-   - Hey ORAC: Knows the intent/context (topic)
-   - ORAC STT: Handles transcription and routing only
-   - ORAC Core: Manages all model-specific logic and settings
-3. **User configurability**: ORAC Core URL is configurable in ORAC STT UI
-4. **Flexible configuration**: Each topic in ORAC Core can have different models, temperatures, and grammars
-
-### Current System Status
-- ✅ Hey ORAC → ORAC STT: **Working** (audio streaming functional)
-- ✅ ORAC STT: **Working** (transcribes audio correctly)
-- ❌ ORAC Core: **Not Running** (needs to be started on 192.168.8.191:8000)
-- ⏳ ORAC STT → ORAC Core: **Not Implemented** (needs integration)
-- ⏳ ORAC Core → Home Assistant: **Configured but untested**
+### Current Implementation Status (August 31, 2025)
+- ✅ Hey ORAC → ORAC STT: **WORKING** (with topics & heartbeats)
+- ✅ ORAC STT: **WORKING** (transcribes audio, receives topics)
+- ✅ ORAC STT → ORAC Core: **FORWARDING TRANSCRIPTIONS** (with topic parameter)
+- ✅ ORAC Core Topic System: **IMPLEMENTED** on feature/topic-system-mvp branch
+  - `topic_manager.py` - Complete topic management system
+  - `api_topics.py` - Topic API endpoints
+  - `api_heartbeat.py` - Heartbeat support
+  - Grammar files ready (`default.gbnf` for home automation)
+- ⏳ ORAC Core: **NEEDS DEPLOYMENT** on 192.168.8.191:8000
+- ⏳ Home Assistant Topic: **NEEDS CONFIGURATION**
 
 ### Available Home Assistant Entities
 From `entity_mappings.yaml`:
@@ -37,40 +33,349 @@ Each sprint is designed to be independently testable with clear success criteria
 
 ---
 
-## Sprint 1: Get ORAC Core Running (Foundation)
-**Goal**: Ensure ORAC Core is running and can generate responses
+## 🚀 HOME ASSISTANT INTEGRATION ROADMAP
 
-#### Step 1.1: Deploy and Start ORAC Core
-**Actions**:
-```bash
-# From local machine
-cd /Users/2oby/pCloud Box/Projects/ORAC/Orac-Omniscient-Reactive-Algorithmic-Core
-./scripts/deploy_and_test.sh
-```
+### Sprint 1: Deploy and Verify ORAC Core (4 hours)
+**Goal**: Get ORAC Core operational with topic support
 
-#### Step 1.2: Verify Basic Functionality
-**Test Commands**:
-```bash
-# Test health endpoint
-curl http://192.168.8.191:8000/health
+#### Implementation Steps:
+1. **Deploy ORAC Core**
+   ```bash
+   cd /Users/2oby/pCloud Box/Projects/ORAC/Orac-Omniscient-Reactive-Algorithmic-Core
+   ./scripts/deploy_and_test.sh "Deploy topic system" feature/topic-system-mvp
+   ```
 
-# Test basic generation (no topic yet)
-curl -X POST http://192.168.8.191:8000/v1/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "turn on bedroom lights",
-    "grammar": "default.gbnf",
-    "temperature": 0.1
-  }'
-```
+2. **Verify Endpoints**
+   ```bash
+   # Health check
+   curl http://192.168.8.191:8000/health
+   
+   # Heartbeat (for Hey ORAC integration)
+   curl http://192.168.8.191:8000/api/v1/heartbeat
+   
+   # List topics (should show 'general' and auto-create 'home_assistant')
+   curl http://192.168.8.191:8000/api/v1/topics
+   ```
 
-#### Sprint 1 Success Criteria:
-- ✅ ORAC Core container is running
-- ✅ Health endpoint returns 200 OK
-- ✅ Generate endpoint returns valid JSON response
-- ✅ Response follows grammar format: `{"device":"lights","action":"on","location":"bedroom"}`
+3. **Test Topic-Based Generation**
+   ```bash
+   curl -X POST http://192.168.8.191:8000/v1/generate \
+     -H "Content-Type: application/json" \
+     -d '{
+       "prompt": "turn on bedroom lights",
+       "topic": "home_assistant"
+     }'
+   ```
+
+#### Success Criteria:
+- ✅ Container running on 192.168.8.191:8000
+- ✅ All endpoints responding
+- ✅ Topic auto-discovery working
+- ✅ JSON output: `{"device":"lights","action":"on","location":"bedroom"}`
 
 ---
+
+### Sprint 2: Grammar Testing & Optimization (2 hours)
+**Goal**: Validate grammar produces correct JSON for all command types
+
+#### Test Matrix:
+```bash
+# Lights control
+"turn on bedroom lights" → {"device":"lights","action":"on","location":"bedroom"}
+"turn off kitchen lights" → {"device":"lights","action":"off","location":"kitchen"}
+"toggle bathroom lights" → {"device":"lights","action":"toggle","location":"bathroom"}
+"set living room lights 75%" → {"device":"lights","action":"set 75%","location":"living room"}
+
+# Temperature control
+"set bedroom heating to 22C" → {"device":"heating","action":"set 22C","location":"bedroom"}
+"turn on hall heating" → {"device":"heating","action":"on","location":"hall"}
+
+# Blinds control
+"open bedroom blinds" → {"device":"blinds","action":"open","location":"bedroom"}
+"close all blinds" → {"device":"blinds","action":"close","location":"all"}
+```
+
+#### Grammar Optimization:
+1. Review `default.gbnf` for completeness
+2. Add missing actions/locations as needed
+3. Test edge cases and ambiguous commands
+4. Document supported command patterns
+
+---
+
+### Sprint 3: Home Assistant Integration (4 hours)
+**Goal**: Connect ORAC Core to Home Assistant for actual device control
+
+#### Implementation Tasks:
+
+1. **HA Connection Module** (`orac/homeassistant/ha_executor.py`)
+   ```python
+   class HAExecutor:
+       def __init__(self, ha_url, ha_token):
+           self.ha_url = ha_url
+           self.headers = {"Authorization": f"Bearer {ha_token}"}
+       
+       def execute_command(self, json_command):
+           # Parse JSON command
+           # Map to HA service call
+           # Execute via REST API
+           # Return success/failure
+   ```
+
+2. **Entity Mapping**
+   - Load entity mappings from YAML
+   - Map grammar locations to HA entity IDs
+   - Handle unmapped entities gracefully
+
+3. **Service Call Mapping**
+   ```python
+   # Example mappings
+   {
+       "lights": {
+           "on": "light.turn_on",
+           "off": "light.turn_off",
+           "toggle": "light.toggle",
+           "set %": "light.turn_on" # with brightness
+       },
+       "heating": {
+           "on": "climate.turn_on",
+           "set C": "climate.set_temperature"
+       }
+   }
+   ```
+
+4. **Integration Points**
+   - Add HA executor to topic handler
+   - Execute after successful generation
+   - Log all commands and results
+
+---
+
+### Sprint 4: End-to-End Testing (2 hours)
+**Goal**: Validate complete voice → action pipeline
+
+#### Test Scenarios:
+
+1. **Basic Light Control**
+   ```
+   Say: "Computer, turn on bedroom lights"
+   Expected: 
+   - Wake word detected (Hey ORAC)
+   - Audio streamed with topic=home_assistant
+   - Transcribed: "turn on bedroom lights" (ORAC STT)
+   - Generated: {"device":"lights","action":"on","location":"bedroom"}
+   - Executed: light.bedroom_lights turns on
+   - Time: < 3 seconds
+   ```
+
+2. **Complex Commands**
+   - Dimming: "Set living room lights to 50 percent"
+   - Multiple: "Turn off all lights"
+   - Temperature: "Set bedroom heating to 22 degrees"
+
+3. **Error Cases**
+   - Unknown location: "turn on garage lights"
+   - Ambiguous: "make it brighter"
+   - HA offline: Connection refused
+
+#### Monitoring Setup:
+```bash
+# Watch all components simultaneously
+tmux new-session -d -s orac-monitor
+tmux send-keys -t orac-monitor:0 'ssh pi "docker logs -f hey-orac"' C-m
+tmux split-window -t orac-monitor:0 -h
+tmux send-keys -t orac-monitor:0.1 'ssh orin3 "docker logs -f orac-stt"' C-m
+tmux split-window -t orac-monitor:0 -v
+tmux send-keys -t orac-monitor:0.2 'ssh orin3 "docker logs -f orac-core"' C-m
+tmux attach -t orac-monitor
+```
+
+---
+
+### Sprint 5: Production Hardening (4 hours)
+**Goal**: Make system reliable and maintainable
+
+#### Tasks:
+
+1. **Robustness**
+   - Connection retry logic (3 attempts, exponential backoff)
+   - Timeout handling (5 second max per stage)
+   - Circuit breaker for HA failures
+   - Graceful degradation
+
+2. **Observability**
+   - Structured logging (JSON format)
+   - Metrics collection (Prometheus format)
+   - Command history persistence
+   - Performance tracking dashboard
+
+3. **Configuration**
+   - Environment variables for all settings
+   - Docker secrets for API tokens
+   - Configuration hot-reload
+   - Multi-environment support
+
+4. **User Experience**
+   - Audio feedback options
+   - Error messages via TTS
+   - Visual indicators in web UIs
+   - Command confirmation modes
+
+---
+
+## ✅ MVP ARCHITECTURE DECISIONS
+
+### 1. **Execution Location**: ORAC Core
+- ORAC Core will execute HA commands directly
+- Centralized logic for easier debugging
+- HA executor module within ORAC Core
+
+### 2. **User Feedback**: GUI Only (MVP)
+- Visual feedback in ORAC Core web interface
+- Clickable "Last Command" showing:
+  - Original text from ORAC STT
+  - Generated JSON
+  - HA API call and response
+  - Red text on failure with error details
+- No audio feedback in MVP
+
+### 3. **Grammar**: Static Files
+- Use `default.gbnf` for home_assistant topic
+- Static grammar checked into git
+- Dynamic generation planned for future
+
+### 4. **Security**: Simple for MVP
+- HA token in Docker environment variable
+- HTTP on local network
+- No auth between components initially
+
+### 5. **Error Handling**: Simple Retry
+- Retry HA connection every minute
+- Log all failures
+- Show errors in GUI (red text)
+
+---
+
+## 🚀 MVP IMPLEMENTATION CHECKLIST
+
+### Step 1: Deploy ORAC Core (30 minutes)
+```bash
+cd Orac-Omniscient-Reactive-Algorithmic-Core
+./scripts/deploy_and_test.sh "Deploy MVP with HA support" feature/topic-system-mvp
+```
+- [ ] Verify deployment successful
+- [ ] Check health endpoint: `curl http://192.168.8.191:8000/health`
+- [ ] Verify topics work: `curl http://192.168.8.191:8000/api/v1/topics`
+
+### Step 2: Add HA Executor to ORAC Core (2 hours)
+**File**: `orac/homeassistant/ha_executor.py`
+```python
+import os
+import json
+import requests
+from typing import Dict, Any
+
+class HAExecutor:
+    def __init__(self):
+        self.ha_url = os.getenv('HA_URL', 'http://192.168.8.100:8123')
+        self.ha_token = os.getenv('HA_TOKEN', '')
+        self.headers = {"Authorization": f"Bearer {self.ha_token}"}
+        
+    def execute_json_command(self, command: Dict[str, str]) -> Dict[str, Any]:
+        """
+        Execute a JSON command from grammar generation
+        Returns: {success: bool, details: {...}, error: str|None}
+        """
+        # Map device/action/location to HA service call
+        # Call HA API
+        # Return result with full details for GUI
+```
+- [ ] Create ha_executor.py
+- [ ] Add entity mapping logic
+- [ ] Add service call mapping
+- [ ] Test with curl commands
+
+### Step 3: Enhance ORAC Core GUI (2 hours)
+**Files**: `orac/templates/index.html`, `orac/static/js/main.js`
+
+1. **Make Last Command Clickable**:
+   - Add click handler to last command text
+   - Create modal/popup for details
+   - Style: Normal (green) for success, Red for errors
+
+2. **Command Details Modal**:
+   ```javascript
+   // Show:
+   // - Original text: "turn on bedroom lights"
+   // - Generated JSON: {"device":"lights","action":"on","location":"bedroom"}
+   // - HA Request: POST /api/services/light/turn_on
+   // - HA Response: {success: true, entity_id: "light.bedroom_lights"}
+   // - Error (if any): Connection refused, etc.
+   ```
+- [ ] Add modal HTML structure
+- [ ] Add click handler to last command
+- [ ] Style success/error states
+- [ ] Test with mock data
+
+### Step 4: Integrate HA Executor with Generation (1 hour)
+**File**: `orac/api.py`
+- [ ] Import HAExecutor
+- [ ] After successful generation with home_assistant topic:
+  - Parse generated JSON
+  - Call ha_executor.execute_json_command()
+  - Store result for GUI display
+- [ ] Add result to API response
+- [ ] Handle errors gracefully
+
+### Step 5: Test End-to-End (1 hour)
+1. **Basic Test**:
+   ```bash
+   # Say: "Computer, turn on bedroom lights"
+   # Monitor logs
+   ssh pi "docker logs -f hey-orac"
+   ssh orin3 "docker logs -f orac-stt"
+   ssh orin3 "docker logs -f orac-core"
+   ```
+
+2. **Verify Flow**:
+   - [ ] Wake word detected
+   - [ ] Audio sent with topic=home_assistant
+   - [ ] Transcription received at ORAC Core
+   - [ ] JSON generated correctly
+   - [ ] HA API called
+   - [ ] GUI shows success/failure
+   - [ ] Actual lights respond
+
+### Step 6: Add Docker Environment Variables (30 minutes)
+**File**: `docker-compose.yml`
+```yaml
+services:
+  orac:
+    environment:
+      - HA_URL=${HA_URL:-http://192.168.8.100:8123}
+      - HA_TOKEN=${HA_TOKEN}
+```
+- [ ] Update docker-compose.yml
+- [ ] Create .env file with actual values
+- [ ] Redeploy with environment variables
+
+---
+
+## 📊 MVP Success Criteria
+
+1. **Voice Command Works**: "Computer, turn on bedroom lights" → lights turn on
+2. **GUI Feedback**: Last Command clickable, shows all details
+3. **Error Handling**: HA offline shows red error in GUI
+4. **Performance**: < 5 seconds from wake word to action
+5. **Logging**: All commands logged with timestamps
+
+## 🔄 Next Iteration (Post-MVP)
+
+1. Dynamic grammar from HA entities
+2. Audio feedback via TTS
+3. More complex commands (scenes, automations)
+4. Security hardening
+5. Performance optimization (< 2 seconds target)
 
 ## Sprint 2: Add Topic Support to ORAC Core
 **Goal**: Enable ORAC Core to accept and handle topic-based requests
