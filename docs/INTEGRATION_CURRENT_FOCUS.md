@@ -45,7 +45,7 @@
    ```bash
    # SSH to Orin and set up the token
    ssh orin3
-   cd ~/orac-core
+   cd ~/ORAC
    ./scripts/setup_ha_token.sh
    # Follow the prompts to enter your HA token
    docker-compose restart  # Restart to apply new token

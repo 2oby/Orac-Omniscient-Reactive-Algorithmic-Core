@@ -18,8 +18,8 @@ if [[ ! $(hostname) =~ "orin" ]] && [[ ! $(hostname) =~ "jetson" ]]; then
 fi
 
 # Navigate to ORAC Core directory
-if [ -d "$HOME/orac-core" ]; then
-    cd "$HOME/orac-core"
+if [ -d "$HOME/ORAC" ]; then
+    cd "$HOME/ORAC"
 elif [ -d "/app" ]; then
     cd "/app"
 else
