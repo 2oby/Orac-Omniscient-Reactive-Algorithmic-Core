@@ -23,16 +23,16 @@ else
 fi
 
 # ORAC STT
-echo -n "   ORAC STT (Orin - 192.168.8.191:7272): "
-if curl -s http://192.168.8.191:7272/stt/v1/health > /dev/null 2>&1; then
+echo -n "   ORAC STT (Orin - 192.168.8.192:7272): "
+if curl -s http://192.168.8.192:7272/stt/v1/health > /dev/null 2>&1; then
     echo -e "${GREEN}✓ Online${NC}"
 else
     echo -e "${RED}✗ Offline${NC}"
 fi
 
 # ORAC Core
-echo -n "   ORAC Core (Orin - 192.168.8.191:8000): "
-if curl -s http://192.168.8.191:8000/health > /dev/null 2>&1; then
+echo -n "   ORAC Core (Orin - 192.168.8.192:8000): "
+if curl -s http://192.168.8.192:8000/health > /dev/null 2>&1; then
     echo -e "${GREEN}✓ Online${NC}"
 else
     echo -e "${RED}✗ Offline${NC}"
@@ -55,7 +55,7 @@ curl -s http://192.168.8.99:7171/api/v1/settings 2>/dev/null | \
 echo ""
 # Check ORAC Core topics
 echo "   ORAC Core Available Topics:"
-curl -s http://192.168.8.191:8000/api/v1/topics 2>/dev/null | \
+curl -s http://192.168.8.192:8000/api/v1/topics 2>/dev/null | \
     python3 -c "import sys, json; data=json.load(sys.stdin); 
     topics=data.get('topics', {});
     for topic in topics: print(f'      - {topic}')" || echo "      Failed to fetch topics"
@@ -66,7 +66,7 @@ echo "--------------------------------"
 
 # Test command generation
 echo "   Testing: 'turn on the lounge lamp'"
-response=$(curl -s -X POST http://192.168.8.191:8000/v1/generate \
+response=$(curl -s -X POST http://192.168.8.192:8000/v1/generate \
     -H "Content-Type: application/json" \
     -d '{"prompt": "turn on the lounge lamp", "topic": "home_assistant"}' 2>/dev/null)
 
@@ -82,7 +82,7 @@ fi
 
 echo ""
 echo "   Testing: 'turn off the lounge lamp'"
-response=$(curl -s -X POST http://192.168.8.191:8000/v1/generate \
+response=$(curl -s -X POST http://192.168.8.192:8000/v1/generate \
     -H "Content-Type: application/json" \
     -d '{"prompt": "turn off the lounge lamp", "topic": "home_assistant"}' 2>/dev/null)
 

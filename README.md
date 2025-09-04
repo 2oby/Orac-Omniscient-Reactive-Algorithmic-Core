@@ -132,7 +132,7 @@ When using the `home_assistant` topic, ORAC generates JSON commands that are aut
 
 ```bash
 # Test grammar generation
-curl -X POST http://192.168.8.191:8000/v1/generate \
+curl -X POST http://192.168.8.192:8000/v1/generate \
   -H "Content-Type: application/json" \
   -d '{"prompt": "turn on the lounge lamp", "topic": "home_assistant"}'
 ```
@@ -162,7 +162,7 @@ ORAC uses environment variables for configuration. Each machine (development, Je
 ## Network Configuration
 
 ### Device IP Addresses
-- **ORAC (Jetson Orin)**: `192.168.8.191`
+- **ORAC (Jetson Orin)**: `192.168.8.192`
 - **Home Assistant (Pi)**: `192.168.8.99:8123`
 - **Development Machine**: `192.168.1.13`
 
@@ -188,7 +188,7 @@ ssh orin3 "cd ~/ORAC && docker-compose restart"
 ```
 
 ### Web Interface Access
-- **ORAC Web UI**: http://192.168.8.191:8000
+- **ORAC Web UI**: http://192.168.8.192:8000
 - **Home Assistant**: http://192.168.8.99:8123
 
 ## Disk Space Management

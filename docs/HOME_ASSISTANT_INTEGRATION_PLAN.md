@@ -19,12 +19,12 @@
 
 ### ⏳ Awaiting:
 - Home Assistant API token generation and .env update
-- Deployment to 192.168.8.191:8000
+- Deployment to 192.168.8.192:8000
 
 ## Phase 1: ORAC Core Deployment
 
 ### Requirements:
-- Deploy ORAC Core to target hardware (192.168.8.191:8000 or dedicated server)
+- Deploy ORAC Core to target hardware (192.168.8.192:8000 or dedicated server)
 - Ensure grammar files are in place (`default.gbnf`)
 - Configure Home Assistant connection details
 
@@ -46,13 +46,13 @@ cd /Users/2oby/pCloud Box/Projects/ORAC/Orac-Omniscient-Reactive-Algorithmic-Cor
 3. **Verify deployment**:
 ```bash
 # Health check
-curl http://192.168.8.191:8000/health
+curl http://192.168.8.192:8000/health
 
 # Check topics
-curl http://192.168.8.191:8000/api/v1/topics
+curl http://192.168.8.192:8000/api/v1/topics
 
 # Test lounge lamp command
-curl -X POST http://192.168.8.191:8000/v1/generate \
+curl -X POST http://192.168.8.192:8000/v1/generate \
   -H "Content-Type: application/json" \
   -d '{"prompt": "turn on the lounge lamp", "topic": "home_assistant"}'
 ```
@@ -64,7 +64,7 @@ curl -X POST http://192.168.8.191:8000/v1/generate \
 {
   "models": [{
     "name": "computer_v2",
-    "webhook_url": "http://192.168.8.191:7272/stt/v1/stream",
+    "webhook_url": "http://192.168.8.192:7272/stt/v1/stream",
     "topic": "home_assistant",
     "stt_enabled": true
   }]
@@ -72,7 +72,7 @@ curl -X POST http://192.168.8.191:8000/v1/generate \
 ```
 
 ### ORAC STT Configuration:
-- Core endpoint: `http://192.168.8.191:8000`
+- Core endpoint: `http://192.168.8.192:8000`
 - Auto-forwarding enabled
 - Topic propagation active
 
@@ -90,10 +90,10 @@ curl -X POST http://192.168.8.191:8000/v1/generate \
 curl http://192.168.8.99:7171/api/v1/health
 
 # ORAC STT  
-curl http://192.168.8.191:7272/stt/v1/health
+curl http://192.168.8.192:7272/stt/v1/health
 
 # ORAC Core
-curl http://192.168.8.191:8000/health
+curl http://192.168.8.192:8000/health
 ```
 
 ### 2. End-to-End Voice Test
@@ -190,7 +190,7 @@ docker logs -f orac-core | grep -E 'generate|topic|home_assistant'"
 Before proceeding with integration testing, please confirm:
 
 1. **ORAC Core Location**: Where should ORAC Core be deployed?
-   - Same Orin as STT (192.168.8.191)?
+   - Same Orin as STT (192.168.8.192)?
    - Separate server?
    - Container or bare metal?
 

@@ -1,8 +1,10 @@
 # ORAC Integration - Current Focus
 
-## 🔄 CURRENT STATUS: ORAC Core Ready for Deployment - HA Integration Configured
+## 🔄 CURRENT STATUS: All Components Connected - Need Home Assistant Topic Configuration
 
-**Last Updated**: September 4, 2025 - 14:30
+**Last Updated**: September 4, 2025 - 15:15
+
+### ⚠️ IP Address Change: Orin is now on WiFi at 192.168.8.192 (was 191)
 
 ### ✅ Completed Components:
 
@@ -16,7 +18,7 @@
 - **Branch**: master (topic system merged)
 - **Status**: ✅ Production Ready
 
-#### **ORAC STT (NVIDIA Orin - 192.168.8.191:7272)**  
+#### **ORAC STT (NVIDIA Orin - 192.168.8.192:7272)**  
 - Speech-to-text transcription working
 - Topic propagation to ORAC Core implemented
 - Heartbeat monitoring active
@@ -25,36 +27,45 @@
 - **Branch**: master (topic system merged)
 - **Status**: ✅ Production Ready
 
-#### **ORAC Core (NVIDIA Orin - 192.168.8.191:8000)**
+#### **ORAC Core (NVIDIA Orin - 192.168.8.192:8000)**
 - Topic system fully implemented
 - Grammar-based generation ready
 - Home Assistant integration with HAExecutor class
 - Entity mappings configured (including lounge lamp)
+- HA Token configured and working
 - **Branch**: master
-- **Status**: 🔧 Ready for Deployment
+- **Status**: ✅ Deployed and Running
+
+### 🚧 Current Issue: Missing home_assistant Topic
+
+The infrastructure is ready but the `home_assistant` topic doesn't exist. This topic is needed to:
+- Route commands to grammar-constrained generation
+- Use deterministic temperature (0.1)
+- Execute commands via HAExecutor
+- Map to Home Assistant entities
+
+**Current topics in system:**
+- `general` - General AI conversation
+- `computa` - Computer-related commands (currently active from Hey ORAC)
 
 ### 🎯 Immediate Next Steps:
 
-1. **Deploy ORAC Core to Orin**
-   ```bash
-   cd /Users/2oby/pCloud Box/Projects/ORAC/Orac-Omniscient-Reactive-Algorithmic-Core
-   ./scripts/deploy_and_test.sh "Deploy HA integration" master
-   ```
+1. **Configure home_assistant Topic Pipeline**
+   - Create topic in ORAC Core
+   - Configure grammar file (default.gbnf)
+   - Set up API mappers
+   - Configure Hey ORAC to use this topic
 
-2. **Configure Home Assistant Token on Orin**
-   ```bash
-   # SSH to Orin and set up the token
-   ssh orin3
-   cd ~/ORAC
-   ./scripts/setup_ha_token.sh
-   # Follow the prompts to enter your HA token
-   docker-compose restart  # Restart to apply new token
-   ```
+2. **Test End-to-End Flow**
+   - Voice: "Computer, turn on the lounge lamp"
+   - Verify: Wake → STT → Core → HA → Device
 
-3. **Test Lounge Lamp Control**
-   - Voice command: "Computer, turn on the lounge lamp"
-   - Voice command: "Computer, turn off the lounge lamp"
-   - Monitor logs to verify complete flow
+### 📊 System Connectivity Status:
+- ✅ Hey ORAC (192.168.8.99:7171) - Connected
+- ✅ ORAC STT (192.168.8.192:7272) - Connected  
+- ✅ ORAC Core (192.168.8.192:8000) - Connected
+- ✅ Home Assistant (192.168.8.99:8123) - Connected
+- ✅ HA Token configured in ORAC Core
 
 ### 📋 Recent Changes (Sept 4, 2025):
 
@@ -86,10 +97,10 @@ Wake Word    Transcription      AI Processing  Device Control
 curl -s http://192.168.8.99:7171/api/v1/settings | jq '.models'
 
 # Check ORAC STT health
-curl -s http://192.168.8.191:7272/stt/v1/health
+curl -s http://192.168.8.192:7272/stt/v1/health
 
 # Test ORAC Core (when deployed)
-curl -X POST http://192.168.8.191:8000/v1/generate \
+curl -X POST http://192.168.8.192:8000/v1/generate \
   -H "Content-Type: application/json" \
   -d '{"prompt": "turn on bedroom lights", "topic": "home_assistant"}'
 ```
@@ -100,7 +111,7 @@ curl -X POST http://192.168.8.191:8000/v1/generate \
 ```json
 {
   "name": "computer_v2",
-  "webhook_url": "http://192.168.8.191:7272/stt/v1/stream",
+  "webhook_url": "http://192.168.8.192:7272/stt/v1/stream",
   "topic": "home_assistant",
   "stt_enabled": true
 }
