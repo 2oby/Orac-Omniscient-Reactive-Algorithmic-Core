@@ -75,9 +75,13 @@ class HAExecutor:
                     for entity_id, friendly_name in raw_mappings.items():
                         if isinstance(entity_id, str) and isinstance(friendly_name, str):
                             # Parse entity domain and location from friendly name
-                            if entity_id.startswith("light."):
+                            if entity_id.startswith("light.") or entity_id.startswith("switch."):
                                 # Extract location from friendly name (e.g., "bedroom lights" -> "bedroom")
-                                location = friendly_name.replace(" lights", "").replace(" light", "")
+                                # Handle both lights and switches as lights
+                                if "lamp" in friendly_name:
+                                    location = friendly_name.replace(" lamp", "")
+                                else:
+                                    location = friendly_name.replace(" lights", "").replace(" light", "")
                                 mappings["lights"][location] = entity_id
                             elif entity_id.startswith("climate."):
                                 location = friendly_name.replace(" heating", "").replace(" thermostat", "")
@@ -98,7 +102,8 @@ class HAExecutor:
                         "bathroom": "light.bathroom_lights",
                         "kitchen": "light.kitchen_lights",
                         "hall": "light.hall_lights",
-                        "living room": "light.lounge_lights"
+                        "living room": "light.lounge_lights",
+                        "lounge": "switch.lounge_lamp_plug"
                     },
                     "heating": {
                         "bedroom": "climate.bedroom",
@@ -133,7 +138,8 @@ class HAExecutor:
                         "bathroom": "light.bathroom_lights",
                         "kitchen": "light.kitchen_lights",
                         "hall": "light.hall_lights",
-                        "living room": "light.lounge_lights"
+                        "living room": "light.lounge_lights",
+                        "lounge": "switch.lounge_lamp_plug"
                     },
                     "heating": {},
                     "blinds": {},
@@ -147,7 +153,8 @@ class HAExecutor:
                     "bathroom": "light.bathroom_lights",
                     "kitchen": "light.kitchen_lights",
                     "hall": "light.hall_lights",
-                    "living room": "light.lounge_lights"
+                    "living room": "light.lounge_lights",
+                    "lounge": "switch.lounge_lamp_plug"
                 },
                 "heating": {},
                 "blinds": {},
@@ -211,6 +218,10 @@ class HAExecutor:
             
             domain, service = self.service_mappings[device][action]
             
+            # Override domain if entity is actually a switch
+            # This will be determined when we get the entity ID
+            actual_domain = domain
+            
             # Get entity ID
             if device not in self.entity_mappings:
                 result["error"] = f"No entity mappings for device type: {device}"
@@ -226,6 +237,18 @@ class HAExecutor:
             else:
                 entity_ids = [self.entity_mappings[device][location]]
             
+            # Check if any entity is actually a switch and adjust domain/service
+            for entity_id in entity_ids:
+                if entity_id.startswith("switch."):
+                    # For switches, use switch domain with appropriate service
+                    if service == "turn_on":
+                        actual_domain = "switch"
+                    elif service == "turn_off":
+                        actual_domain = "switch"
+                    elif service == "toggle":
+                        actual_domain = "switch"
+                    break
+            
             # Prepare service data
             service_data = {"entity_id": entity_ids}
             
@@ -238,8 +261,8 @@ class HAExecutor:
             if temperature is not None and device == "heating":
                 service_data["temperature"] = temperature
             
-            # Prepare HA request
-            ha_endpoint = f"{self.ha_url}/api/services/{domain}/{service}"
+            # Prepare HA request (use actual_domain which may have been adjusted for switches)
+            ha_endpoint = f"{self.ha_url}/api/services/{actual_domain}/{service}"
             result["ha_request"] = {
                 "url": ha_endpoint,
                 "method": "POST",

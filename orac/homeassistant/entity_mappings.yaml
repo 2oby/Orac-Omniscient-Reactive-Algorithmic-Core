@@ -9,6 +9,9 @@ light.hall_lights: "hall lights"
 light.kitchen_lights: "kitchen lights"
 light.lounge_lights: "lounge lights"
 
+# Individual Lights/Plugs
+switch.lounge_lamp_plug: "lounge lamp"
+
 # Scene Buttons
 input_button.bathroom_scene_good_night: "bathroom good night"
 input_button.bedroom_scene_good_night: "bedroom good night" 
