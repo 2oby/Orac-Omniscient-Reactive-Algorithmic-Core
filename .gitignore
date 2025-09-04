@@ -6,7 +6,11 @@ logs/
 
 # Environment files
 .env
-.env.*
+.env.local
+.env.production
+.env.development
+# But keep the example file
+!.env.example
 
 # macOS system files
 .DS_Store

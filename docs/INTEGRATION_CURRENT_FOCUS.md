@@ -35,15 +35,20 @@
 
 ### 🎯 Immediate Next Steps:
 
-1. **Configure Home Assistant Token**
-   - Generate long-lived access token from HA (http://192.168.8.99:8123)
-   - Update .env file at: `/Users/2oby/pCloud Box/Projects/ORAC/Orac-Omniscient-Reactive-Algorithmic-Core/.env`
-   - Replace `YOUR_HA_TOKEN_HERE` with actual token
-
-2. **Deploy ORAC Core**
+1. **Deploy ORAC Core to Orin**
    ```bash
    cd /Users/2oby/pCloud Box/Projects/ORAC/Orac-Omniscient-Reactive-Algorithmic-Core
    ./scripts/deploy_and_test.sh "Deploy HA integration" master
+   ```
+
+2. **Configure Home Assistant Token on Orin**
+   ```bash
+   # SSH to Orin and set up the token
+   ssh orin3
+   cd ~/orac-core
+   ./scripts/setup_ha_token.sh
+   # Follow the prompts to enter your HA token
+   docker-compose restart  # Restart to apply new token
    ```
 
 3. **Test Lounge Lamp Control**
