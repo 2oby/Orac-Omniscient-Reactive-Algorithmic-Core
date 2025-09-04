@@ -10,6 +10,9 @@ ORAC is a lightweight, Jetson-optimized wrapper around llama.cpp that provides e
 - Comprehensive logging and monitoring
 - REST API for model management and text generation
 - Command-line interface for easy interaction
+- Home Assistant integration with voice command execution
+- Topic-based routing for specialized command processing
+- Grammar-constrained generation for deterministic outputs
 
 ## Quick Start
 
@@ -88,6 +91,50 @@ pytest
 3. Run linting:
 ```bash
 flake8 orac tests
+```
+
+## Home Assistant Integration
+
+ORAC Core includes built-in Home Assistant integration for executing voice commands:
+
+### Configuration
+
+1. **Generate Home Assistant Token**:
+   - Go to your Home Assistant instance (e.g., http://192.168.8.99:8123)
+   - Click your profile (bottom left)
+   - Scroll to "Long-Lived Access Tokens"
+   - Click "Create Token" and name it "ORAC Core"
+   - Copy the generated token
+
+2. **Configure Environment**:
+   Create or update `.env` file:
+   ```bash
+   HA_URL=http://192.168.8.99:8123
+   HA_TOKEN=your_token_here
+   ```
+
+3. **Entity Mappings**:
+   Edit `orac/homeassistant/entity_mappings.yaml` to map your HA entities:
+   ```yaml
+   light.bedroom_lights: "bedroom lights"
+   switch.lounge_lamp_plug: "lounge lamp"
+   ```
+
+### Voice Commands
+
+When using the `home_assistant` topic, ORAC generates JSON commands that are automatically executed:
+
+- "Turn on the lounge lamp" → `{"device":"lights","action":"on","location":"lounge"}`
+- "Turn off bedroom lights" → `{"device":"lights","action":"off","location":"bedroom"}`
+- "Set living room lights to 50%" → `{"device":"lights","action":"set 50%","location":"living room"}`
+
+### Testing Integration
+
+```bash
+# Test grammar generation
+curl -X POST http://192.168.8.191:8000/v1/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "turn on the lounge lamp", "topic": "home_assistant"}'
 ```
 
 ## Environment Setup
