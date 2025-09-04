@@ -315,7 +315,7 @@
     <!-- Status Footer -->
     <div class="status-footer">
         <div class="status-item">
-            <a href="http://192.168.8.191:7272" target="_blank">
+            <a href="http://192.168.8.192:7272" target="_blank">
                 <span class="status-indicator online" id="oracSttStatus"></span>
                 <span>ORAC STT</span>
             </a>
@@ -339,7 +339,7 @@
         async function checkServiceHealth() {
             // Check ORAC STT
             try {
-                const sttResponse = await fetch('http://192.168.8.191:7272/stt/v1/health', {
+                const sttResponse = await fetch('http://192.168.8.192:7272/stt/v1/health', {
                     method: 'GET',
                     mode: 'cors',
                     signal: AbortSignal.timeout(5000)
