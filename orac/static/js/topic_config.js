@@ -5,9 +5,12 @@ let topicData = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async function() {
+    console.log('DOM Content Loaded - Initializing topic config page');
+    
     // Get topic ID from URL
     const pathParts = window.location.pathname.split('/');
     topicId = pathParts[pathParts.length - 1];
+    console.log('Topic ID:', topicId);
     
     if (!topicId) {
         showStatus('Invalid topic ID', 'error');
@@ -17,15 +20,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.getElementById('topicId').textContent = topicId;
     
     // Load available models, dispatchers and grammars
+    console.log('Loading models...');
     await loadModels();
+    console.log('Loading dispatchers...');
     await loadDispatchers();
+    console.log('Loading grammars...');
     await loadGrammars();
     
     // Load topic data
+    console.log('Loading topic data...');
     await loadTopic();
     
     // Set up event listeners
     setupEventListeners();
+    console.log('Initialization complete');
 });
 
 // Load topic data
@@ -76,10 +84,20 @@ async function loadDispatchers() {
         console.log('Loading dispatchers from /v1/dispatchers...');
         const response = await fetch('/v1/dispatchers');
         console.log('Dispatcher response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
         console.log('Dispatcher data:', data);
         
         const select = document.getElementById('dispatcher');
+        if (!select) {
+            console.error('Dispatcher select element not found!');
+            return;
+        }
+        
         select.innerHTML = '<option value="">None (Display Only)</option>';
         
         if (data.dispatchers && data.dispatchers.length > 0) {
@@ -89,14 +107,20 @@ async function loadDispatchers() {
                 option.value = dispatcher.id;
                 option.textContent = `${dispatcher.name} - ${dispatcher.description}`;
                 select.appendChild(option);
-                console.log('Added dispatcher:', dispatcher.id);
+                console.log('Added dispatcher:', dispatcher.id, 'to dropdown');
             });
+            console.log('Dispatcher dropdown final HTML:', select.innerHTML);
         } else {
             console.log('No dispatchers found in response');
         }
     } catch (error) {
         console.error('Error loading dispatchers:', error);
         console.error('Stack trace:', error.stack);
+        // Show error in UI
+        const select = document.getElementById('dispatcher');
+        if (select) {
+            select.innerHTML = '<option value="">Error loading dispatchers</option>';
+        }
     }
 }
 
