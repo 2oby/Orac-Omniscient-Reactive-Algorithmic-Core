@@ -10,7 +10,7 @@ COMMIT_MSG=${1:-"Update ORAC MVP"}
 DEPLOY_BRANCH=${2:-"master"}   # Default to 'master' branch if not specified
 SERVICE_NAME=${3:-"orac"}   # Docker Compose service to exec into
 CLEANUP_LEVEL=${4:-"light"}   # light, normal, or aggressive
-REMOTE_ALIAS="orin3"
+REMOTE_ALIAS="orin4"
 SSH_ORIGIN="https://github.com/2oby/Orac-Omniscient-Reactive-Algorithmic-Core.git"
 
 # Terminal colors
