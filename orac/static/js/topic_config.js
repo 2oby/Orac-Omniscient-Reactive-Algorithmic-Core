@@ -221,12 +221,19 @@ function updateSliderValue(sliderId) {
 async function saveTopic() {
     console.log('saveTopic() called');
     
+    // Debug dispatcher value
+    const dispatcherElement = document.getElementById('dispatcher');
+    console.log('Dispatcher element:', dispatcherElement);
+    console.log('Dispatcher value:', dispatcherElement.value);
+    console.log('Dispatcher selected index:', dispatcherElement.selectedIndex);
+    console.log('Dispatcher selected option:', dispatcherElement.options[dispatcherElement.selectedIndex]);
+    
     const formData = {
         name: document.getElementById('name').value,
         description: document.getElementById('description').value,
         enabled: document.getElementById('enabled').checked,
         model: document.getElementById('model').value,
-        dispatcher: document.getElementById('dispatcher').value || null,
+        dispatcher: document.getElementById('dispatcher').value === '' ? null : document.getElementById('dispatcher').value,
         settings: {
             system_prompt: document.getElementById('systemPrompt').value,
             temperature: parseFloat(document.getElementById('temperature').value),
