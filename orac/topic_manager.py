@@ -20,9 +20,12 @@ class TopicManager:
             data_dir: Directory to store topic configurations
         """
         if data_dir is None:
-            # Get the data directory relative to this file
-            base_dir = Path(__file__).parent.parent
-            data_dir = base_dir / "data"
+            # Check if DATA_DIR environment variable is set (from docker-compose)
+            data_dir = os.getenv('DATA_DIR')
+            if not data_dir:
+                # Fall back to default relative to this file
+                base_dir = Path(__file__).parent.parent
+                data_dir = base_dir / "data"
         
         self.data_dir = Path(data_dir)
         self.topics_file = self.data_dir / "topics.yaml"
@@ -30,6 +33,9 @@ class TopicManager:
         
         # Ensure data directory exists
         self.data_dir.mkdir(exist_ok=True)
+        
+        logger.info(f"TopicManager using data directory: {self.data_dir}")
+        logger.info(f"Topics file path: {self.topics_file}")
         
         # Load existing topics
         self.load_topics()
@@ -39,6 +45,8 @@ class TopicManager:
     
     def load_topics(self) -> None:
         """Load topics from YAML file"""
+        logger.info(f"Attempting to load topics from {self.topics_file}")
+        
         if not self.topics_file.exists():
             logger.info(f"Topics file does not exist at {self.topics_file}, creating empty topics")
             self.topics = {}
@@ -48,6 +56,8 @@ class TopicManager:
             with open(self.topics_file, 'r') as f:
                 data = yaml.safe_load(f) or {}
                 topics_data = data.get('topics', {})
+                
+                logger.info(f"Found {len(topics_data)} topics in file")
                 
                 self.topics = {}
                 for topic_id, topic_data in topics_data.items():
@@ -65,7 +75,12 @@ class TopicManager:
                             topic_data['grammar'] = {}
                         
                         self.topics[topic_id] = Topic(**topic_data)
-                        logger.info(f"Loaded topic: {topic_id}")
+                        # Log more details about loaded topic
+                        if topic_id == 'general' and 'settings' in topic_data:
+                            system_prompt = topic_data.get('settings', {}).get('system_prompt', 'N/A')
+                            logger.info(f"Loaded topic: {topic_id} with system prompt: {system_prompt[:50]}...")
+                        else:
+                            logger.info(f"Loaded topic: {topic_id}")
                     except Exception as e:
                         logger.error(f"Failed to load topic {topic_id}: {e}")
         except Exception as e:
@@ -99,6 +114,8 @@ class TopicManager:
         """Ensure the default 'general' topic exists"""
         if 'general' not in self.topics:
             logger.info("Creating default 'general' topic")
+            # Only create a new general topic if topics.yaml doesn't exist
+            # This prevents overwriting user customizations after container restart
             self.topics['general'] = Topic(
                 name="General",
                 description="General purpose AI assistant",
@@ -117,6 +134,8 @@ class TopicManager:
                 last_used=None
             )
             self.save_topics()
+        else:
+            logger.info(f"General topic already exists with system prompt: {self.topics['general'].settings.system_prompt[:50]}...")
     
     def get_topic(self, topic_id: str) -> Optional[Topic]:
         """Get a topic by ID
