@@ -41,6 +41,9 @@ from orac.api_topics import router as topics_router
 from orac.homeassistant.ha_executor import HAExecutor
 from orac.api_heartbeat import router as heartbeat_router
 
+# Add Dispatcher imports
+from orac.dispatchers import dispatcher_registry
+
 # Configure logger
 logger = get_logger(__name__)
 
@@ -80,6 +83,20 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # Include routers
 app.include_router(topics_router)
 app.include_router(heartbeat_router)
+
+# Dispatcher endpoints
+@app.get("/v1/dispatchers", tags=["Dispatchers"])
+async def list_dispatchers() -> Dict[str, Any]:
+    """List all available dispatchers."""
+    try:
+        dispatchers = dispatcher_registry.list_available()
+        return {
+            "status": "success",
+            "dispatchers": dispatchers
+        }
+    except Exception as e:
+        logger.error(f"Error listing dispatchers: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Set up templates
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -396,16 +413,44 @@ async def _generate_text_impl(request: GenerationRequest, topic_id: str = "gener
                     if not response_text.endswith('}'):
                         response_text += '}'
         
-        # If this is a home_assistant topic and we got JSON, execute the command
+        # Check if topic has a configured dispatcher
+        dispatcher_result = None
+        if topic.dispatcher:
+            try:
+                # Get the dispatcher from the registry
+                dispatcher = dispatcher_registry.create(topic.dispatcher)
+                if dispatcher:
+                    logger.info(f"Using dispatcher '{topic.dispatcher}' for topic '{topic_id}'")
+                    
+                    # Execute through dispatcher
+                    dispatcher_result = dispatcher.execute(response_text, {'topic': topic.dict()})
+                    
+                    # Store dispatcher execution details
+                    last_command_storage["dispatcher"] = topic.dispatcher
+                    last_command_storage["dispatcher_result"] = dispatcher_result
+                    last_command_storage["success"] = dispatcher_result.get("success", False)
+                    
+                    if dispatcher_result.get("error"):
+                        logger.error(f"Dispatcher execution failed: {dispatcher_result['error']}")
+                    else:
+                        logger.info(f"Dispatcher execution successful")
+                else:
+                    logger.warning(f"Dispatcher '{topic.dispatcher}' not found in registry")
+            except Exception as e:
+                logger.error(f"Failed to execute through dispatcher: {e}")
+                last_command_storage["error"] = str(e)
+                last_command_storage["success"] = False
+        
+        # Legacy: If this is a home_assistant topic and no dispatcher, use old HA executor
         ha_result = None
-        if topic_id == "home_assistant" and response_text:
+        if topic_id == "home_assistant" and response_text and not topic.dispatcher:
             try:
                 import json
                 parsed_json = json.loads(response_text)
                 last_command_storage["generated_json"] = parsed_json
                 
                 # Execute the command via HA executor
-                logger.info(f"Executing HA command: {parsed_json}")
+                logger.info(f"Executing HA command (legacy): {parsed_json}")
                 ha_result = await ha_executor.execute_json_command(parsed_json)
                 
                 # Store HA execution details

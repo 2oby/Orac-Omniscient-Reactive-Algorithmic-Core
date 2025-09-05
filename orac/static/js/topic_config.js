@@ -16,8 +16,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     document.getElementById('topicId').textContent = topicId;
     
-    // Load available models and grammars
+    // Load available models, dispatchers and grammars
     await loadModels();
+    await loadDispatchers();
     await loadGrammars();
     
     // Load topic data
@@ -69,6 +70,28 @@ async function loadModels() {
     }
 }
 
+// Load available dispatchers
+async function loadDispatchers() {
+    try {
+        const response = await fetch('/v1/dispatchers');
+        const data = await response.json();
+        
+        const select = document.getElementById('dispatcher');
+        select.innerHTML = '<option value="">None (Display Only)</option>';
+        
+        if (data.dispatchers && data.dispatchers.length > 0) {
+            data.dispatchers.forEach(dispatcher => {
+                const option = document.createElement('option');
+                option.value = dispatcher.id;
+                option.textContent = `${dispatcher.name} - ${dispatcher.description}`;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading dispatchers:', error);
+    }
+}
+
 // Load available grammars
 async function loadGrammars() {
     try {
@@ -98,6 +121,9 @@ function populateForm(data) {
     
     // Model
     document.getElementById('model').value = data.model || '';
+    
+    // Dispatcher
+    document.getElementById('dispatcher').value = data.dispatcher || '';
     
     // Generation settings
     const settings = data.settings || {};
@@ -166,6 +192,7 @@ async function saveTopic() {
         description: document.getElementById('description').value,
         enabled: document.getElementById('enabled').checked,
         model: document.getElementById('model').value,
+        dispatcher: document.getElementById('dispatcher').value || null,
         settings: {
             system_prompt: document.getElementById('systemPrompt').value,
             temperature: parseFloat(document.getElementById('temperature').value),

@@ -29,6 +29,9 @@ class Topic(BaseModel):
     settings: TopicSettings = Field(default_factory=TopicSettings, description="Generation settings")
     grammar: GrammarConfig = Field(default_factory=GrammarConfig, description="Grammar configuration")
     
+    # Dispatcher configuration
+    dispatcher: Optional[str] = Field(default=None, description="Dispatcher to use for executing LLM output")
+    
     # Tracking fields
     auto_discovered: bool = Field(default=False, description="Whether topic was auto-created")
     first_seen: Optional[datetime] = Field(default=None, description="When topic was first created/discovered")
