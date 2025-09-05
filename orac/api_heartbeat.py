@@ -66,6 +66,10 @@ async def receive_heartbeat(request: HeartbeatRequest):
                 logger.info(f"Auto-discovering new topic: {topic_id}")
                 topic = topic_manager.auto_discover_topic(topic_id)
                 topics_created += 1
+            else:
+                # Reload topics to get latest saved state (including dispatcher)
+                topic_manager.load_topics()
+                topic = topic_manager.get_topic(topic_id)
             
             # Update heartbeat information
             topic.last_heartbeat = datetime.now()
