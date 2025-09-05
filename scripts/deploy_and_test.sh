@@ -97,8 +97,8 @@ ssh "$REMOTE_ALIAS" "\
     # Force reset to remote branch, discarding any local changes
     echo '${BLUE}📝 Resetting to remote state...${NC}'; \
     git reset --hard origin/$DEPLOY_BRANCH; \
-    # Clean untracked files but exclude logs and cache directories
-    git clean -fd --exclude=logs/ --exclude=cache/; \
+    # Clean untracked files but exclude logs, cache, and data directories
+    git clean -fd --exclude=logs/ --exclude=cache/ --exclude=data/; \
     
     # Download Git LFS files (llama.cpp binaries) - only if needed
     echo '${BLUE}📥 Checking Git LFS files...${NC}'; \

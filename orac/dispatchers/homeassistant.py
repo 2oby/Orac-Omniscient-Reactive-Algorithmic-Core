@@ -40,8 +40,8 @@ class HomeAssistantDispatcher(BaseDispatcher):
         if not self.ha_token:
             self.ha_token = os.getenv('HA_TOKEN', '')
         
-        # MVP: Hardcoded entity for lounge lamp
-        self.target_entity = 'light.lounge_lamp'
+        # MVP: Hardcoded entity for Lounge Lamp Plug
+        self.target_entity = 'switch.tretakt_smart_plug'
     
     def execute(self, llm_output: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -72,8 +72,8 @@ class HomeAssistantDispatcher(BaseDispatcher):
                     'error': 'Could not determine action from LLM output (looking for on/off keywords)'
                 }
             
-            # Call Home Assistant API
-            result = self._call_ha_service('light', action, self.target_entity)
+            # Call Home Assistant API (switch domain for smart plug)
+            result = self._call_ha_service('switch', action, self.target_entity)
             
             return {
                 'success': True,
@@ -127,4 +127,4 @@ class HomeAssistantDispatcher(BaseDispatcher):
     @property
     def description(self) -> str:
         """Return a brief description of what this dispatcher does."""
-        return "Controls lounge lamp via Home Assistant (on/off only)"
+        return "Controls Lounge Lamp Plug via Home Assistant (on/off only)"
