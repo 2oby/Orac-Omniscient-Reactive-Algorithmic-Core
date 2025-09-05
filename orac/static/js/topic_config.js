@@ -219,6 +219,8 @@ function updateSliderValue(sliderId) {
 
 // Save topic configuration
 async function saveTopic() {
+    console.log('saveTopic() called');
+    
     const formData = {
         name: document.getElementById('name').value,
         description: document.getElementById('description').value,
@@ -240,7 +242,11 @@ async function saveTopic() {
         }
     };
     
+    console.log('Form data to save:', JSON.stringify(formData, null, 2));
+    console.log('Dispatcher field value:', formData.dispatcher);
+    
     try {
+        console.log(`Making PUT request to /api/topics/${topicId}`);
         const response = await fetch(`/api/topics/${topicId}`, {
             method: 'PUT',
             headers: {
@@ -249,16 +255,20 @@ async function saveTopic() {
             body: JSON.stringify(formData)
         });
         
+        console.log('Response status:', response.status);
+        
         if (response.ok) {
             showStatus('Topic saved successfully!', 'success');
             // Reload topic data
             await loadTopic();
         } else {
             const error = await response.json();
+            console.error('Server error response:', error);
             showStatus(`Failed to save: ${error.detail}`, 'error');
         }
     } catch (error) {
         console.error('Error saving topic:', error);
+        console.error('Error stack:', error.stack);
         showStatus('Failed to save topic', 'error');
     }
 }
