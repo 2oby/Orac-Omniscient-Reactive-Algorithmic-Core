@@ -73,22 +73,30 @@ async function loadModels() {
 // Load available dispatchers
 async function loadDispatchers() {
     try {
+        console.log('Loading dispatchers from /v1/dispatchers...');
         const response = await fetch('/v1/dispatchers');
+        console.log('Dispatcher response status:', response.status);
         const data = await response.json();
+        console.log('Dispatcher data:', data);
         
         const select = document.getElementById('dispatcher');
         select.innerHTML = '<option value="">None (Display Only)</option>';
         
         if (data.dispatchers && data.dispatchers.length > 0) {
+            console.log('Adding', data.dispatchers.length, 'dispatchers to dropdown');
             data.dispatchers.forEach(dispatcher => {
                 const option = document.createElement('option');
                 option.value = dispatcher.id;
                 option.textContent = `${dispatcher.name} - ${dispatcher.description}`;
                 select.appendChild(option);
+                console.log('Added dispatcher:', dispatcher.id);
             });
+        } else {
+            console.log('No dispatchers found in response');
         }
     } catch (error) {
         console.error('Error loading dispatchers:', error);
+        console.error('Stack trace:', error.stack);
     }
 }
 
