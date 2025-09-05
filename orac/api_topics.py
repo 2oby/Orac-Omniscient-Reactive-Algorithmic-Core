@@ -175,6 +175,7 @@ async def update_topic(topic_id: str, request: TopicUpdateRequest):
         
         # Update the topic
         topic_data = request.dict()
+        logger.info(f"Updating topic {topic_id} with data: {topic_data}")
         topic = topic_manager.update_topic(topic_id, topic_data)
         
         topic_dict = topic.dict()
