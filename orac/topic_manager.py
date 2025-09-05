@@ -93,6 +93,9 @@ class TopicManager:
             topics_data = {}
             for topic_id, topic in self.topics.items():
                 topic_dict = topic.dict()
+                # Log dispatcher field for each topic being saved
+                logger.info(f"Saving topic {topic_id} - dispatcher in dict: {topic_dict.get('dispatcher', 'NOT PRESENT')}")
+                
                 # Convert datetime objects to ISO format strings
                 if topic_dict.get('first_seen'):
                     topic_dict['first_seen'] = topic_dict['first_seen'].isoformat()
@@ -101,6 +104,9 @@ class TopicManager:
                 topics_data[topic_id] = topic_dict
             
             data = {'topics': topics_data}
+            
+            # Log the complete data structure being saved
+            logger.info(f"Complete data being saved to YAML: {data}")
             
             with open(self.topics_file, 'w') as f:
                 yaml.dump(data, f, default_flow_style=False, sort_keys=False)
@@ -192,13 +198,29 @@ class TopicManager:
         if topic_id not in self.topics:
             raise ValueError(f"Topic '{topic_id}' does not exist")
         
+        # Log incoming data
+        logger.info(f"update_topic received data for {topic_id}: {topic_data}")
+        logger.info(f"Dispatcher field in topic_data: {topic_data.get('dispatcher', 'NOT PRESENT')}")
+        
         # Preserve metadata fields
         existing_topic = self.topics[topic_id]
         topic_data['auto_discovered'] = existing_topic.auto_discovered
         topic_data['first_seen'] = existing_topic.first_seen
         
+        # Log data before creating Topic instance
+        logger.info(f"Creating Topic instance with data: {topic_data}")
+        
         # Update the topic
-        self.topics[topic_id] = Topic(**topic_data)
+        new_topic = Topic(**topic_data)
+        
+        # Log the created topic's dispatcher
+        logger.info(f"Created Topic instance - dispatcher field: {new_topic.dispatcher}")
+        
+        self.topics[topic_id] = new_topic
+        
+        # Log what we're about to save
+        logger.info(f"Topic in memory before save - dispatcher: {self.topics[topic_id].dispatcher}")
+        
         self.save_topics()
         
         logger.info(f"Updated topic: {topic_id}")

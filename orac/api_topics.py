@@ -37,7 +37,7 @@ class TopicUpdateRequest(BaseModel):
     model: str
     settings: Dict[str, Any]
     grammar: Dict[str, Any]
-    dispatcher: str = None
+    dispatcher: str = None  # Optional field
     enabled: bool
 
 
