@@ -26,6 +26,7 @@ class TopicCreateRequest(BaseModel):
     model: str
     settings: Dict[str, Any] = {}
     grammar: Dict[str, Any] = {}
+    dispatcher: str = None
     enabled: bool = True
 
 
@@ -36,6 +37,7 @@ class TopicUpdateRequest(BaseModel):
     model: str
     settings: Dict[str, Any]
     grammar: Dict[str, Any]
+    dispatcher: str = None
     enabled: bool
 
 
@@ -48,6 +50,7 @@ class TopicResponse(BaseModel):
     model: str
     settings: Dict[str, Any]
     grammar: Dict[str, Any]
+    dispatcher: str = None
     auto_discovered: bool
     first_seen: str = None
     last_used: str = None
