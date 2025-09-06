@@ -6,11 +6,13 @@
 - **Jetson Orin (orin4)**: Main deployment target running ORAC Core in Docker
   - Access: `ssh orin4` (configured in local SSH config)
   - Docker deployment with persistent volumes for data/configs
-  - Running at http://192.168.8.191:8000
+  - Running at http://192.168.8.192:8000
+  - Also running ORAC STT on port 7272
 
-- **Raspberry Pi**: Running ORAC STT (Speech-to-Text) service
-  - Sends heartbeat updates to ORAC Core every 20 seconds
-  - Updates topic status and wake word triggers
+- **Raspberry Pi (pi)**: Running Hey ORAC wake word detection
+  - Access: `ssh pi`
+  - Running Home Assistant on port 8123
+  - Hey ORAC on port 7171
 
 - **Deployment**: `./scripts/deploy_and_test.sh` script handles:
   - Git push to GitHub
@@ -77,35 +79,55 @@ You are a smart home assistant. Convert natural language commands into JSON form
 - **FIXED**: Implemented singleton pattern for TopicManager to ensure consistent state across all modules
 - Configuration now persists correctly through restarts and heartbeats
 
-### 2. Home Assistant Command Execution (🔴 NOT WORKING)
-- Commands are parsed correctly but lights don't actually turn off
-- The dispatcher is set to "homeassistant" but the command isn't reaching Home Assistant
-- Need to verify:
-  - Home Assistant connection (HA_URL, HA_TOKEN environment variables)
-  - Entity ID mapping (switch.tretakt_smart_plug for Lounge Lamp Plug)
-  - Dispatcher execution pipeline
+### 2. Home Assistant Command Execution (✅ FIXED 2025-09-06)
+- **Problem**: Commands were parsed correctly but lights weren't responding
+- **Root Causes**: 
+  1. Dispatcher was using wrong environment variable (`HA_HOST` instead of `HA_URL`)
+  2. Hardcoded wrong entity ID (`switch.lounge_lamp_plug` instead of `switch.tretakt_smart_plug`)
+  3. Dispatcher was doing keyword parsing instead of JSON parsing
+- **Solution**: Updated HomeAssistantDispatcher to:
+  - Parse JSON output from LLM properly
+  - Use correct environment variables (HA_URL, HA_TOKEN)
+  - Map entities correctly (living room → switch.tretakt_smart_plug)
+- **Result**: Voice commands now successfully control Home Assistant devices
 
 ## Next Steps
 
-### Immediate Priority
-1. **Fix Configuration Persistence**
-   - Check `/orac/topic_manager.py:119` - `_ensure_default_topic()` method
-   - Verify it's not overwriting existing topics.yaml on container restart
-   - Add logging to track when/why topics.yaml is being overwritten
+### Tomorrow's Focus - Deep Dive & UX Improvements
 
-2. **Debug Home Assistant Integration**
-   - Add logging to track dispatcher execution in `/orac/dispatchers/homeassistant.py`
-   - Verify Home Assistant connection is established
-   - Check if commands are being sent to Home Assistant
-   - Verify entity mappings are correct
+#### 1. **Dispatcher Debugging & Enhancement**
+   - Add comprehensive logging to understand HA integration flow
+   - Implement proper entity mapping loading from `entity_mappings.yaml`
+   - Add support for more device types and actions
+   - Test error handling and recovery scenarios
+   - Consider implementing status feedback from HA
 
-3. **Test Command Flow End-to-End**
-   ```bash
-   # Test via API directly
-   curl -X POST http://192.168.8.191:8000/v1/generate/general \
-     -H "Content-Type: application/json" \
-     -d '{"prompt": "turn off the lounge lamp"}'
-   ```
+#### 2. **UX Issues to Address**
+
+##### Hey ORAC (Wake Word Detection)
+   - Response time and false positive/negative rates
+   - Audio feedback when wake word is detected
+   - Visual indicators for listening state
+   - Configuration interface improvements
+
+##### ORAC STT (Speech-to-Text)
+   - Transcription accuracy improvements
+   - Better handling of ambient noise
+   - Real-time transcription feedback
+   - Error messages and recovery
+
+##### ORAC Core
+   - Web UI responsiveness and usability
+   - Topic configuration interface improvements
+   - Better visualization of command processing pipeline
+   - Real-time logs and debugging interface
+   - Entity mapping configuration UI
+
+#### 3. **Testing & Documentation**
+   - Create comprehensive test suite for HA dispatcher
+   - Document the complete voice command flow
+   - Create user guide for configuring new devices
+   - Add troubleshooting guide
 
 ### Code Locations for Investigation
 
@@ -146,15 +168,24 @@ curl -X POST http://192.168.8.191:8000/v1/homeassistant/execute \
 1. ✅ Topic configurations persist through Docker container restarts
 2. ✅ Heartbeat updates don't overwrite user configurations
 3. ✅ Natural language commands control Home Assistant devices
-4. ✅ "Turn off the lounge lamp" actually turns off the lamp
+4. ✅ "Turn on the lounge light" successfully controls the lamp
 
-## Related Files Modified
-- `/orac/api_heartbeat.py` - Fixed heartbeat overwriting, updated to use singleton
-- `/orac/api_topics.py` - Added dispatcher field to models, updated to use singleton
-- `/orac/api.py` - Updated to use singleton TopicManager
-- `/orac/static/js/topic_config.js` - Fixed dropdown value capture
-- `/orac/topic_manager.py` - Added debug logging
-- `/orac/topic_manager_singleton.py` - **NEW** - Singleton wrapper for TopicManager
+## Achievements (2025-09-06)
+- ✅ Fixed configuration persistence with singleton pattern
+- ✅ Fixed HomeAssistantDispatcher JSON parsing
+- ✅ Corrected entity ID mappings
+- ✅ Successfully tested voice control of Home Assistant devices
+- ✅ Light responds correctly to "Turn on the lounge light" command
+
+## Related Files Modified Today
+- `/orac/dispatchers/homeassistant.py` - **FIXED** - Now parses JSON, uses correct env vars and entity IDs
+- Previous fixes (still active):
+  - `/orac/api_heartbeat.py` - Fixed heartbeat overwriting, updated to use singleton
+  - `/orac/api_topics.py` - Added dispatcher field to models, updated to use singleton
+  - `/orac/api.py` - Updated to use singleton TopicManager
+  - `/orac/static/js/topic_config.js` - Fixed dropdown value capture
+  - `/orac/topic_manager.py` - Added debug logging
+  - `/orac/topic_manager_singleton.py` - Singleton wrapper for TopicManager
 
 ## Environment Variables Required
 ```yaml
@@ -162,13 +193,13 @@ HA_URL: http://192.168.8.100:8123
 HA_TOKEN: [Home Assistant Long-Lived Access Token]
 ```
 
-## Current Command Output
-- Input: "turn off the lounge lamp"
-- LLM Output: `{"device":"lights","action":"off","location":"living room"}`
-- Expected: Lounge Lamp Plug (switch.tretakt_smart_plug) turns off
-- Actual: Command parsed correctly but device doesn't respond
+## Working Command Example
+- Input: "Turn on the lounge light"
+- LLM Output: `{"device":"lights","action":"on","location":"living room"}`
+- Dispatcher maps to: `switch.tretakt_smart_plug`
+- Result: ✅ Lounge lamp successfully turns on/off
 
 ---
-*Last Updated: 2025-09-06 14:45 UTC*
-*Fixed: Configuration persistence via singleton pattern*
-*Remaining Issue: Home Assistant command execution*
+*Last Updated: 2025-09-06 17:36 UTC*
+*Fixed Today: Home Assistant dispatcher now working - lights respond to voice commands*
+*Next: Debug dispatcher details and address UX issues across all three modules*
