@@ -46,10 +46,10 @@ class HomeAssistantDispatcher(BaseDispatcher):
         # TODO: Load from entity_mappings.yaml
         self.entity_mappings = {
             'living room': {
-                'lights': 'switch.lounge_lamp_plug'  # Using the lounge lamp for living room
+                'lights': 'switch.tretakt_smart_plug'  # Correct entity ID for lounge lamp
             },
             'lounge': {
-                'lights': 'switch.lounge_lamp_plug'
+                'lights': 'switch.tretakt_smart_plug'
             }
         }
     
@@ -113,7 +113,7 @@ class HomeAssistantDispatcher(BaseDispatcher):
                 logger.warning(f"No entity mapping for {device} in {location}")
                 # Fallback to lounge lamp for any light command
                 if device == 'lights':
-                    entity_id = 'switch.lounge_lamp_plug'
+                    entity_id = 'switch.tretakt_smart_plug'
                     logger.info(f"Using fallback entity: {entity_id}")
                 else:
                     return {
