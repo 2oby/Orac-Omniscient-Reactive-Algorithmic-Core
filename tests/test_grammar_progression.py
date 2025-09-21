@@ -28,11 +28,11 @@ from pathlib import Path
 class GrammarTester:
     def __init__(self):
         self.model_path = "/models/gguf/Qwen3-0.6B-Q4_K_M.gguf"
-        self.grammar_dir = "/app/data/test_grammars"
+        self.grammar_dir = "/app/data/grammars"
         self.llama_cli = "/app/third_party/llama_cpp/bin/llama-cli"
         
         # Test grammars in order of complexity
-        self.test_grammars = [
+        self.grammars = [
             "hello_world.gbnf",
             "simple_json.gbnf", 
             "single_field.gbnf",
@@ -125,7 +125,7 @@ class GrammarTester:
         
         results = []
         
-        for i, (grammar, prompt) in enumerate(zip(self.test_grammars, self.test_prompts), 1):
+        for i, (grammar, prompt) in enumerate(zip(self.grammars, self.test_prompts), 1):
             success = self.test_grammar(grammar, prompt, i)
             results.append({
                 'test_num': i,
@@ -153,7 +153,7 @@ class GrammarTester:
         
         print(f"\n📈 Analysis:")
         print(f"   Working grammars: {working_count}/{total_count}")
-        print(f"   Breaking point: Test {working_count + 1} ({self.test_grammars[working_count] if working_count < len(self.test_grammars) else 'N/A'})")
+        print(f"   Breaking point: Test {working_count + 1} ({self.grammars[working_count] if working_count < len(self.grammars) else 'N/A'})")
         
         return results
 

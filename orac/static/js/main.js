@@ -603,7 +603,7 @@ generateButton.addEventListener('click', async () => {
                 top_k: parseInt(topK.value),
                 max_tokens: parseInt(maxTokens.value),
                 json_mode: forceJson.checked,
-                grammar_file: forceJson.checked ? 'data/test_grammars/default.gbnf' : null
+                grammar_file: forceJson.checked ? 'data/grammars/default.gbnf' : null
             })
         });
 

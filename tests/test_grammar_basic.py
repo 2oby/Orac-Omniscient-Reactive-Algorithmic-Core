@@ -18,7 +18,7 @@ from pathlib import Path
 # Configuration
 LLAMA_CLI_PATH = "/app/third_party/llama_cpp/bin/llama-cli"
 MODELS_PATH = "/models/gguf"
-TEST_GRAMMARS_PATH = "/app/data/test_grammars"
+TEST_GRAMMARS_PATH = "/app/data/grammars"
 
 # Test cases
 HELLO_WORLD_TESTS = [
@@ -235,12 +235,12 @@ def main():
         sys.exit(1)
     
     # Check test grammar files
-    test_grammars_dir = Path(TEST_GRAMMARS_PATH)
-    if not test_grammars_dir.exists():
-        print(f"❌ Test grammars directory not found: {TEST_GRAMMARS_PATH}")
+    grammars_dir = Path(TEST_GRAMMARS_PATH)
+    if not grammars_dir.exists():
+        print(f"❌ Grammars directory not found: {TEST_GRAMMARS_PATH}")
         sys.exit(1)
     
-    print(f"✅ Test grammars directory found: {TEST_GRAMMARS_PATH}")
+    print(f"✅ Grammars directory found: {TEST_GRAMMARS_PATH}")
     
     # Run tests
     hello_world_success = test_hello_world_grammar(model_path)

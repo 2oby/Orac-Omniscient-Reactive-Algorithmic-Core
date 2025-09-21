@@ -38,7 +38,7 @@ class WebInterfaceGrammarTester:
         print("🔧 Setting up test environment...")
         
         # Use the unknown_set.gbnf grammar for initial testing
-        self.grammar_file = os.path.join(os.path.dirname(__file__), "data", "test_grammars", "unknown_set.gbnf")
+        self.grammar_file = os.path.join(os.path.dirname(__file__), "data", "grammars", "unknown_set.gbnf")
         
         if not os.path.exists(self.grammar_file):
             print(f"❌ Grammar file not found: {self.grammar_file}")

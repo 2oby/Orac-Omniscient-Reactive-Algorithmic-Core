@@ -135,7 +135,7 @@ class GrammarScheduler:
             
             # Step 4: Save to ha_grammar.gbnf (not default.gbnf to keep things simple)
             logger.info("Step 4: Saving HA-generated grammar to ha_grammar.gbnf...")
-            grammar_file = await self.grammar_manager.save_gbnf_grammar("data/test_grammars/ha_grammar.gbnf")
+            grammar_file = await self.grammar_manager.save_gbnf_grammar("data/grammars/ha_grammar.gbnf")
             
             # Step 5: Validate grammar with test generation
             logger.info("Step 5: Validating grammar with test generation...")

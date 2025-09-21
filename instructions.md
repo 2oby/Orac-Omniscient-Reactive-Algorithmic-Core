@@ -260,7 +260,7 @@ import os
 cmd = ['/app/third_party/llama_cpp/bin/llama-cli', 
        '-m', '/models/gguf/distilgpt2.Q3_K_L.gguf',
        '-p', 'say hello',
-       '--grammar-file', '/app/data/test_grammars/hello_world.gbnf',
+       '--grammar-file', '/app/data/grammars/hello_world.gbnf',
        '-n', '10', '--temp', '0.0']
 result = subprocess.run(cmd, capture_output=True, text=True)
 print('Output:', result.stdout)
@@ -268,8 +268,8 @@ print('Error:', result.stderr)
 "
 
 # Check grammar files in container
-docker exec orac ls -la /app/data/test_grammars/
-docker exec orac cat /app/data/test_grammars/hello_world.gbnf
+docker exec orac ls -la /app/data/grammars/
+docker exec orac cat /app/data/grammars/hello_world.gbnf
 ```
 
 **Grammar Testing Strategy:**

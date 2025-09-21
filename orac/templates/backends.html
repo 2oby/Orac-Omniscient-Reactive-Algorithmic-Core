@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORAC Backends</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <style>
+        .backends-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .backends-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.4);
+        }
+
+        .backends-title {
+            color: var(--primary-green);
+            text-shadow: 0 0 20px var(--primary-green);
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            letter-spacing: 3px;
+        }
+
+        .backends-subtitle {
+            color: var(--secondary-green);
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .backends-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .backend-card {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            min-height: 220px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Status-based card styling */
+        .backend-card.status-connected {
+            border-color: #00ff41;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.6);
+        }
+
+        .backend-card.status-connected .backend-name {
+            color: #00ff41;
+            text-shadow: 0 0 15px #00ff41;
+        }
+
+        .backend-card.status-disconnected {
+            border-color: #ff0040;
+            box-shadow: 0 0 20px rgba(255, 0, 64, 0.4);
+        }
+
+        .backend-card.status-disconnected .backend-name {
+            color: #ff0040;
+            text-shadow: 0 0 10px #ff0040;
+        }
+
+        .backend-card.status-testing {
+            border-color: #ffa500;
+            box-shadow: 0 0 25px rgba(255, 165, 0, 0.5);
+        }
+
+        .backend-card.status-testing .backend-name {
+            color: #ffa500;
+            text-shadow: 0 0 15px #ffa500;
+        }
+
+        .backend-card:hover {
+            transform: translateY(-5px);
+            filter: brightness(1.2);
+        }
+
+        .backend-name {
+            color: var(--primary-green);
+            font-size: 1.4rem;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+            text-shadow: 0 0 10px var(--primary-green);
+        }
+
+        .backend-type {
+            color: var(--text-color);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .backend-url {
+            color: var(--secondary-green);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+
+        .backend-stats {
+            color: var(--text-color);
+            font-size: 0.85rem;
+            flex-grow: 1;
+            margin-bottom: 1rem;
+            line-height: 1.4;
+        }
+
+        .backend-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+            gap: 0.5rem;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .connection-status.connected {
+            background-color: rgba(0, 255, 65, 0.2);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .connection-status.disconnected {
+            background-color: rgba(255, 0, 0, 0.2);
+            color: var(--error-color);
+            border: 1px solid var(--error-color);
+        }
+
+        .connection-status.testing {
+            background-color: rgba(255, 165, 0, 0.2);
+            color: var(--warning-color);
+            border: 1px solid var(--warning-color);
+        }
+
+        .backend-btn {
+            background: transparent;
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            padding: 0.4rem 0.8rem;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .backend-btn:hover {
+            background-color: var(--primary-green);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary-green);
+        }
+
+        .backend-btn.test-btn:hover {
+            background-color: var(--warning-color);
+            border-color: var(--warning-color);
+            color: #000;
+            box-shadow: 0 0 15px var(--warning-color);
+        }
+
+        .backend-btn.delete-btn:hover {
+            background-color: var(--error-color);
+            border-color: var(--error-color);
+            color: #000;
+            box-shadow: 0 0 15px var(--error-color);
+        }
+
+        .add-backend-card {
+            border: 2px dashed var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            background: rgba(0, 255, 65, 0.05);
+        }
+
+        .add-backend-card:hover {
+            background: rgba(0, 255, 65, 0.1);
+            border-color: var(--primary-green);
+        }
+
+        .add-backend-content {
+            text-align: center;
+        }
+
+        .add-backend-icon {
+            font-size: 3rem;
+            color: var(--primary-green);
+            margin-bottom: 1rem;
+            text-shadow: 0 0 20px var(--primary-green);
+        }
+
+        .add-backend-text {
+            color: var(--text-color);
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .nav-bar {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+        }
+
+        .nav-btn {
+            padding: 0.5rem 1rem;
+            background-color: var(--button-bg);
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .nav-btn:hover {
+            background-color: var(--primary-green);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary-green);
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-indicator.connected {
+            background: #00ff41;
+            box-shadow: 0 0 10px #00ff41;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.disconnected {
+            background: #ff0040;
+            box-shadow: 0 0 10px #ff0040;
+        }
+
+        .status-indicator.testing {
+            background: #ffa500;
+            box-shadow: 0 0 10px #ffa500;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.6;
+                transform: scale(1.1);
+            }
+        }
+
+        .backend-actions-row {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .entity-count {
+            color: var(--secondary-green);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .entity-count strong {
+            color: var(--primary-green);
+        }
+    </style>
+</head>
+<body>
+    <div class="backends-container">
+        <!-- Header -->
+        <div class="backends-header">
+            <h1 class="backends-title">ORAC BACKENDS</h1>
+            <p class="backends-subtitle">Backend Integration Management System</p>
+        </div>
+
+        <!-- Navigation Bar -->
+        <div class="nav-bar">
+            <a href="/" class="nav-btn">System Overview</a>
+            <a href="/topics" class="nav-btn">Topics</a>
+            <a href="/api/docs" class="nav-btn">API Docs</a>
+        </div>
+
+        <!-- Backends Grid -->
+        <div class="backends-grid" id="backendsGrid">
+            <!-- Add Backend Card -->
+            <div class="backend-card add-backend-card" onclick="showAddBackendModal()">
+                <div class="add-backend-content">
+                    <div class="add-backend-icon">+</div>
+                    <div class="add-backend-text">Add New Backend</div>
+                </div>
+            </div>
+
+            <!-- Example Backend Cards (will be loaded dynamically) -->
+            <div class="backend-card status-connected">
+                <div class="backend-name">Home Assistant Main</div>
+                <div class="backend-type">Home Assistant</div>
+                <div class="backend-url">http://192.168.8.99:8123</div>
+                <div class="entity-count">Entities: <strong>24</strong> configured, <strong>18</strong> active</div>
+                <div class="backend-stats">
+                    Last sync: 2 minutes ago<br>
+                    Version: 2024.9.1
+                </div>
+                <div class="backend-actions">
+                    <div class="connection-status connected">
+                        <div class="status-indicator connected"></div>
+                        Connected
+                    </div>
+                    <div class="backend-actions-row">
+                        <button class="backend-btn test-btn" onclick="testBackend('ha_main')">Test</button>
+                        <button class="backend-btn" onclick="editBackend('ha_main')">Edit</button>
+                        <button class="backend-btn" onclick="manageEntities('ha_main')">Entities</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Example Disconnected Backend -->
+            <div class="backend-card status-disconnected">
+                <div class="backend-name">Home Assistant Remote</div>
+                <div class="backend-type">Home Assistant</div>
+                <div class="backend-url">http://192.168.8.100:8123</div>
+                <div class="entity-count">Entities: <strong>12</strong> configured, <strong>0</strong> active</div>
+                <div class="backend-stats">
+                    Last sync: Connection failed<br>
+                    Error: Timeout after 5 seconds
+                </div>
+                <div class="backend-actions">
+                    <div class="connection-status disconnected">
+                        <div class="status-indicator disconnected"></div>
+                        Disconnected
+                    </div>
+                    <div class="backend-actions-row">
+                        <button class="backend-btn test-btn" onclick="testBackend('ha_remote')">Test</button>
+                        <button class="backend-btn" onclick="editBackend('ha_remote')">Edit</button>
+                        <button class="backend-btn delete-btn" onclick="deleteBackend('ha_remote')">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Placeholder JavaScript functions for backend management
+        function showAddBackendModal() {
+            alert('Add Backend modal would open here\n\nFeatures to implement:\n- Backend type selection\n- Connection configuration\n- Authentication setup\n- Connection testing');
+        }
+
+        function testBackend(backendId) {
+            console.log('Testing backend:', backendId);
+            // Update UI to show testing state
+            const card = event.target.closest('.backend-card');
+            card.className = card.className.replace(/status-\w+/, 'status-testing');
+            card.querySelector('.connection-status').className = 'connection-status testing';
+            card.querySelector('.connection-status').innerHTML = '<div class="status-indicator testing"></div>Testing...';
+
+            // Simulate test
+            setTimeout(() => {
+                const success = Math.random() > 0.3; // 70% success rate for demo
+                if (success) {
+                    card.className = card.className.replace('status-testing', 'status-connected');
+                    card.querySelector('.connection-status').className = 'connection-status connected';
+                    card.querySelector('.connection-status').innerHTML = '<div class="status-indicator connected"></div>Connected';
+                } else {
+                    card.className = card.className.replace('status-testing', 'status-disconnected');
+                    card.querySelector('.connection-status').className = 'connection-status disconnected';
+                    card.querySelector('.connection-status').innerHTML = '<div class="status-indicator disconnected"></div>Test Failed';
+                }
+            }, 2000);
+        }
+
+        function editBackend(backendId) {
+            alert('Edit Backend modal would open here\n\nFeatures to implement:\n- Update connection settings\n- Modify authentication\n- Change backend name\n- Advanced configuration');
+        }
+
+        function manageEntities(backendId) {
+            alert('Entity Management screen would open here\n\nFeatures to implement:\n- Browse available entities\n- Enable/disable entities\n- Configure entity mappings\n- Import new entities');
+        }
+
+        function deleteBackend(backendId) {
+            if (confirm('Are you sure you want to delete this backend?\n\nThis action cannot be undone and will remove all associated entity configurations.')) {
+                console.log('Deleting backend:', backendId);
+                // Remove card from UI
+                event.target.closest('.backend-card').remove();
+            }
+        }
+
+        // Load backends from API (placeholder)
+        async function loadBackends() {
+            try {
+                // This would fetch from /api/backends when implemented
+                console.log('Loading backends from API...');
+                // For now, we'll use the static example cards above
+            } catch (error) {
+                console.error('Failed to load backends:', error);
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadBackends();
+        });
+    </script>
+</body>
+</html>

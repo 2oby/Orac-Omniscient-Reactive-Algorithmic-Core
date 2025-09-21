@@ -17,7 +17,7 @@ class TopicSettings(BaseModel):
 class GrammarConfig(BaseModel):
     """Grammar configuration for a topic"""
     enabled: bool = Field(default=False, description="Whether to use grammar")
-    file: Optional[str] = Field(default=None, description="Grammar filename in data/test_grammars/")
+    file: Optional[str] = Field(default=None, description="Grammar filename in data/grammars/")
 
 
 class Topic(BaseModel):

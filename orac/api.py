@@ -325,7 +325,7 @@ async def _generate_text_impl(request: GenerationRequest, topic_id: str = "gener
         
         # If no grammar in request, check topic configuration
         if not grammar_file and topic.grammar.enabled and topic.grammar.file:
-            grammar_path = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", topic.grammar.file)
+            grammar_path = os.path.join(os.path.dirname(__file__), "..", "data", "grammars", topic.grammar.file)
             if os.path.exists(grammar_path):
                 grammar_file = grammar_path
                 logger.info(f"Using grammar from topic configuration: {topic.grammar.file}")
@@ -334,12 +334,12 @@ async def _generate_text_impl(request: GenerationRequest, topic_id: str = "gener
             grammar_file = None
         elif not grammar_file and is_ha_command and request.json_mode:
             # Use default.gbnf as default for Home Assistant commands (static grammar, not HA-generated)
-            grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "default.gbnf")
+            grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "grammars", "default.gbnf")
             if os.path.exists(grammar_file):
                 logger.info(f"Using default.gbnf grammar for HA command (static, not HA-generated): {grammar_file}")
             else:
                 logger.warning(f"default.gbnf not found at {grammar_file}, falling back to set_temp.gbnf")
-                fallback_grammar = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "set_temp.gbnf")
+                fallback_grammar = os.path.join(os.path.dirname(__file__), "..", "data", "grammars", "set_temp.gbnf")
                 if os.path.exists(fallback_grammar):
                     grammar_file = fallback_grammar
                     logger.info(f"Using fallback grammar: {fallback_grammar}")
@@ -799,7 +799,7 @@ async def startup_event():
                 logger.info(f"Loading default model: {favorites['default_model']}")
                 
                 # Start with default.gbnf grammar for Home Assistant commands (using static default, not HA-generated)
-                grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "default.gbnf")
+                grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "grammars", "default.gbnf")
                 if os.path.exists(grammar_file):
                     logger.info(f"Starting default model with default.gbnf grammar (static, not HA-generated): {grammar_file}")
                     await client._ensure_server_running(
@@ -812,7 +812,7 @@ async def startup_event():
                     )
                 else:
                     logger.warning(f"default.gbnf not found at {grammar_file}, falling back to set_temp.gbnf")
-                    fallback_grammar = os.path.join(os.path.dirname(__file__), "..", "data", "test_grammars", "set_temp.gbnf")
+                    fallback_grammar = os.path.join(os.path.dirname(__file__), "..", "data", "grammars", "set_temp.gbnf")
                     if os.path.exists(fallback_grammar):
                         logger.info(f"Using fallback grammar: {fallback_grammar}")
                         await client._ensure_server_running(
@@ -896,6 +896,14 @@ async def topic_config_page(request: Request, topic_id: str):
     return templates.TemplateResponse(
         "topic_config.html",
         {"request": request, "topic_id": topic_id, "title": f"Topic Config - {topic_id}"}
+    )
+
+@app.get("/backends", response_class=HTMLResponse)
+async def backends_page(request: Request):
+    """Serve the backends management interface."""
+    return templates.TemplateResponse(
+        "backends.html",
+        {"request": request, "title": "ORAC - Backends Management"}
     )
 
 @app.get("/model-config", response_class=HTMLResponse)

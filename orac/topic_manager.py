@@ -320,7 +320,7 @@ class TopicManager:
         Returns:
             List of grammar filenames
         """
-        grammar_dir = self.data_dir / "test_grammars"
+        grammar_dir = self.data_dir / "grammars"
         
         if not grammar_dir.exists():
             return []

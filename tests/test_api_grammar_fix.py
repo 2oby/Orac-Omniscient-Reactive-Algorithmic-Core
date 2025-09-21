@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Configuration
 LLAMA_CLI_PATH = "/app/third_party/llama_cpp/bin/llama-cli"
 MODEL_PATH = "/models/gguf/distilgpt2.Q3_K_L.gguf"
-GRAMMAR_FILE = "/app/data/test_grammars/unknown_set.gbnf"
+GRAMMAR_FILE = "/app/data/grammars/unknown_set.gbnf"
 API_BASE_URL = "http://localhost:8000"
 
 TEST_PROMPTS = [

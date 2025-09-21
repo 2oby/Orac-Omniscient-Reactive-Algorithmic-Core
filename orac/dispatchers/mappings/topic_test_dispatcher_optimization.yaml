@@ -1,0 +1,28 @@
+# Dispatcher mapping for topic: test_dispatcher_optimization
+# Auto-generated from: data/grammars/static_actions.gbnf
+# Generated: 2025-09-15T23:06:51.551628
+# Last HA Sync: 2025-09-15T23:06:51.551631
+
+metadata:
+  grammar_file: data/grammars/static_actions.gbnf
+  topic_id: test_dispatcher_optimization
+  generated: 2025-09-15T23:06:51.551628
+  last_ha_sync: 2025-09-15T23:06:51.551631
+  unmapped_count: 6
+
+mappings:
+  # Format: "location|device": "entity_id"
+  # Use "IGNORE" to skip a combination
+  # Leave empty "" for TODO items
+
+  "bathroom|lights": ""  # TODO: Map this
+  "bedroom|lights": ""  # TODO: Map this
+  "hall|lights": ""  # TODO: Map this
+  "kitchen|lights": ""  # TODO: Map this
+  "lounge|lights": ""  # TODO: Map this
+  "toilet|lights": ""  # TODO: Map this
+
+# AVAILABLE HOME ASSISTANT ENTITIES
+# Fetched: 2025-09-15 23:06
+available_entities:
+  {}
