@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <style>
+        .entities-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .entities-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.4);
+        }
+
+        .entities-title {
+            color: var(--primary-green);
+            text-shadow: 0 0 20px var(--primary-green);
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .backend-name {
+            color: var(--secondary-green);
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .controls-bar {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+        }
+
+        .control-group {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .btn.primary {
+            border-color: var(--primary-green);
+            color: var(--primary-green);
+        }
+
+        .btn.primary:hover {
+            background: var(--primary-green);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary-green);
+        }
+
+        .btn.secondary:hover {
+            background: var(--text-color);
+            color: #000;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .search-input {
+            padding: 0.5rem;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            width: 250px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-green);
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+        }
+
+        .filter-select {
+            padding: 0.5rem;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .stats-bar {
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+
+        .stat-item {
+            flex: 1;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            color: var(--primary-green);
+            text-shadow: 0 0 10px var(--primary-green);
+            font-weight: bold;
+        }
+
+        .stat-label {
+            color: var(--text-color);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 0.5rem;
+        }
+
+        .entities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .entity-card {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .entity-card.enabled {
+            border-color: var(--primary-green);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
+        }
+
+        .entity-card.disabled {
+            opacity: 0.6;
+            border-color: #444;
+        }
+
+        .entity-card:hover {
+            transform: translateY(-3px);
+            filter: brightness(1.2);
+        }
+
+        .entity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.75rem;
+        }
+
+        .entity-info {
+            flex: 1;
+        }
+
+        .entity-icon {
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+
+        .entity-id {
+            color: var(--primary-green);
+            font-size: 0.95rem;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 0.25rem;
+        }
+
+        .entity-name {
+            color: var(--text-color);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .entity-details {
+            font-size: 0.8rem;
+            color: #888;
+            line-height: 1.4;
+        }
+
+        .entity-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .entity-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .entity-gear {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            transition: all 0.3s ease;
+        }
+
+        .entity-gear:hover {
+            color: var(--primary-green);
+            transform: rotate(90deg);
+        }
+
+        .entity-state {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            margin-top: 0.25rem;
+        }
+
+        .entity-state.on {
+            background: rgba(0, 255, 65, 0.2);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .entity-state.off {
+            background: rgba(128, 128, 128, 0.2);
+            color: #888;
+            border: 1px solid #888;
+        }
+
+        .entity-aliases {
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--secondary-green);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: var(--primary-green);
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 255, 65, 0.3);
+            border-top-color: var(--primary-green);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Modal styles for entity configuration */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: linear-gradient(145deg, #0a0a0a 0%, #1a1a1a 100%);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 0 40px rgba(0, 255, 65, 0.4);
+        }
+
+        .modal-header {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-title {
+            color: var(--primary-green);
+            font-size: 1.5rem;
+            margin: 0;
+            text-shadow: 0 0 15px var(--primary-green);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            color: var(--text-color);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            font-size: 1rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-green);
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+        }
+
+        .form-checkbox {
+            width: 20px;
+            height: 20px;
+            margin-right: 0.5rem;
+        }
+
+        .aliases-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .alias-input-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .alias-remove {
+            padding: 0.5rem;
+            background: transparent;
+            border: 1px solid var(--error-color);
+            color: var(--error-color);
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .alias-remove:hover {
+            background: var(--error-color);
+            color: #000;
+        }
+
+        .add-alias-btn {
+            padding: 0.5rem;
+            background: transparent;
+            border: 1px solid var(--primary-green);
+            color: var(--primary-green);
+            cursor: pointer;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+        }
+
+        .add-alias-btn:hover {
+            background: var(--primary-green);
+            color: #000;
+        }
+
+        .modal-footer {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        .nav-bar {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+        }
+
+        .nav-btn {
+            padding: 0.5rem 1rem;
+            background-color: var(--button-bg);
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .nav-btn:hover {
+            background-color: var(--primary-green);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary-green);
+        }
+    </style>
+</head>
+<body>
+    <div class="entities-container">
+        <!-- Header -->
+        <div class="entities-header">
+            <h1 class="entities-title">Configure Entities</h1>
+            <div class="backend-name">{{ backend_name }}</div>
+        </div>
+
+        <!-- Navigation Bar -->
+        <div class="nav-bar">
+            <a href="/" class="nav-btn">System Overview</a>
+            <a href="/backends" class="nav-btn">Backends</a>
+            <a href="/topics" class="nav-btn">Topics</a>
+        </div>
+
+        <!-- Controls Bar -->
+        <div class="controls-bar">
+            <div class="control-group">
+                <button class="btn primary" onclick="fetchEntities()">Fetch Entities</button>
+                <button class="btn" onclick="selectAll()">Select All</button>
+                <button class="btn" onclick="clearAll()">Clear All</button>
+                <button class="btn primary" onclick="saveConfig()">Save Configuration</button>
+            </div>
+            <div class="control-group">
+                <input type="text" class="search-input" placeholder="Search entities..." onkeyup="filterEntities()" id="searchInput">
+                <select class="filter-select" onchange="filterEntities()" id="filterType">
+                    <option value="all">All Types</option>
+                    <option value="light">Lights</option>
+                    <option value="switch">Switches</option>
+                    <option value="climate">Climate</option>
+                    <option value="scene">Scenes</option>
+                    <option value="sensor">Sensors</option>
+                    <option value="binary_sensor">Binary Sensors</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Statistics Bar -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-value" id="totalCount">0</div>
+                <div class="stat-label">Total Entities</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="enabledCount">0</div>
+                <div class="stat-label">Enabled</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="configuredCount">0</div>
+                <div class="stat-label">Configured</div>
+            </div>
+        </div>
+
+        <!-- Entities Grid -->
+        <div class="entities-grid" id="entitiesGrid">
+            <!-- Entity cards will be loaded here -->
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading Entities...</div>
+        </div>
+    </div>
+
+    <!-- Entity Configuration Modal -->
+    <div class="modal" id="configModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Configure Entity</h2>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Entity ID</label>
+                    <input type="text" class="form-input" id="configEntityId" readonly>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Friendly Name</label>
+                    <input type="text" class="form-input" id="configFriendlyName" placeholder="Enter friendly name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Aliases</label>
+                    <div class="aliases-list" id="aliasesList">
+                        <!-- Aliases will be added here -->
+                    </div>
+                    <button class="add-alias-btn" onclick="addAliasField()">+ Add Alias</button>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" class="form-checkbox" id="configEnabled">
+                        Enabled for Voice Control
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Priority (1-10)</label>
+                    <input type="number" class="form-input" id="configPriority" min="1" max="10" value="5">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary" onclick="closeConfigModal()">Cancel</button>
+                <button class="btn primary" onclick="saveEntityConfig()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const backendId = "{{ backend_id }}";
+        let entities = {};
+        let currentEntityId = null;
+
+        // Load entities on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadEntities();
+        });
+
+        async function loadEntities() {
+            try {
+                const response = await fetch(`/api/backends/${backendId}/entities`);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    entities = {};
+                    data.entities.forEach(entity => {
+                        entities[entity.entity_id] = entity;
+                    });
+                    renderEntities();
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('Failed to load entities:', error);
+            }
+        }
+
+        async function fetchEntities() {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.classList.add('active');
+
+            try {
+                const response = await fetch(`/api/backends/${backendId}/entities/fetch`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    alert(`Successfully fetched ${data.result.count} entities`);
+                    loadEntities();
+                } else {
+                    alert(`Failed to fetch entities: ${data.result.error}`);
+                }
+            } catch (error) {
+                console.error('Fetch error:', error);
+                alert('Error fetching entities');
+            } finally {
+                overlay.classList.remove('active');
+            }
+        }
+
+        function renderEntities() {
+            const grid = document.getElementById('entitiesGrid');
+            grid.innerHTML = '';
+
+            Object.values(entities).forEach(entity => {
+                const card = createEntityCard(entity);
+                grid.appendChild(card);
+            });
+        }
+
+        function createEntityCard(entity) {
+            const card = document.createElement('div');
+            card.className = `entity-card ${entity.enabled ? 'enabled' : 'disabled'}`;
+            card.dataset.entityId = entity.entity_id;
+            card.dataset.domain = entity.domain;
+
+            const icon = getEntityIcon(entity.domain);
+            const state = entity.state || 'unknown';
+            const stateClass = ['on', 'active', 'home'].includes(state.toLowerCase()) ? 'on' : 'off';
+
+            card.innerHTML = `
+                <div class="entity-header">
+                    <div class="entity-info">
+                        <div class="entity-id">
+                            <span class="entity-icon">${icon}</span>
+                            ${entity.entity_id}
+                        </div>
+                        <div class="entity-name">${entity.friendly_name || entity.original_name || 'Unnamed'}</div>
+                        <div class="entity-details">
+                            Type: ${entity.domain}<br>
+                            Area: ${entity.area || 'Unknown'}
+                        </div>
+                        <div class="entity-state ${stateClass}">${state}</div>
+                        ${entity.aliases && entity.aliases.length > 0 ?
+                            `<div class="entity-aliases">Aliases: ${entity.aliases.join(', ')}</div>` : ''}
+                    </div>
+                    <div class="entity-controls">
+                        <input type="checkbox" class="entity-checkbox"
+                               ${entity.enabled ? 'checked' : ''}
+                               onclick="toggleEntity('${entity.entity_id}', event)">
+                        <button class="entity-gear" onclick="openConfigModal('${entity.entity_id}', event)">⚙️</button>
+                    </div>
+                </div>
+            `;
+
+            // Click on card body toggles enable/disable
+            card.addEventListener('click', function(e) {
+                if (!e.target.classList.contains('entity-checkbox') &&
+                    !e.target.classList.contains('entity-gear')) {
+                    const checkbox = card.querySelector('.entity-checkbox');
+                    checkbox.checked = !checkbox.checked;
+                    toggleEntity(entity.entity_id, e);
+                }
+            });
+
+            return card;
+        }
+
+        function getEntityIcon(domain) {
+            const icons = {
+                'light': '💡',
+                'switch': '🔌',
+                'climate': '🌡️',
+                'scene': '🎬',
+                'sensor': '📊',
+                'binary_sensor': '🔲',
+                'cover': '🪟',
+                'media_player': '🎵',
+                'automation': '⚡',
+                'script': '📜'
+            };
+            return icons[domain] || '📦';
+        }
+
+        async function toggleEntity(entityId, event) {
+            event.stopPropagation();
+            const entity = entities[entityId];
+            entity.enabled = !entity.enabled;
+
+            // Update UI immediately
+            const card = document.querySelector(`[data-entity-id="${entityId}"]`);
+            if (entity.enabled) {
+                card.classList.add('enabled');
+                card.classList.remove('disabled');
+            } else {
+                card.classList.remove('enabled');
+                card.classList.add('disabled');
+            }
+
+            updateStats();
+
+            // Save to backend
+            try {
+                await fetch(`/api/backends/${backendId}/entities/${entityId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled: entity.enabled })
+                });
+            } catch (error) {
+                console.error('Failed to update entity:', error);
+            }
+        }
+
+        function openConfigModal(entityId, event) {
+            event.stopPropagation();
+            currentEntityId = entityId;
+            const entity = entities[entityId];
+
+            document.getElementById('configEntityId').value = entityId;
+            document.getElementById('configFriendlyName').value = entity.friendly_name || '';
+            document.getElementById('configEnabled').checked = entity.enabled;
+            document.getElementById('configPriority').value = entity.priority || 5;
+
+            // Load aliases
+            const aliasesList = document.getElementById('aliasesList');
+            aliasesList.innerHTML = '';
+            if (entity.aliases && entity.aliases.length > 0) {
+                entity.aliases.forEach(alias => {
+                    addAliasField(alias);
+                });
+            }
+
+            document.getElementById('configModal').classList.add('active');
+        }
+
+        function closeConfigModal() {
+            document.getElementById('configModal').classList.remove('active');
+            currentEntityId = null;
+        }
+
+        function addAliasField(value = '') {
+            const aliasesList = document.getElementById('aliasesList');
+            const div = document.createElement('div');
+            div.className = 'alias-input-group';
+            div.innerHTML = `
+                <input type="text" class="form-input alias-input" value="${value}" placeholder="Enter alias">
+                <button class="alias-remove" onclick="removeAliasField(this)">X</button>
+            `;
+            aliasesList.appendChild(div);
+        }
+
+        function removeAliasField(button) {
+            button.parentElement.remove();
+        }
+
+        async function saveEntityConfig() {
+            if (!currentEntityId) return;
+
+            const friendlyName = document.getElementById('configFriendlyName').value;
+            const enabled = document.getElementById('configEnabled').checked;
+            const priority = parseInt(document.getElementById('configPriority').value);
+
+            // Collect aliases
+            const aliases = [];
+            document.querySelectorAll('.alias-input').forEach(input => {
+                if (input.value.trim()) {
+                    aliases.push(input.value.trim());
+                }
+            });
+
+            // Update local data
+            const entity = entities[currentEntityId];
+            entity.friendly_name = friendlyName;
+            entity.enabled = enabled;
+            entity.priority = priority;
+            entity.aliases = aliases;
+
+            // Save to backend
+            try {
+                const response = await fetch(`/api/backends/${backendId}/entities/${currentEntityId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        friendly_name: friendlyName,
+                        enabled: enabled,
+                        priority: priority,
+                        aliases: aliases
+                    })
+                });
+
+                if (response.ok) {
+                    closeConfigModal();
+                    renderEntities();
+                    updateStats();
+                } else {
+                    alert('Failed to save entity configuration');
+                }
+            } catch (error) {
+                console.error('Save error:', error);
+                alert('Error saving configuration');
+            }
+        }
+
+        function selectAll() {
+            Object.keys(entities).forEach(entityId => {
+                entities[entityId].enabled = true;
+            });
+            renderEntities();
+            updateStats();
+            bulkUpdate(true);
+        }
+
+        function clearAll() {
+            Object.keys(entities).forEach(entityId => {
+                entities[entityId].enabled = false;
+            });
+            renderEntities();
+            updateStats();
+            bulkUpdate(false);
+        }
+
+        async function bulkUpdate(enabled) {
+            try {
+                await fetch(`/api/backends/${backendId}/entities/bulk`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        entity_ids: Object.keys(entities),
+                        updates: { enabled: enabled }
+                    })
+                });
+            } catch (error) {
+                console.error('Bulk update error:', error);
+            }
+        }
+
+        function filterEntities() {
+            const searchValue = document.getElementById('searchInput').value.toLowerCase();
+            const filterType = document.getElementById('filterType').value;
+
+            const cards = document.querySelectorAll('.entity-card');
+            cards.forEach(card => {
+                const entityId = card.dataset.entityId.toLowerCase();
+                const domain = card.dataset.domain;
+
+                const matchesSearch = entityId.includes(searchValue);
+                const matchesFilter = filterType === 'all' || domain === filterType;
+
+                if (matchesSearch && matchesFilter) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        function updateStats() {
+            const total = Object.keys(entities).length;
+            const enabled = Object.values(entities).filter(e => e.enabled).length;
+            const configured = Object.values(entities).filter(e => e.friendly_name).length;
+
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('enabledCount').textContent = enabled;
+            document.getElementById('configuredCount').textContent = configured;
+        }
+
+        function saveConfig() {
+            alert('Configuration saved successfully!');
+            // The configuration is already being saved in real-time
+            // This button could trigger additional actions if needed
+        }
+    </script>
+</body>
+</html>

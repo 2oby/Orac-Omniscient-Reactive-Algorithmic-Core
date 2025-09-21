@@ -44,6 +44,9 @@ from orac.api_heartbeat import router as heartbeat_router
 # Add Dispatcher imports
 from orac.dispatchers import dispatcher_registry
 
+# Add Backend Manager import
+from orac.backend_manager import BackendManager
+
 # Configure logger
 logger = get_logger(__name__)
 
@@ -52,6 +55,9 @@ topic_manager = TopicManager()
 
 # Initialize HA executor
 ha_executor = HAExecutor()
+
+# Initialize backend manager
+backend_manager = BackendManager()
 
 # Create FastAPI app
 app = FastAPI(
@@ -96,6 +102,163 @@ async def list_dispatchers() -> Dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"Error listing dispatchers: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Backend Management endpoints
+@app.post("/api/backends", tags=["Backends"])
+async def create_backend(request: Request) -> Dict[str, Any]:
+    """Create a new backend configuration."""
+    try:
+        data = await request.json()
+        backend = backend_manager.create_backend(
+            name=data.get("name"),
+            backend_type=data.get("type", "homeassistant"),
+            connection=data.get("connection", {})
+        )
+        return {
+            "status": "success",
+            "backend": backend
+        }
+    except Exception as e:
+        logger.error(f"Error creating backend: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backends", tags=["Backends"])
+async def list_backends() -> Dict[str, Any]:
+    """List all configured backends."""
+    try:
+        backends = backend_manager.list_backends()
+        return {
+            "status": "success",
+            "backends": backends
+        }
+    except Exception as e:
+        logger.error(f"Error listing backends: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backends/{backend_id}", tags=["Backends"])
+async def get_backend(backend_id: str) -> Dict[str, Any]:
+    """Get a specific backend configuration."""
+    try:
+        backend = backend_manager.get_backend(backend_id)
+        if not backend:
+            raise HTTPException(status_code=404, detail=f"Backend {backend_id} not found")
+        return {
+            "status": "success",
+            "backend": backend
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting backend: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/backends/{backend_id}", tags=["Backends"])
+async def update_backend(backend_id: str, request: Request) -> Dict[str, Any]:
+    """Update a backend configuration."""
+    try:
+        data = await request.json()
+        backend = backend_manager.update_backend(backend_id, data)
+        if not backend:
+            raise HTTPException(status_code=404, detail=f"Backend {backend_id} not found")
+        return {
+            "status": "success",
+            "backend": backend
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating backend: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/backends/{backend_id}", tags=["Backends"])
+async def delete_backend(backend_id: str) -> Dict[str, Any]:
+    """Delete a backend configuration."""
+    try:
+        success = backend_manager.delete_backend(backend_id)
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Backend {backend_id} not found")
+        return {
+            "status": "success",
+            "message": f"Backend {backend_id} deleted"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting backend: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/backends/{backend_id}/test", tags=["Backends"])
+async def test_backend_connection(backend_id: str) -> Dict[str, Any]:
+    """Test a backend connection."""
+    try:
+        result = await backend_manager.test_connection(backend_id)
+        return {
+            "status": "success" if result.get("success") else "error",
+            "result": result
+        }
+    except Exception as e:
+        logger.error(f"Error testing backend connection: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/backends/{backend_id}/entities/fetch", tags=["Backends"])
+async def fetch_backend_entities(backend_id: str) -> Dict[str, Any]:
+    """Fetch entities from a backend."""
+    try:
+        result = await backend_manager.fetch_entities(backend_id)
+        return {
+            "status": "success" if result.get("success") else "error",
+            "result": result
+        }
+    except Exception as e:
+        logger.error(f"Error fetching entities: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backends/{backend_id}/entities", tags=["Backends"])
+async def get_backend_entities(backend_id: str, enabled: bool = None) -> Dict[str, Any]:
+    """Get configured entities for a backend."""
+    try:
+        entities = backend_manager.get_entities(backend_id, filter_enabled=enabled)
+        return {
+            "status": "success",
+            "entities": entities
+        }
+    except Exception as e:
+        logger.error(f"Error getting entities: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/backends/{backend_id}/entities/{entity_id}", tags=["Backends"])
+async def update_backend_entity(backend_id: str, entity_id: str, request: Request) -> Dict[str, Any]:
+    """Update an entity configuration."""
+    try:
+        data = await request.json()
+        entity = backend_manager.update_entity(backend_id, entity_id, data)
+        if not entity:
+            raise HTTPException(status_code=404, detail=f"Entity {entity_id} not found")
+        return {
+            "status": "success",
+            "entity": entity
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating entity: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/backends/{backend_id}/entities/bulk", tags=["Backends"])
+async def bulk_update_entities(backend_id: str, request: Request) -> Dict[str, Any]:
+    """Bulk update entity configurations."""
+    try:
+        data = await request.json()
+        entity_ids = data.get("entity_ids", [])
+        updates = data.get("updates", {})
+        result = backend_manager.bulk_update_entities(backend_id, entity_ids, updates)
+        return {
+            "status": "success" if result.get("success") else "error",
+            "result": result
+        }
+    except Exception as e:
+        logger.error(f"Error in bulk update: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Set up templates
@@ -904,6 +1067,17 @@ async def backends_page(request: Request):
     return templates.TemplateResponse(
         "backends.html",
         {"request": request, "title": "ORAC - Backends Management"}
+    )
+
+@app.get("/backends/{backend_id}/entities", response_class=HTMLResponse)
+async def backend_entities_page(request: Request, backend_id: str):
+    """Serve the backend entities configuration interface."""
+    backend = backend_manager.get_backend(backend_id)
+    if not backend:
+        raise HTTPException(status_code=404, detail=f"Backend {backend_id} not found")
+    return templates.TemplateResponse(
+        "backend_entities.html",
+        {"request": request, "backend_id": backend_id, "backend_name": backend.get("name", backend_id), "title": f"Configure Entities - {backend.get('name', backend_id)}"}
     )
 
 @app.get("/model-config", response_class=HTMLResponse)
