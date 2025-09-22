@@ -601,6 +601,51 @@
         </div>
     </div>
 
+    <!-- Edit Backend Modal -->
+    <div id="editBackendModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Edit Backend</h2>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editBackendId" />
+                <div class="form-group">
+                    <label class="form-label">Backend Name</label>
+                    <input type="text" id="editBackendName" class="form-input" placeholder="e.g., Home Assistant Main" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Backend Type</label>
+                    <select id="editBackendType" class="form-select" disabled>
+                        <option value="homeassistant">Home Assistant</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Connection Details</label>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">URL/Host</label>
+                    <input type="text" id="editBackendUrl" class="form-input" placeholder="e.g., http://192.168.1.100" />
+                    <div class="form-hint">Full URL including protocol (http:// or https://)</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Port</label>
+                    <input type="number" id="editBackendPort" class="form-input" placeholder="e.g., 8123" value="8123" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">API Token</label>
+                    <input type="password" id="editBackendToken" class="form-input" placeholder="Long-lived access token from HA" />
+                    <div class="form-hint">Long-lived access token from Home Assistant</div>
+                </div>
+                <div id="editTestResult" class="test-result" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn test" onclick="testEditConnection()" id="editTestBtn">Test Connection</button>
+                <button class="modal-btn secondary" onclick="closeEditModal()">Cancel</button>
+                <button class="modal-btn primary" onclick="updateBackend()" id="updateBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let tempBackendId = null; // Store temporary backend ID after creation
 
@@ -736,8 +781,145 @@
             }
         }
 
-        function editBackend(backendId) {
-            alert('Edit Backend modal would open here\n\nFeatures to implement:\n- Update connection settings\n- Modify authentication\n- Change backend name\n- Advanced configuration');
+        async function editBackend(backendId) {
+            try {
+                // Fetch backend details
+                const response = await fetch(`/api/backends/${backendId}`);
+                const data = await response.json();
+
+                if (data.status === 'success' && data.backend) {
+                    const backend = data.backend;
+
+                    // Populate form
+                    document.getElementById('editBackendId').value = backend.id;
+                    document.getElementById('editBackendName').value = backend.name;
+                    document.getElementById('editBackendType').value = backend.type;
+                    document.getElementById('editBackendUrl').value = backend.connection?.url || '';
+                    document.getElementById('editBackendPort').value = backend.connection?.port || '8123';
+                    document.getElementById('editBackendToken').value = backend.connection?.token || '';
+
+                    // Show modal
+                    document.getElementById('editBackendModal').classList.add('active');
+                    document.getElementById('editTestResult').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Failed to load backend:', error);
+                alert('Failed to load backend details');
+            }
+        }
+
+        function closeEditModal() {
+            document.getElementById('editBackendModal').classList.remove('active');
+        }
+
+        async function testEditConnection() {
+            const testBtn = document.getElementById('editTestBtn');
+            const testResult = document.getElementById('editTestResult');
+
+            // Get form values
+            const backendId = document.getElementById('editBackendId').value;
+            const name = document.getElementById('editBackendName').value;
+            const url = document.getElementById('editBackendUrl').value;
+            const port = document.getElementById('editBackendPort').value;
+            const token = document.getElementById('editBackendToken').value;
+
+            if (!name || !url || !token) {
+                testResult.className = 'test-result error';
+                testResult.textContent = 'Please fill in all required fields';
+                testResult.style.display = 'block';
+                return;
+            }
+
+            // Disable button during test
+            testBtn.disabled = true;
+            testBtn.innerHTML = '<span class="loading"></span> Testing...';
+
+            try {
+                // First update the backend
+                const updateResponse = await fetch(`/api/backends/${backendId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        connection: {
+                            url: url,
+                            port: parseInt(port),
+                            token: token
+                        }
+                    })
+                });
+
+                const updateData = await updateResponse.json();
+                if (updateData.status !== 'success') {
+                    throw new Error('Failed to update backend');
+                }
+
+                // Test the connection
+                const response = await fetch(`/api/backends/${backendId}/test`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success' && data.result.success) {
+                    testResult.className = 'test-result success';
+                    testResult.textContent = `✓ Connection successful! Found ${data.result.entity_count || 0} entities`;
+                    testResult.style.display = 'block';
+                } else {
+                    testResult.className = 'test-result error';
+                    testResult.textContent = `✗ ${data.result.error || 'Connection failed'}`;
+                    testResult.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Test error:', error);
+                testResult.className = 'test-result error';
+                testResult.textContent = '✗ Failed to test connection: ' + error.message;
+                testResult.style.display = 'block';
+            } finally {
+                testBtn.disabled = false;
+                testBtn.innerHTML = 'Test Connection';
+            }
+        }
+
+        async function updateBackend() {
+            const backendId = document.getElementById('editBackendId').value;
+            const name = document.getElementById('editBackendName').value;
+            const url = document.getElementById('editBackendUrl').value;
+            const port = document.getElementById('editBackendPort').value;
+            const token = document.getElementById('editBackendToken').value;
+
+            if (!name || !url || !token) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/backends/${backendId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        connection: {
+                            url: url,
+                            port: parseInt(port),
+                            token: token
+                        }
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    closeEditModal();
+                    loadBackends(); // Reload the list
+                    alert('Backend updated successfully');
+                } else {
+                    alert('Failed to update backend');
+                }
+            } catch (error) {
+                console.error('Update error:', error);
+                alert('Error updating backend: ' + error.message);
+            }
         }
 
         function manageEntities(backendId) {
@@ -794,13 +976,14 @@
             card.className = `backend-card status-${status}`;
 
             const stats = backend.statistics || {};
-            const entityText = `Entities: <strong>${stats.configured_entities || 0}</strong> configured, <strong>${stats.enabled_entities || 0}</strong> active`;
+            // Updated to use device terminology
+            const deviceText = `Devices: <strong>${stats.total_devices || 0}</strong> total, <strong>${stats.mapped_devices || 0}</strong> mapped`;
 
             card.innerHTML = `
                 <div class="backend-name">${backend.name}</div>
                 <div class="backend-type">${backend.type}</div>
                 <div class="backend-url">${backend.connection?.url}:${backend.connection?.port}</div>
-                <div class="entity-count">${entityText}</div>
+                <div class="entity-count">${deviceText}</div>
                 <div class="backend-stats">
                     Last sync: ${backend.statistics?.last_sync ? new Date(backend.statistics.last_sync).toLocaleString() : 'Never'}<br>
                     ${backend.status?.error ? `Error: ${backend.status.error}` : `Version: ${backend.status?.version || 'Unknown'}`}
@@ -813,7 +996,7 @@
                     <div class="backend-actions-row">
                         <button class="backend-btn test-btn" onclick="testBackend('${backend.id}')">Test</button>
                         <button class="backend-btn" onclick="editBackend('${backend.id}')">Edit</button>
-                        <button class="backend-btn" onclick="manageEntities('${backend.id}')">Entities</button>
+                        <button class="backend-btn" onclick="manageEntities('${backend.id}')">Devices</button>
                         ${status === 'disconnected' ? `<button class="backend-btn delete-btn" onclick="deleteBackend('${backend.id}')">Delete</button>` : ''}
                     </div>
                 </div>
