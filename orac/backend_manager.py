@@ -131,11 +131,13 @@ class BackendManager:
                 "version": None,
                 "error": None
             },
-            "entities": {},
+            "device_mappings": {},
+            "device_types": ["lights", "heating", "media_player", "blinds", "switches"],
+            "locations": [],
             "statistics": {
-                "total_entities": 0,
-                "enabled_entities": 0,
-                "configured_entities": 0,
+                "total_devices": 0,
+                "enabled_devices": 0,
+                "mapped_devices": 0,
                 "last_sync": None
             }
         }
@@ -331,6 +333,110 @@ class BackendManager:
                 "error": str(e)
             }
 
+    def validate_device_mappings(self, backend_id: str) -> List[str]:
+        """Check for duplicate Type + Location combinations
+
+        Args:
+            backend_id: The backend ID
+
+        Returns:
+            List of conflict messages
+        """
+        backend = self.get_backend(backend_id)
+        if not backend:
+            return [f"Backend {backend_id} not found"]
+
+        conflicts = []
+        seen_combinations = {}
+
+        for device_id, mapping in backend.get('device_mappings', {}).items():
+            if not mapping.get('enabled'):
+                continue
+
+            device_type = mapping.get('device_type')
+            location = mapping.get('location')
+
+            if device_type and location:
+                combo = f"{device_type}:{location}"
+                if combo in seen_combinations:
+                    conflicts.append(
+                        f"Duplicate mapping: {device_id} and {seen_combinations[combo]} "
+                        f"both have Type='{device_type}' and Location='{location}'"
+                    )
+                else:
+                    seen_combinations[combo] = device_id
+
+        return conflicts
+
+    def get_device_by_mapping(self, backend_id: str, device_type: str, location: str) -> Optional[str]:
+        """Find device with specific Type + Location combination
+
+        Args:
+            backend_id: The backend ID
+            device_type: The device type
+            location: The location
+
+        Returns:
+            Device entity_id or None
+        """
+        backend = self.get_backend(backend_id)
+        if not backend:
+            return None
+
+        for device_id, mapping in backend.get('device_mappings', {}).items():
+            if (mapping.get('enabled') and
+                mapping.get('device_type') == device_type and
+                mapping.get('location') == location):
+                return device_id
+
+        return None
+
+    def add_device_type(self, backend_id: str, device_type: str) -> bool:
+        """Add a custom device type
+
+        Args:
+            backend_id: The backend ID
+            device_type: The device type to add
+
+        Returns:
+            True if successful
+        """
+        backend = self.get_backend(backend_id)
+        if not backend:
+            return False
+
+        if 'device_types' not in backend:
+            backend['device_types'] = []
+
+        if device_type not in backend['device_types']:
+            backend['device_types'].append(device_type)
+            self.save_backend(backend_id)
+            return True
+        return False
+
+    def add_location(self, backend_id: str, location: str) -> bool:
+        """Add a custom location
+
+        Args:
+            backend_id: The backend ID
+            location: The location to add
+
+        Returns:
+            True if successful
+        """
+        backend = self.get_backend(backend_id)
+        if not backend:
+            return False
+
+        if 'locations' not in backend:
+            backend['locations'] = []
+
+        if location not in backend['locations']:
+            backend['locations'].append(location)
+            self.save_backend(backend_id)
+            return True
+        return False
+
     async def fetch_entities(self, backend_id: str) -> Dict:
         """Fetch entities from a backend
 
@@ -402,25 +508,62 @@ class BackendManager:
                 # Process entities
                 backend = self.backends[backend_id]
 
-                # Update or add entities
+                # Ensure device_mappings exists
+                if 'device_mappings' not in backend:
+                    backend['device_mappings'] = {}
+
+                # Ensure locations exists and extract areas
+                if 'locations' not in backend:
+                    backend['locations'] = []
+
+                # Extract areas as locations
+                areas_found = set()
+                for entity in entities:
+                    area = entity.get('attributes', {}).get('area')
+                    if area and area != 'Unknown':
+                        areas_found.add(area)
+
+                # Add areas as locations if not already present
+                for area in areas_found:
+                    if area not in backend['locations']:
+                        backend['locations'].append(area)
+
+                # Update or add device mappings
                 for entity in entities:
                     entity_id = entity.get('entity_id')
                     if entity_id:
-                        # Preserve existing configuration if it exists
-                        if entity_id in backend['entities']:
-                            # Update original_name and area if changed
-                            backend['entities'][entity_id]['original_name'] = entity.get('attributes', {}).get('friendly_name', entity_id)
-                            backend['entities'][entity_id]['area'] = entity.get('attributes', {}).get('area', 'Unknown')
+                        # Preserve existing mapping if it exists
+                        if entity_id in backend['device_mappings']:
+                            # Update original area if changed
+                            backend['device_mappings'][entity_id]['original_area'] = entity.get('attributes', {}).get('area', 'Unknown')
+                            backend['device_mappings'][entity_id]['original_name'] = entity.get('attributes', {}).get('friendly_name', entity_id)
+                            backend['device_mappings'][entity_id]['state'] = entity.get('state')
+                            backend['device_mappings'][entity_id]['attributes'] = entity.get('attributes', {})
                         else:
-                            # Create new entity configuration
-                            backend['entities'][entity_id] = {
+                            # Create new device mapping
+                            domain = entity_id.split('.')[0] if '.' in entity_id else 'unknown'
+
+                            # Suggest initial device type based on domain
+                            suggested_type = None
+                            if domain == 'light':
+                                suggested_type = 'lights'
+                            elif domain == 'climate':
+                                suggested_type = 'heating'
+                            elif domain == 'media_player':
+                                suggested_type = 'media_player'
+                            elif domain == 'cover':
+                                suggested_type = 'blinds'
+                            elif domain == 'switch':
+                                # Could be lights or switches
+                                suggested_type = 'switches'
+
+                            backend['device_mappings'][entity_id] = {
                                 'enabled': False,
-                                'friendly_name': None,
-                                'aliases': [],
+                                'device_type': suggested_type,
+                                'location': None,
+                                'original_area': entity.get('attributes', {}).get('area', 'Unknown'),
                                 'original_name': entity.get('attributes', {}).get('friendly_name', entity_id),
-                                'domain': entity_id.split('.')[0] if '.' in entity_id else 'unknown',
-                                'area': entity.get('attributes', {}).get('area', 'Unknown'),
-                                'priority': 5,
+                                'domain': domain,
                                 'configured_at': None,
                                 'state': entity.get('state'),
                                 'attributes': entity.get('attributes', {})
@@ -428,9 +571,10 @@ class BackendManager:
 
                 # Update statistics
                 backend['statistics'] = {
-                    'total_entities': len(backend['entities']),
-                    'enabled_entities': sum(1 for e in backend['entities'].values() if e['enabled']),
-                    'configured_entities': sum(1 for e in backend['entities'].values() if e['configured_at']),
+                    'total_devices': len(backend['device_mappings']),
+                    'enabled_devices': sum(1 for d in backend['device_mappings'].values() if d['enabled']),
+                    'mapped_devices': sum(1 for d in backend['device_mappings'].values()
+                                        if d['enabled'] and d.get('device_type') and d.get('location')),
                     'last_sync': datetime.now().isoformat()
                 }
 
@@ -438,8 +582,10 @@ class BackendManager:
 
                 return {
                     "success": True,
-                    "entities": list(backend['entities'].values()),
-                    "count": len(backend['entities'])
+                    "devices": list(backend['device_mappings'].values()),
+                    "count": len(backend['device_mappings']),
+                    "locations_found": list(backend['locations']),
+                    "device_types": backend.get('device_types', [])
                 }
             else:
                 return {
@@ -456,60 +602,65 @@ class BackendManager:
                 "entities": []
             }
 
-    def update_entity(self, backend_id: str, entity_id: str, updates: Dict) -> Optional[Dict]:
-        """Update entity configuration
+    def update_device_mapping(self, backend_id: str, device_id: str, updates: Dict) -> Optional[Dict]:
+        """Update device mapping configuration
 
         Args:
             backend_id: The backend ID
-            entity_id: The entity ID
+            device_id: The device ID
             updates: Dictionary of updates
 
         Returns:
-            Updated entity or None
+            Updated device mapping or None
         """
         backend = self.get_backend(backend_id)
         if not backend:
             logger.error(f"Backend {backend_id} not found")
             return None
 
-        if entity_id not in backend['entities']:
-            logger.error(f"Entity {entity_id} not found in backend {backend_id}")
+        if 'device_mappings' not in backend:
+            backend['device_mappings'] = {}
+
+        if device_id not in backend['device_mappings']:
+            logger.error(f"Device {device_id} not found in backend {backend_id}")
             return None
 
-        entity = backend['entities'][entity_id]
+        mapping = backend['device_mappings'][device_id]
 
         # Update allowed fields
         if 'enabled' in updates:
-            entity['enabled'] = updates['enabled']
-            if updates['enabled'] and not entity['configured_at']:
-                entity['configured_at'] = datetime.now().isoformat()
+            mapping['enabled'] = updates['enabled']
+            if updates['enabled'] and not mapping.get('configured_at'):
+                mapping['configured_at'] = datetime.now().isoformat()
 
-        if 'friendly_name' in updates:
-            entity['friendly_name'] = updates['friendly_name']
+        if 'device_type' in updates:
+            mapping['device_type'] = updates['device_type']
 
-        if 'aliases' in updates:
-            entity['aliases'] = updates['aliases']
-
-        if 'priority' in updates:
-            entity['priority'] = updates['priority']
+        if 'location' in updates:
+            mapping['location'] = updates['location']
 
         # Update statistics
         backend['statistics'] = {
-            'total_entities': len(backend['entities']),
-            'enabled_entities': sum(1 for e in backend['entities'].values() if e['enabled']),
-            'configured_entities': sum(1 for e in backend['entities'].values() if e['configured_at']),
+            'total_devices': len(backend['device_mappings']),
+            'enabled_devices': sum(1 for d in backend['device_mappings'].values() if d['enabled']),
+            'mapped_devices': sum(1 for d in backend['device_mappings'].values()
+                                if d['enabled'] and d.get('device_type') and d.get('location')),
             'last_sync': backend['statistics'].get('last_sync')
         }
 
         self.save_backend(backend_id)
-        return entity
+        return mapping
 
-    def bulk_update_entities(self, backend_id: str, entity_ids: List[str], updates: Dict) -> Dict:
-        """Bulk update multiple entities
+    def update_entity(self, backend_id: str, entity_id: str, updates: Dict) -> Optional[Dict]:
+        """Legacy method - redirects to update_device_mapping for compatibility"""
+        return self.update_device_mapping(backend_id, entity_id, updates)
+
+    def bulk_update_device_mappings(self, backend_id: str, device_ids: List[str], updates: Dict) -> Dict:
+        """Bulk update multiple device mappings
 
         Args:
             backend_id: The backend ID
-            entity_ids: List of entity IDs to update
+            device_ids: List of device IDs to update
             updates: Dictionary of updates
 
         Returns:
@@ -524,35 +675,43 @@ class BackendManager:
             }
 
         updated = 0
-        for entity_id in entity_ids:
-            if self.update_entity(backend_id, entity_id, updates):
+        for device_id in device_ids:
+            if self.update_device_mapping(backend_id, device_id, updates):
                 updated += 1
 
         return {
             "success": True,
             "updated": updated,
-            "total": len(entity_ids)
+            "total": len(device_ids)
         }
 
-    def get_entities(self, backend_id: str, filter_enabled: Optional[bool] = None) -> List[Dict]:
-        """Get entities for a backend
+    def bulk_update_entities(self, backend_id: str, entity_ids: List[str], updates: Dict) -> Dict:
+        """Legacy method - redirects to bulk_update_device_mappings"""
+        return self.bulk_update_device_mappings(backend_id, entity_ids, updates)
+
+    def get_device_mappings(self, backend_id: str, filter_enabled: Optional[bool] = None) -> List[Dict]:
+        """Get device mappings for a backend
 
         Args:
             backend_id: The backend ID
             filter_enabled: If provided, filter by enabled status
 
         Returns:
-            List of entities
+            List of device mappings
         """
         backend = self.get_backend(backend_id)
         if not backend:
             return []
 
-        entities = []
-        for entity_id, entity_data in backend['entities'].items():
-            if filter_enabled is None or entity_data['enabled'] == filter_enabled:
-                entity = entity_data.copy()
-                entity['entity_id'] = entity_id
-                entities.append(entity)
+        devices = []
+        for device_id, device_data in backend.get('device_mappings', {}).items():
+            if filter_enabled is None or device_data['enabled'] == filter_enabled:
+                device = device_data.copy()
+                device['device_id'] = device_id
+                devices.append(device)
 
-        return entities
+        return devices
+
+    def get_entities(self, backend_id: str, filter_enabled: Optional[bool] = None) -> List[Dict]:
+        """Legacy method - redirects to get_device_mappings for compatibility"""
+        return self.get_device_mappings(backend_id, filter_enabled)

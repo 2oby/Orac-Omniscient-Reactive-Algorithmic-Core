@@ -261,6 +261,94 @@ async def bulk_update_entities(backend_id: str, request: Request) -> Dict[str, A
         logger.error(f"Error in bulk update: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/backends/{backend_id}/device-types", tags=["Backends"])
+async def add_device_type(backend_id: str, request: Request) -> Dict[str, Any]:
+    """Add a custom device type to a backend."""
+    try:
+        data = await request.json()
+        device_type = data.get("device_type")
+        if not device_type:
+            raise HTTPException(status_code=400, detail="device_type is required")
+
+        success = backend_manager.add_device_type(backend_id, device_type)
+        if success:
+            return {
+                "status": "success",
+                "message": f"Device type '{device_type}' added successfully"
+            }
+        else:
+            return {
+                "status": "error",
+                "message": f"Failed to add device type or already exists"
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding device type: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/backends/{backend_id}/locations", tags=["Backends"])
+async def add_location(backend_id: str, request: Request) -> Dict[str, Any]:
+    """Add a custom location to a backend."""
+    try:
+        data = await request.json()
+        location = data.get("location")
+        if not location:
+            raise HTTPException(status_code=400, detail="location is required")
+
+        success = backend_manager.add_location(backend_id, location)
+        if success:
+            return {
+                "status": "success",
+                "message": f"Location '{location}' added successfully"
+            }
+        else:
+            return {
+                "status": "error",
+                "message": f"Failed to add location or already exists"
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding location: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/backends/{backend_id}/validate-mappings", tags=["Backends"])
+async def validate_mappings(backend_id: str) -> Dict[str, Any]:
+    """Validate device mappings for conflicts."""
+    try:
+        conflicts = backend_manager.validate_device_mappings(backend_id)
+        return {
+            "status": "success" if not conflicts else "error",
+            "valid": len(conflicts) == 0,
+            "conflicts": conflicts
+        }
+    except Exception as e:
+        logger.error(f"Error validating mappings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backends/{backend_id}/mappings", tags=["Backends"])
+async def get_backend_mappings(backend_id: str, enabled: bool = None) -> Dict[str, Any]:
+    """Get device mappings with validation status."""
+    try:
+        devices = backend_manager.get_device_mappings(backend_id, filter_enabled=enabled)
+        conflicts = backend_manager.validate_device_mappings(backend_id)
+        backend = backend_manager.get_backend(backend_id)
+
+        return {
+            "status": "success",
+            "devices": devices,
+            "device_types": backend.get("device_types", []) if backend else [],
+            "locations": backend.get("locations", []) if backend else [],
+            "validation": {
+                "valid": len(conflicts) == 0,
+                "conflicts": conflicts
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting mappings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Set up templates
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
