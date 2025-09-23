@@ -10,11 +10,11 @@ ORAC (Omniscient Reactive Algorithmic Core) is a lightweight, Jetson-optimized w
 - REST API for model management
 - Command-line interface
 
-## Quick Start: Using orin3 and deploy_and_test
+## Quick Start: Using orin4 and deploy_and_test
 
-### SSH Access to Jetson Orin (orin3)
+### SSH Access to Jetson Orin (orin4)
 
-The `orin3` hostname is configured as an SSH shortcut for the remote Jetson Orin machine.
+The `orin4` is configured as an SSH shortcut for the remote Jetson Orin machine.
 
 **Remote Environment:**
 - **Host**: Jetson Orin running Ubuntu 22.04 ARM64
@@ -24,7 +24,7 @@ The `orin3` hostname is configured as an SSH shortcut for the remote Jetson Orin
 
 ```bash
 # Connect to the remote Jetson Orin machine
-ssh orin3
+ssh orin4
 
 # You'll be connected to the Jetson Orin running Ubuntu 22.04 ARM64
 # Navigate to the project directory
@@ -41,25 +41,25 @@ docker ps
 **Execute Commands Directly (Non-Interactive):**
 ```bash
 # Run a single command and return to local machine
-ssh orin3 "ls -al"
+ssh orin4 "ls -al"
 
 # Check git status on remote
-ssh orin3 "cd /home/toby/ORAC && git status"
+ssh orin4 "cd /home/toby/ORAC && git status"
 
 # Check if Docker container is running
-ssh orin3 "docker ps"
+ssh orin4 "docker ps"
 
 # Check container logs
-ssh orin3 "docker logs orac"
+ssh orin4 "docker logs orac"
 
 # Pull latest changes
-ssh orin3 "cd /home/toby/ORAC && git pull origin main"
+ssh orin4 "cd /home/toby/ORAC && git pull origin main"
 
 # Restart the Docker container
-ssh orin3 "cd /home/toby/ORAC && docker restart orac"
+ssh orin4 "cd /home/toby/ORAC && docker restart orac"
 
 # Check logs
-ssh orin3 "tail -f /home/toby/ORAC/logs/orac.log"
+ssh orin4 "tail -f /home/toby/ORAC/logs/orac.log"
 ```
 
 **Next Steps:**
@@ -101,7 +101,7 @@ The `deploy_and_test.sh` script automates the deployment process from your local
 **What the Script Does:**
 1. **Local Changes**: Commits your current changes with the provided message
 2. **Git Push**: Pushes to the specified branch on the remote repository
-3. **Remote Update**: SSH into orin3 and pulls the latest changes
+3. **Remote Update**: SSH into orin4 and pulls the latest changes
 4. **Container Restart**: Restarts the Docker container (e.g., "orac")
 5. **Verification**: Runs tests to ensure deployment was successful
 
@@ -114,7 +114,7 @@ tail -f logs/deploy.log
 git add .
 git commit -m "Your commit message"
 git push origin main
-ssh orin3
+ssh orin4
 cd /home/toby/ORAC
 git pull origin main
 docker restart orac
@@ -148,10 +148,10 @@ mkdir -p models/gguf logs
    **SSH Access:**
    ```bash
    # SSH into the remote Jetson Orin machine
-   ssh orin3
+   ssh orin4
    
    # Or with specific user if needed
-   ssh username@orin3
+   ssh username@orin4
    
    # Navigate to project directory
    cd /home/toby/ORAC
@@ -183,7 +183,7 @@ mkdir -p models/gguf logs
    # The script will:
    # 1. Commit your changes with the provided message
    # 2. Push to the specified branch
-   # 3. SSH into orin3 and pull the latest changes
+   # 3. SSH into orin4 and pull the latest changes
    # 4. Restart the Docker container
    # 5. Run tests to verify deployment
    ```
@@ -196,7 +196,7 @@ mkdir -p models/gguf logs
    git push origin main
    
    # SSH into remote and update
-   ssh orin3
+   ssh orin4
    cd /home/toby/ORAC
    git pull origin main
    
@@ -245,7 +245,7 @@ curl http://localhost:8000/v1/models
 5. **Test Grammar Functionality (Docker Container):**
 ```bash
 # SSH into remote machine
-ssh orin3
+ssh orin4
 
 # Navigate to project directory
 cd /home/toby/ORAC

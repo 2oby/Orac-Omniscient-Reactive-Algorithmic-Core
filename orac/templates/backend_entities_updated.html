@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <style>
+        /* Main Container */
+        .devices-container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        /* Header Controls */
+        .controls-bar {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+        }
+
+        .control-group {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            background: transparent;
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .btn.primary {
+            border-color: var(--primary-green);
+            color: var(--primary-green);
+        }
+
+        .btn.primary:hover {
+            background: var(--primary-green);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary-green);
+        }
+
+        .btn.validate {
+            border-color: var(--primary-green);
+            color: var(--primary-green);
+        }
+
+        .btn.back {
+            border-color: var(--text-color);
+        }
+
+        .search-input {
+            padding: 0.6rem 1rem;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            width: 300px;
+            font-size: 0.9rem;
+        }
+
+        .search-input::placeholder {
+            color: rgba(0, 255, 65, 0.5);
+        }
+
+        /* Main Layout - Three Column */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        /* Left Panel - Devices */
+        .devices-panel {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            min-height: 600px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+        }
+
+        .panel-title {
+            color: var(--primary-green);
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Devices Table Header */
+        .devices-header {
+            display: grid;
+            grid-template-columns: 80px 1fr 180px 180px;
+            gap: 1rem;
+            padding: 0.75rem;
+            background: rgba(0, 0, 0, 0.4);
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 1rem;
+        }
+
+        .header-label {
+            color: var(--primary-green);
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+
+        /* Device Cards Container */
+        .devices-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        /* Device Card */
+        .device-card {
+            display: grid;
+            grid-template-columns: 80px 1fr 180px 180px;
+            gap: 1rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            align-items: center;
+        }
+
+        .device-card.enabled {
+            background: rgba(0, 255, 65, 0.1);
+            border-color: var(--primary-green);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+        }
+
+        .device-card.disabled {
+            opacity: 0.6;
+            border-color: #ff6600;
+            background: rgba(255, 102, 0, 0.05);
+        }
+
+        .device-card:hover {
+            transform: translateX(5px);
+        }
+
+        .device-card.enabled:hover {
+            box-shadow: 0 0 25px rgba(0, 255, 65, 0.6);
+        }
+
+        /* Enable Status */
+        .enable-label {
+            color: var(--text-color);
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        /* Device Info */
+        .device-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .device-id {
+            color: var(--primary-green);
+            font-family: monospace;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+        }
+
+        .device-name {
+            color: var(--text-color);
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+
+        /* Drop Zones */
+        .drop-zone {
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px dashed var(--border-color);
+            border-radius: 6px;
+            padding: 0.75rem;
+            min-height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .drop-zone-label {
+            color: rgba(0, 255, 65, 0.5);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .drop-zone.drag-over {
+            background: rgba(0, 255, 65, 0.2);
+            border-color: var(--primary-green);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.5);
+        }
+
+        .drop-zone.has-value {
+            background: rgba(0, 255, 65, 0.15);
+            border: 2px solid var(--primary-green);
+        }
+
+        .drop-zone.has-value .drop-zone-label {
+            display: none;
+        }
+
+        .drop-zone-value {
+            color: var(--primary-green);
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .drop-zone.conflict {
+            background: rgba(255, 68, 68, 0.2);
+            border-color: #ff4444;
+        }
+
+        /* Right Panel Container */
+        .right-panels {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Device Types and Locations Panels */
+        .types-panel, .locations-panel {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+        }
+
+        /* Draggable Items Container */
+        .draggable-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 250px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        /* Draggable Item */
+        .draggable-item {
+            padding: 0.75rem 1rem;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid var(--primary-green);
+            border-radius: 6px;
+            color: var(--primary-green);
+            cursor: grab;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .draggable-item:hover {
+            background: rgba(0, 255, 65, 0.2);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.5);
+            transform: scale(1.05);
+        }
+
+        .draggable-item.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        /* Add New Button */
+        .add-new-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: transparent;
+            border: 2px dashed var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            border-radius: 6px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .add-new-btn:hover {
+            border-color: var(--primary-green);
+            color: var(--primary-green);
+            background: rgba(0, 255, 65, 0.1);
+        }
+
+        /* Clear button for drop zones */
+        .clear-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #ff4444;
+            cursor: pointer;
+            padding: 2px 6px;
+            font-size: 1rem;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .clear-btn:hover {
+            opacity: 1;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            display: none;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .loading-content {
+            text-align: center;
+        }
+
+        .loading-spinner {
+            border: 3px solid var(--border-color);
+            border-top-color: var(--primary-green);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: var(--primary-green);
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Scrollbar styling */
+        .devices-list::-webkit-scrollbar,
+        .draggable-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .devices-list::-webkit-scrollbar-track,
+        .draggable-list::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 4px;
+        }
+
+        .devices-list::-webkit-scrollbar-thumb,
+        .draggable-list::-webkit-scrollbar-thumb {
+            background: var(--primary-green);
+            border-radius: 4px;
+        }
+
+        .devices-list::-webkit-scrollbar-thumb:hover,
+        .draggable-list::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary-green);
+        }
+    </style>
+</head>
+<body class="cyberpunk-theme">
+    <div class="devices-container">
+        <!-- Top Control Bar -->
+        <div class="controls-bar">
+            <div class="control-group">
+                <button class="btn primary" onclick="fetchDevices()">🔄 FETCH DEVICES</button>
+                <button class="btn primary" onclick="saveConfiguration()">💾 SAVE CONFIGURATION</button>
+            </div>
+            <div class="control-group">
+                <input type="text" class="search-input" placeholder="Search devices..." onkeyup="filterDevices(this.value)">
+            </div>
+            <div class="control-group">
+                <button class="btn validate" onclick="validateMappings()">✓ VALIDATE</button>
+                <button class="btn back" onclick="window.location.href='/backends'">← BACK</button>
+            </div>
+        </div>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Left Panel - Devices -->
+            <div class="devices-panel">
+                <div class="panel-title">DEVICES</div>
+
+                <!-- Header Row -->
+                <div class="devices-header">
+                    <div class="header-label">ENABLE</div>
+                    <div class="header-label">DEVICE ID</div>
+                    <div class="header-label">DEVICE TYPE</div>
+                    <div class="header-label">LOCATION</div>
+                </div>
+
+                <!-- Device Cards List -->
+                <div class="devices-list" id="devices-list">
+                    <!-- Device cards will be dynamically inserted here -->
+                </div>
+            </div>
+
+            <!-- Right Panels -->
+            <div class="right-panels">
+                <!-- Device Types Panel -->
+                <div class="types-panel">
+                    <div class="panel-title">DEVICE TYPES</div>
+                    <div class="draggable-list" id="device-types-list">
+                        <!-- Device type items will be dynamically inserted here -->
+                    </div>
+                    <button class="add-new-btn" onclick="showAddDeviceTypeModal()">+ ADD DEVICE TYPE</button>
+                </div>
+
+                <!-- Locations Panel -->
+                <div class="locations-panel">
+                    <div class="panel-title">LOCATIONS</div>
+                    <div class="draggable-list" id="locations-list">
+                        <!-- Location items will be dynamically inserted here -->
+                    </div>
+                    <button class="add-new-btn" onclick="showAddLocationModal()">+ ADD LOCATION</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">LOADING...</div>
+        </div>
+    </div>
+
+    <!-- Modal for adding device type -->
+    <div id="addDeviceTypeModal" style="display:none;">
+        <!-- Modal content will be added by JavaScript -->
+    </div>
+
+    <!-- Modal for adding location -->
+    <div id="addLocationModal" style="display:none;">
+        <!-- Modal content will be added by JavaScript -->
+    </div>
+
+    <script src="{{ url_for('static', path='/js/backend_entities.js') }}"></script>
+</body>
+</html>
