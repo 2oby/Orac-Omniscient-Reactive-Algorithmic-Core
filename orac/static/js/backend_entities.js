@@ -1,4 +1,5 @@
 // Backend Entities Management - Device Configuration with Drag and Drop
+// Updated for card-based UI with click-to-enable functionality
 
 const backendId = window.location.pathname.split('/')[2];
 let deviceMappings = {};
@@ -10,6 +11,7 @@ let draggedType = null;
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadDeviceData();
+    setupDragAndDrop();
 });
 
 // Load all device data
@@ -20,302 +22,385 @@ async function loadDeviceData() {
         const data = await response.json();
 
         if (data.status === 'success') {
-            deviceMappings = {};
-            data.devices.forEach(device => {
-                deviceMappings[device.device_id] = device;
-            });
-
-            deviceTypes = data.device_types || [];
+            deviceMappings = data.device_mappings || {};
+            deviceTypes = data.device_types || ['lights', 'heating', 'media_player', 'blinds', 'switches'];
             locations = data.locations || [];
 
+            renderDevices();
             renderDeviceTypes();
             renderLocations();
-            renderDevices();
-            updateStatistics();
-
-            if (data.validation && !data.validation.valid) {
-                showValidationWarnings(data.validation.conflicts);
-            }
-        } else {
-            console.error('Failed to load device data:', data);
-            showNotification('Failed to load device data', 'error');
         }
     } catch (error) {
-        console.error('Error loading device data:', error);
-        showNotification('Error loading device data', 'error');
+        console.error('Failed to load device data:', error);
+        showNotification('Failed to load device data', 'error');
     } finally {
         showLoading(false);
     }
 }
 
-// Render device types panel
-function renderDeviceTypes() {
-    const container = document.getElementById('device-types-list');
-    container.innerHTML = '';
-
-    deviceTypes.forEach(type => {
-        const tile = createDraggableTile(type, 'device-type');
-        container.appendChild(tile);
-    });
-}
-
-// Render locations panel
-function renderLocations() {
-    const container = document.getElementById('locations-list');
-    container.innerHTML = '';
-
-    locations.forEach(location => {
-        const tile = createDraggableTile(location, 'location');
-        container.appendChild(tile);
-    });
-}
-
-// Create a draggable tile
-function createDraggableTile(name, type) {
-    const tile = document.createElement('div');
-    tile.className = 'draggable-tile';
-    tile.draggable = true;
-    tile.dataset.value = name;
-    tile.dataset.type = type;
-
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'tile-name';
-    nameSpan.textContent = name;
-    tile.appendChild(nameSpan);
-
-    // Add delete button for custom types/locations
-    const isCustom = (type === 'device-type' && !['lights', 'heating', 'media_player', 'blinds', 'switches'].includes(name)) ||
-                    (type === 'location');
-
-    if (isCustom) {
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'tile-delete';
-        deleteBtn.innerHTML = '×';
-        deleteBtn.onclick = (e) => {
-            e.stopPropagation();
-            removeTile(name, type);
-        };
-        tile.appendChild(deleteBtn);
-    }
-
-    // Drag event handlers
-    tile.addEventListener('dragstart', handleDragStart);
-    tile.addEventListener('dragend', handleDragEnd);
-
-    return tile;
-}
-
-// Drag event handlers
-function handleDragStart(e) {
-    draggedItem = e.target.dataset.value;
-    draggedType = e.target.dataset.type;
-    e.target.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'copy';
-}
-
-function handleDragEnd(e) {
-    e.target.classList.remove('dragging');
-}
-
-// Render devices table
+// Render device cards
 function renderDevices() {
-    const tbody = document.getElementById('devices-tbody');
-    tbody.innerHTML = '';
+    const devicesList = document.getElementById('devices-list');
+    devicesList.innerHTML = '';
 
-    Object.entries(deviceMappings).forEach(([deviceId, device]) => {
-        const row = createDeviceRow(deviceId, device);
-        tbody.appendChild(row);
+    Object.entries(deviceMappings).forEach(([entityId, mapping]) => {
+        const deviceCard = createDeviceCard(entityId, mapping);
+        devicesList.appendChild(deviceCard);
     });
 }
 
-// Create device row
-function createDeviceRow(deviceId, device) {
-    const row = document.createElement('tr');
-    row.dataset.deviceId = deviceId;
+// Create a device card element
+function createDeviceCard(entityId, mapping) {
+    const card = document.createElement('div');
+    card.className = `device-card ${mapping.enabled ? 'enabled' : 'disabled'}`;
+    card.dataset.entityId = entityId;
 
-    // Checkbox cell
-    const checkboxCell = document.createElement('td');
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'device-checkbox';
-    checkbox.checked = device.enabled || false;
-    checkbox.onchange = () => updateDeviceEnabled(deviceId, checkbox.checked);
-    checkboxCell.appendChild(checkbox);
-    row.appendChild(checkboxCell);
+    // Click handler for the entire card (except specific elements)
+    card.addEventListener('click', function(e) {
+        // Don't toggle if clicking on drop zones or clear buttons
+        if (!e.target.closest('.drop-zone') && !e.target.closest('.clear-btn')) {
+            toggleDeviceEnabled(entityId);
+        }
+    });
 
-    // Device ID cell
-    const idCell = document.createElement('td');
-    const idDiv = document.createElement('div');
-    idDiv.className = 'device-id';
-    idDiv.textContent = deviceId;
-    idCell.appendChild(idDiv);
+    // Enable/Status column
+    const enableLabel = document.createElement('div');
+    enableLabel.className = 'enable-label';
+    enableLabel.textContent = mapping.enabled ? 'ENABLED' : 'DISABLED';
 
-    if (device.original_name) {
-        const nameDiv = document.createElement('div');
-        nameDiv.className = 'device-name';
-        nameDiv.textContent = device.original_name;
-        idCell.appendChild(nameDiv);
-    }
-    row.appendChild(idCell);
+    // Device info
+    const deviceInfo = document.createElement('div');
+    deviceInfo.className = 'device-info';
+
+    const deviceId = document.createElement('div');
+    deviceId.className = 'device-id';
+    deviceId.textContent = entityId.toUpperCase();
+
+    const deviceName = document.createElement('div');
+    deviceName.className = 'device-name';
+    deviceName.textContent = mapping.original_name || mapping.friendly_name || entityId.split('.')[1];
+
+    deviceInfo.appendChild(deviceId);
+    deviceInfo.appendChild(deviceName);
 
     // Device Type drop zone
-    const typeCell = document.createElement('td');
-    const typeZone = createDropZone('device-type', deviceId, device.device_type);
-    typeCell.appendChild(typeZone);
-    row.appendChild(typeCell);
+    const typeDropZone = document.createElement('div');
+    typeDropZone.className = 'drop-zone type-drop-zone';
+    typeDropZone.dataset.entityId = entityId;
+    typeDropZone.dataset.dropType = 'device-type';
 
-    // Location drop zone
-    const locationCell = document.createElement('td');
-    const locationZone = createDropZone('location', deviceId, device.location);
-    locationCell.appendChild(locationZone);
-    row.appendChild(locationCell);
+    if (mapping.device_type) {
+        typeDropZone.classList.add('has-value');
+        const valueSpan = document.createElement('span');
+        valueSpan.className = 'drop-zone-value';
+        valueSpan.textContent = mapping.device_type.toUpperCase();
+        typeDropZone.appendChild(valueSpan);
 
-    return row;
-}
-
-// Create drop zone
-function createDropZone(type, deviceId, currentValue) {
-    const zone = document.createElement('div');
-    zone.className = 'drop-zone';
-    zone.dataset.type = type;
-    zone.dataset.deviceId = deviceId;
-
-    if (currentValue) {
-        zone.classList.add('has-value');
-    }
-
-    const text = document.createElement('span');
-    text.className = 'drop-zone-text';
-    text.textContent = currentValue || `Drop ${type === 'device-type' ? 'Type' : 'Location'} here`;
-    zone.appendChild(text);
-
-    if (currentValue) {
         const clearBtn = document.createElement('button');
         clearBtn.className = 'clear-btn';
         clearBtn.innerHTML = '×';
         clearBtn.onclick = (e) => {
             e.stopPropagation();
-            clearDropZone(deviceId, type);
+            clearDeviceType(entityId);
         };
-        zone.appendChild(clearBtn);
+        typeDropZone.appendChild(clearBtn);
+    } else {
+        const label = document.createElement('span');
+        label.className = 'drop-zone-label';
+        label.textContent = 'DROP TYPE HERE';
+        typeDropZone.appendChild(label);
     }
 
-    // Drop event handlers
-    zone.addEventListener('dragover', handleDragOver);
-    zone.addEventListener('drop', handleDrop);
-    zone.addEventListener('dragleave', handleDragLeave);
+    // Location drop zone
+    const locationDropZone = document.createElement('div');
+    locationDropZone.className = 'drop-zone location-drop-zone';
+    locationDropZone.dataset.entityId = entityId;
+    locationDropZone.dataset.dropType = 'location';
 
-    return zone;
+    if (mapping.location) {
+        locationDropZone.classList.add('has-value');
+        const valueSpan = document.createElement('span');
+        valueSpan.className = 'drop-zone-value';
+        valueSpan.textContent = mapping.location.toUpperCase();
+        locationDropZone.appendChild(valueSpan);
+
+        const clearBtn = document.createElement('button');
+        clearBtn.className = 'clear-btn';
+        clearBtn.innerHTML = '×';
+        clearBtn.onclick = (e) => {
+            e.stopPropagation();
+            clearLocation(entityId);
+        };
+        locationDropZone.appendChild(clearBtn);
+    } else {
+        const label = document.createElement('span');
+        label.className = 'drop-zone-label';
+        label.textContent = 'DROP LOCATION HERE';
+        locationDropZone.appendChild(label);
+    }
+
+    // Add all elements to card
+    card.appendChild(enableLabel);
+    card.appendChild(deviceInfo);
+    card.appendChild(typeDropZone);
+    card.appendChild(locationDropZone);
+
+    // Setup drop zones
+    setupDropZone(typeDropZone);
+    setupDropZone(locationDropZone);
+
+    return card;
 }
 
-// Drop event handlers
+// Toggle device enabled state
+async function toggleDeviceEnabled(entityId) {
+    const mapping = deviceMappings[entityId];
+    mapping.enabled = !mapping.enabled;
+
+    // Update UI immediately
+    const card = document.querySelector(`[data-entity-id="${entityId}"]`);
+    if (card) {
+        card.classList.toggle('enabled');
+        card.classList.toggle('disabled');
+        const enableLabel = card.querySelector('.enable-label');
+        if (enableLabel) {
+            enableLabel.textContent = mapping.enabled ? 'ENABLED' : 'DISABLED';
+        }
+    }
+
+    // Save to backend
+    await updateDeviceMapping(entityId, mapping);
+}
+
+// Render device types list
+function renderDeviceTypes() {
+    const typesList = document.getElementById('device-types-list');
+    typesList.innerHTML = '';
+
+    deviceTypes.forEach(type => {
+        const item = document.createElement('div');
+        item.className = 'draggable-item';
+        item.draggable = true;
+        item.dataset.type = 'device-type';
+        item.dataset.value = type;
+        item.textContent = type.toUpperCase();
+
+        // Setup drag events
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragend', handleDragEnd);
+
+        typesList.appendChild(item);
+    });
+}
+
+// Render locations list
+function renderLocations() {
+    const locationsList = document.getElementById('locations-list');
+    locationsList.innerHTML = '';
+
+    locations.forEach(location => {
+        const item = document.createElement('div');
+        item.className = 'draggable-item';
+        item.draggable = true;
+        item.dataset.type = 'location';
+        item.dataset.value = location;
+        item.textContent = location.toUpperCase();
+
+        // Setup drag events
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragend', handleDragEnd);
+
+        locationsList.appendChild(item);
+    });
+}
+
+// Setup drag and drop functionality
+function setupDragAndDrop() {
+    // Prevent default drag over behavior
+    document.addEventListener('dragover', (e) => e.preventDefault());
+}
+
+// Setup individual drop zone
+function setupDropZone(dropZone) {
+    dropZone.addEventListener('dragover', handleDragOver);
+    dropZone.addEventListener('dragleave', handleDragLeave);
+    dropZone.addEventListener('drop', handleDrop);
+}
+
+// Drag start handler
+function handleDragStart(e) {
+    draggedItem = e.target;
+    draggedType = e.target.dataset.type;
+    e.target.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'copy';
+}
+
+// Drag end handler
+function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+    draggedItem = null;
+    draggedType = null;
+}
+
+// Drag over handler
 function handleDragOver(e) {
     e.preventDefault();
-    const zone = e.currentTarget;
-    const zoneType = zone.dataset.type;
+    e.dataTransfer.dropEffect = 'copy';
 
-    if (draggedType === zoneType) {
-        e.dataTransfer.dropEffect = 'copy';
-        zone.classList.add('drag-over');
+    const dropZone = e.currentTarget;
+    const dropType = dropZone.dataset.dropType;
+
+    // Check if this is a valid drop target
+    if ((draggedType === 'device-type' && dropType === 'device-type') ||
+        (draggedType === 'location' && dropType === 'location')) {
+        dropZone.classList.add('drag-over');
     }
 }
 
+// Drag leave handler
 function handleDragLeave(e) {
     e.currentTarget.classList.remove('drag-over');
 }
 
+// Drop handler
 async function handleDrop(e) {
     e.preventDefault();
-    const zone = e.currentTarget;
-    zone.classList.remove('drag-over');
+    const dropZone = e.currentTarget;
+    dropZone.classList.remove('drag-over');
 
-    const zoneType = zone.dataset.type;
-    const deviceId = zone.dataset.deviceId;
+    if (!draggedItem) return;
 
-    if (draggedType !== zoneType) {
-        return;
-    }
+    const entityId = dropZone.dataset.entityId;
+    const dropType = dropZone.dataset.dropType;
+    const value = draggedItem.dataset.value;
 
-    // Update the mapping
-    if (!deviceMappings[deviceId]) {
-        deviceMappings[deviceId] = {};
-    }
+    // Check if correct type is being dropped
+    if ((draggedType === 'device-type' && dropType === 'device-type') ||
+        (draggedType === 'location' && dropType === 'location')) {
 
-    if (zoneType === 'device-type') {
-        deviceMappings[deviceId].device_type = draggedItem;
-    } else {
-        deviceMappings[deviceId].location = draggedItem;
-    }
+        // Update the mapping
+        if (!deviceMappings[entityId]) {
+            deviceMappings[entityId] = {};
+        }
 
-    // Save the update
-    await updateDeviceMapping(deviceId, deviceMappings[deviceId]);
+        if (dropType === 'device-type') {
+            deviceMappings[entityId].device_type = value;
+        } else if (dropType === 'location') {
+            deviceMappings[entityId].location = value;
+        }
 
-    // Re-render the device row
-    const row = document.querySelector(`tr[data-device-id="${deviceId}"]`);
-    if (row) {
-        const newRow = createDeviceRow(deviceId, deviceMappings[deviceId]);
-        row.replaceWith(newRow);
-    }
+        // Check for conflicts
+        const conflicts = checkForConflicts(entityId);
+        if (conflicts.length > 0) {
+            showConflictWarning(conflicts);
+            dropZone.classList.add('conflict');
+        } else {
+            dropZone.classList.remove('conflict');
+        }
 
-    // Validate mappings
-    validateMappings();
-    updateStatistics();
-}
+        // Update UI
+        updateDropZone(dropZone, value);
 
-// Clear drop zone
-async function clearDropZone(deviceId, type) {
-    if (type === 'device-type') {
-        deviceMappings[deviceId].device_type = null;
-    } else {
-        deviceMappings[deviceId].location = null;
-    }
-
-    await updateDeviceMapping(deviceId, deviceMappings[deviceId]);
-
-    const row = document.querySelector(`tr[data-device-id="${deviceId}"]`);
-    if (row) {
-        const newRow = createDeviceRow(deviceId, deviceMappings[deviceId]);
-        row.replaceWith(newRow);
-    }
-
-    validateMappings();
-    updateStatistics();
-}
-
-// Update device enabled status
-async function updateDeviceEnabled(deviceId, enabled) {
-    deviceMappings[deviceId].enabled = enabled;
-    await updateDeviceMapping(deviceId, { enabled });
-    updateStatistics();
-
-    if (enabled) {
-        validateMappings();
+        // Save to backend
+        await updateDeviceMapping(entityId, deviceMappings[entityId]);
     }
 }
 
-// Update device mapping via API
-async function updateDeviceMapping(deviceId, updates) {
+// Update drop zone display
+function updateDropZone(dropZone, value) {
+    dropZone.innerHTML = '';
+    dropZone.classList.add('has-value');
+
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'drop-zone-value';
+    valueSpan.textContent = value.toUpperCase();
+    dropZone.appendChild(valueSpan);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'clear-btn';
+    clearBtn.innerHTML = '×';
+    clearBtn.onclick = (e) => {
+        e.stopPropagation();
+        const entityId = dropZone.dataset.entityId;
+        if (dropZone.dataset.dropType === 'device-type') {
+            clearDeviceType(entityId);
+        } else {
+            clearLocation(entityId);
+        }
+    };
+    dropZone.appendChild(clearBtn);
+}
+
+// Clear device type
+async function clearDeviceType(entityId) {
+    if (deviceMappings[entityId]) {
+        delete deviceMappings[entityId].device_type;
+        await updateDeviceMapping(entityId, deviceMappings[entityId]);
+        renderDevices(); // Re-render to update UI
+    }
+}
+
+// Clear location
+async function clearLocation(entityId) {
+    if (deviceMappings[entityId]) {
+        delete deviceMappings[entityId].location;
+        await updateDeviceMapping(entityId, deviceMappings[entityId]);
+        renderDevices(); // Re-render to update UI
+    }
+}
+
+// Check for duplicate Type + Location combinations
+function checkForConflicts(currentEntityId) {
+    const conflicts = [];
+    const current = deviceMappings[currentEntityId];
+
+    if (current && current.device_type && current.location) {
+        Object.entries(deviceMappings).forEach(([entityId, mapping]) => {
+            if (entityId !== currentEntityId &&
+                mapping.device_type === current.device_type &&
+                mapping.location === current.location &&
+                mapping.enabled) {
+                conflicts.push(entityId);
+            }
+        });
+    }
+
+    return conflicts;
+}
+
+// Show conflict warning
+function showConflictWarning(conflicts) {
+    const message = `Warning: Duplicate Type + Location combination detected with: ${conflicts.join(', ')}`;
+    showNotification(message, 'warning');
+}
+
+// Update device mapping on backend
+async function updateDeviceMapping(entityId, mapping) {
     try {
-        const response = await fetch(`/api/backends/${backendId}/entities/${deviceId}`, {
+        const response = await fetch(`/api/backends/${backendId}/entities/${entityId}`, {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify(updates)
+            body: JSON.stringify(mapping)
         });
 
+        if (!response.ok) {
+            throw new Error(`Failed to update mapping: ${response.statusText}`);
+        }
+
         const data = await response.json();
-        if (data.status !== 'success') {
-            showNotification('Failed to update device', 'error');
+        if (data.warning) {
+            showNotification(data.warning, 'warning');
         }
     } catch (error) {
-        console.error('Error updating device:', error);
-        showNotification('Error updating device', 'error');
+        console.error('Failed to update device mapping:', error);
+        showNotification('Failed to save changes', 'error');
     }
 }
 
-// Fetch entities from Home Assistant
-async function fetchEntities() {
+// Fetch devices from Home Assistant
+async function fetchDevices() {
     showLoading(true);
     try {
         const response = await fetch(`/api/backends/${backendId}/entities/fetch`, {
@@ -324,45 +409,41 @@ async function fetchEntities() {
 
         const data = await response.json();
         if (data.status === 'success') {
-            showNotification(`Fetched ${data.result.count} devices`, 'success');
-            loadDeviceData();
+            showNotification(`Fetched ${data.result.total_entities} entities from Home Assistant`, 'success');
+            await loadDeviceData(); // Reload all data
         } else {
-            showNotification('Failed to fetch devices', 'error');
+            showNotification('Failed to fetch entities: ' + data.result.error, 'error');
         }
     } catch (error) {
-        console.error('Error fetching devices:', error);
-        showNotification('Error fetching devices', 'error');
+        console.error('Failed to fetch entities:', error);
+        showNotification('Failed to fetch entities', 'error');
     } finally {
         showLoading(false);
     }
 }
 
-// Save all mappings
-async function saveAllMappings() {
+// Save configuration
+async function saveConfiguration() {
     showLoading(true);
     try {
-        // The mappings are already saved individually when updated
-        // This is just to trigger a full save/validation
-        const response = await fetch(`/api/backends/${backendId}/validate-mappings`, {
+        const response = await fetch(`/api/backends/${backendId}/save`, {
             method: 'POST'
         });
 
-        const data = await response.json();
-        if (data.valid) {
+        if (response.ok) {
             showNotification('Configuration saved successfully', 'success');
         } else {
-            showNotification('Configuration saved with validation errors', 'warning');
-            showValidationWarnings(data.conflicts);
+            showNotification('Failed to save configuration', 'error');
         }
     } catch (error) {
-        console.error('Error saving configuration:', error);
-        showNotification('Error saving configuration', 'error');
+        console.error('Failed to save configuration:', error);
+        showNotification('Failed to save configuration', 'error');
     } finally {
         showLoading(false);
     }
 }
 
-// Validate mappings
+// Validate all mappings
 async function validateMappings() {
     try {
         const response = await fetch(`/api/backends/${backendId}/validate-mappings`, {
@@ -370,279 +451,123 @@ async function validateMappings() {
         });
 
         const data = await response.json();
-        if (!data.valid) {
-            showValidationWarnings(data.conflicts);
+        if (data.conflicts && data.conflicts.length > 0) {
+            showNotification(`Found ${data.conflicts.length} conflicts`, 'warning');
+            // Highlight conflicting devices
+            data.conflicts.forEach(conflict => {
+                const card = document.querySelector(`[data-entity-id="${conflict.entity1}"]`);
+                if (card) card.classList.add('conflict');
+                const card2 = document.querySelector(`[data-entity-id="${conflict.entity2}"]`);
+                if (card2) card2.classList.add('conflict');
+            });
         } else {
-            hideValidationWarnings();
+            showNotification('All mappings are valid!', 'success');
         }
     } catch (error) {
-        console.error('Error validating mappings:', error);
+        console.error('Failed to validate mappings:', error);
+        showNotification('Failed to validate mappings', 'error');
     }
-}
-
-// Show validation warnings
-function showValidationWarnings(conflicts) {
-    const warningDiv = document.getElementById('validation-warning');
-    const warningList = document.getElementById('warning-list');
-
-    warningList.innerHTML = '';
-    conflicts.forEach(conflict => {
-        const li = document.createElement('li');
-        li.textContent = conflict;
-        warningList.appendChild(li);
-    });
-
-    warningDiv.classList.add('show');
-}
-
-// Hide validation warnings
-function hideValidationWarnings() {
-    const warningDiv = document.getElementById('validation-warning');
-    warningDiv.classList.remove('show');
-}
-
-// Update statistics
-function updateStatistics() {
-    const total = Object.keys(deviceMappings).length;
-    const enabled = Object.values(deviceMappings).filter(d => d.enabled).length;
-    const mapped = Object.values(deviceMappings).filter(d =>
-        d.enabled && d.device_type && d.location
-    ).length;
-
-    document.getElementById('stat-total').textContent = total;
-    document.getElementById('stat-enabled').textContent = enabled;
-    document.getElementById('stat-mapped').textContent = mapped;
 }
 
 // Filter devices
-function filterDevices(searchText) {
-    const rows = document.querySelectorAll('#devices-tbody tr');
-    const search = searchText.toLowerCase();
+function filterDevices(searchTerm) {
+    const cards = document.querySelectorAll('.device-card');
+    const term = searchTerm.toLowerCase();
 
-    rows.forEach(row => {
-        const deviceId = row.dataset.deviceId.toLowerCase();
-        const device = deviceMappings[row.dataset.deviceId];
-        const originalName = (device.original_name || '').toLowerCase();
+    cards.forEach(card => {
+        const entityId = card.dataset.entityId.toLowerCase();
+        const deviceName = card.querySelector('.device-name').textContent.toLowerCase();
 
-        if (deviceId.includes(search) || originalName.includes(search)) {
-            row.style.display = '';
+        if (entityId.includes(term) || deviceName.includes(term)) {
+            card.style.display = '';
         } else {
-            row.style.display = 'none';
+            card.style.display = 'none';
         }
     });
 }
 
-// Modal functions
+// Show add device type modal
 function showAddDeviceTypeModal() {
-    document.getElementById('add-device-type-modal').classList.add('show');
-    document.getElementById('new-device-type').focus();
-}
-
-function hideAddDeviceTypeModal() {
-    document.getElementById('add-device-type-modal').classList.remove('show');
-    document.getElementById('new-device-type').value = '';
-}
-
-function showAddLocationModal() {
-    document.getElementById('add-location-modal').classList.add('show');
-    document.getElementById('new-location').focus();
-}
-
-function hideAddLocationModal() {
-    document.getElementById('add-location-modal').classList.remove('show');
-    document.getElementById('new-location').value = '';
-}
-
-// Add device type
-async function addDeviceType() {
-    const input = document.getElementById('new-device-type');
-    const deviceType = input.value.trim().toLowerCase();
-
-    if (!deviceType) {
-        showNotification('Please enter a device type name', 'error');
-        return;
+    const newType = prompt('Enter new device type name:');
+    if (newType && newType.trim()) {
+        addDeviceType(newType.trim().toLowerCase());
     }
+}
 
-    if (deviceTypes.includes(deviceType)) {
-        showNotification('Device type already exists', 'error');
-        return;
-    }
-
+// Add new device type
+async function addDeviceType(typeName) {
     try {
         const response = await fetch(`/api/backends/${backendId}/device-types`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ device_type: deviceType })
+            body: JSON.stringify({ device_type: typeName })
         });
 
-        const data = await response.json();
-        if (data.status === 'success') {
-            deviceTypes.push(deviceType);
+        if (response.ok) {
+            deviceTypes.push(typeName);
             renderDeviceTypes();
-            hideAddDeviceTypeModal();
-            showNotification('Device type added successfully', 'success');
+            showNotification(`Added device type: ${typeName}`, 'success');
         } else {
-            showNotification(data.message || 'Failed to add device type', 'error');
+            showNotification('Failed to add device type', 'error');
         }
     } catch (error) {
-        console.error('Error adding device type:', error);
-        showNotification('Error adding device type', 'error');
+        console.error('Failed to add device type:', error);
+        showNotification('Failed to add device type', 'error');
     }
 }
 
-// Add location
-async function addLocation() {
-    const input = document.getElementById('new-location');
-    const location = input.value.trim().toLowerCase();
-
-    if (!location) {
-        showNotification('Please enter a location name', 'error');
-        return;
+// Show add location modal
+function showAddLocationModal() {
+    const newLocation = prompt('Enter new location name:');
+    if (newLocation && newLocation.trim()) {
+        addLocation(newLocation.trim().toLowerCase());
     }
+}
 
-    if (locations.includes(location)) {
-        showNotification('Location already exists', 'error');
-        return;
-    }
-
+// Add new location
+async function addLocation(locationName) {
     try {
         const response = await fetch(`/api/backends/${backendId}/locations`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ location: location })
+            body: JSON.stringify({ location: locationName })
         });
 
-        const data = await response.json();
-        if (data.status === 'success') {
-            locations.push(location);
+        if (response.ok) {
+            locations.push(locationName);
             renderLocations();
-            hideAddLocationModal();
-            showNotification('Location added successfully', 'success');
+            showNotification(`Added location: ${locationName}`, 'success');
         } else {
-            showNotification(data.message || 'Failed to add location', 'error');
+            showNotification('Failed to add location', 'error');
         }
     } catch (error) {
-        console.error('Error adding location:', error);
-        showNotification('Error adding location', 'error');
-    }
-}
-
-// Remove tile (device type or location)
-async function removeTile(name, type) {
-    // Check if any device is using this type/location
-    const inUse = Object.values(deviceMappings).some(device => {
-        if (type === 'device-type') {
-            return device.device_type === name;
-        } else {
-            return device.location === name;
-        }
-    });
-
-    if (inUse) {
-        showNotification(`Cannot remove ${name} - it is in use`, 'error');
-        return;
-    }
-
-    if (confirm(`Are you sure you want to remove "${name}"?`)) {
-        if (type === 'device-type') {
-            deviceTypes = deviceTypes.filter(t => t !== name);
-            renderDeviceTypes();
-        } else {
-            locations = locations.filter(l => l !== name);
-            renderLocations();
-        }
-        showNotification(`${type === 'device-type' ? 'Device type' : 'Location'} removed`, 'success');
+        console.error('Failed to add location:', error);
+        showNotification('Failed to add location', 'error');
     }
 }
 
 // Show loading overlay
 function showLoading(show) {
-    const overlay = document.getElementById('loading-overlay');
-    if (show) {
-        overlay.classList.add('show');
-    } else {
-        overlay.classList.remove('show');
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        if (show) {
+            overlay.classList.add('show');
+        } else {
+            overlay.classList.remove('show');
+        }
     }
 }
 
-// Show notification
+// Show notification (you'll need to implement this or use a library)
 function showNotification(message, type = 'info') {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 1rem 1.5rem;
-        background: ${type === 'error' ? 'rgba(255, 68, 68, 0.9)' :
-                      type === 'success' ? 'rgba(0, 255, 65, 0.9)' :
-                      type === 'warning' ? 'rgba(255, 165, 0, 0.9)' :
-                      'rgba(0, 123, 255, 0.9)'};
-        color: ${type === 'success' ? '#000' : '#fff'};
-        border-radius: 4px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        z-index: 10000;
-        animation: slideIn 0.3s ease;
-    `;
-    notification.textContent = message;
-
-    document.body.appendChild(notification);
-
-    // Remove after 3 seconds
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    // TODO: Implement a proper notification system
+    // For now, using alert for errors and warnings
+    if (type === 'error' || type === 'warning') {
+        alert(message);
+    }
 }
-
-// Add animations
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-
-    @keyframes slideOut {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-    }
-`;
-document.head.appendChild(style);
-
-// Handle Enter key in modals
-document.getElementById('new-device-type').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        addDeviceType();
-    }
-});
-
-document.getElementById('new-location').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        addLocation();
-    }
-});
-
-// Close modals when clicking outside
-window.onclick = function(event) {
-    if (event.target.classList.contains('modal')) {
-        event.target.classList.remove('show');
-    }
-};

@@ -6,37 +6,14 @@
     <title>{{ title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
     <style>
+        /* Main Container */
         .devices-container {
-            max-width: 1600px;
+            max-width: 1800px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 1rem;
         }
 
-        .devices-header {
-            text-align: center;
-            margin-bottom: 2rem;
-            padding: 2rem;
-            background: var(--card-gradient);
-            border: 2px solid var(--border-color);
-            border-radius: 8px;
-            box-shadow: 0 0 30px rgba(0, 255, 65, 0.4);
-        }
-
-        .devices-title {
-            color: var(--primary-green);
-            text-shadow: 0 0 20px var(--primary-green);
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
-
-        .backend-name {
-            color: var(--secondary-green);
-            font-size: 1.2rem;
-            margin-bottom: 1rem;
-        }
-
+        /* Header Controls */
         .controls-bar {
             background: var(--card-gradient);
             border: 2px solid var(--border-color);
@@ -46,7 +23,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap;
             gap: 1rem;
             box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
         }
@@ -58,7 +34,7 @@
         }
 
         .btn {
-            padding: 0.5rem 1rem;
+            padding: 0.6rem 1.2rem;
             background: transparent;
             border: 2px solid var(--border-color);
             color: var(--text-color);
@@ -81,179 +57,153 @@
             box-shadow: 0 0 15px var(--primary-green);
         }
 
-        .btn.secondary:hover {
-            background: var(--text-color);
-            color: #000;
+        .btn.validate {
+            border-color: var(--primary-green);
+            color: var(--primary-green);
         }
 
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .btn.back {
+            border-color: var(--text-color);
         }
 
         .search-input {
-            padding: 0.5rem;
+            padding: 0.6rem 1rem;
             background: rgba(0, 0, 0, 0.6);
-            border: 1px solid var(--border-color);
+            border: 2px solid var(--border-color);
             color: var(--text-color);
             border-radius: 4px;
-            width: 250px;
+            width: 300px;
+            font-size: 0.9rem;
         }
 
-        /* Main layout */
+        .search-input::placeholder {
+            color: rgba(0, 255, 65, 0.5);
+        }
+
+        /* Main Layout - Three Column */
         .main-layout {
             display: grid;
-            grid-template-columns: 250px 1fr 250px;
-            gap: 1rem;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
             margin-top: 2rem;
         }
 
-        /* Side panels */
-        .side-panel {
+        /* Left Panel - Devices */
+        .devices-panel {
             background: var(--card-gradient);
             border: 2px solid var(--border-color);
             border-radius: 8px;
-            padding: 1rem;
-            max-height: 80vh;
-            overflow-y: auto;
+            padding: 1.5rem;
+            min-height: 600px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
         }
 
         .panel-title {
             color: var(--primary-green);
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 1rem;
+            letter-spacing: 2px;
+            margin-bottom: 1.5rem;
             padding-bottom: 0.5rem;
             border-bottom: 1px solid var(--border-color);
         }
 
-        /* Draggable tiles */
-        .draggable-tile {
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
+        /* Devices Table Header */
+        .devices-header {
+            display: grid;
+            grid-template-columns: 80px 1fr 180px 180px;
+            gap: 1rem;
             padding: 0.75rem;
-            margin-bottom: 0.5rem;
-            cursor: grab;
-            transition: all 0.3s ease;
-            position: relative;
+            background: rgba(0, 0, 0, 0.4);
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 1rem;
         }
 
-        .draggable-tile:hover {
-            background: rgba(0, 255, 65, 0.1);
-            border-color: var(--primary-green);
-            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+        .header-label {
+            color: var(--primary-green);
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
         }
 
-        .draggable-tile.dragging {
-            opacity: 0.5;
-            cursor: grabbing;
+        /* Device Cards Container */
+        .devices-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
         }
 
-        .tile-name {
-            font-size: 0.95rem;
-            color: var(--text-color);
-        }
-
-        .tile-delete {
-            position: absolute;
-            right: 5px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: #ff4444;
-            cursor: pointer;
-            padding: 2px 6px;
-            font-size: 1.2rem;
-            opacity: 0.7;
-            transition: opacity 0.3s;
-        }
-
-        .tile-delete:hover {
-            opacity: 1;
-        }
-
-        /* Add new button */
-        .add-new-btn {
-            width: 100%;
-            padding: 0.5rem;
-            background: transparent;
-            border: 1px dashed var(--border-color);
-            color: var(--text-color);
-            cursor: pointer;
-            border-radius: 4px;
-            margin-top: 0.5rem;
-            transition: all 0.3s ease;
-        }
-
-        .add-new-btn:hover {
-            border-color: var(--primary-green);
-            background: rgba(0, 255, 65, 0.1);
-        }
-
-        /* Center panel - devices list */
-        .center-panel {
-            background: var(--card-gradient);
+        /* Device Card */
+        .device-card {
+            display: grid;
+            grid-template-columns: 80px 1fr 180px 180px;
+            gap: 1rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.3);
             border: 2px solid var(--border-color);
             border-radius: 8px;
-            padding: 1rem;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-
-        .devices-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .devices-table th {
-            background: rgba(0, 0, 0, 0.6);
-            color: var(--primary-green);
-            padding: 0.75rem;
-            text-align: left;
-            font-weight: normal;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .devices-table td {
-            padding: 0.75rem;
-            border-bottom: 1px solid rgba(0, 255, 65, 0.1);
-        }
-
-        .devices-table tr:hover {
-            background: rgba(0, 255, 65, 0.05);
-        }
-
-        /* Device row elements */
-        .device-checkbox {
-            width: 20px;
-            height: 20px;
+            transition: all 0.3s ease;
             cursor: pointer;
+            align-items: center;
+        }
+
+        .device-card.enabled {
+            background: rgba(0, 255, 65, 0.1);
+            border-color: var(--primary-green);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+        }
+
+        .device-card.disabled {
+            opacity: 0.6;
+            border-color: #ff6600;
+            background: rgba(255, 102, 0, 0.05);
+        }
+
+        .device-card:hover {
+            transform: translateX(5px);
+        }
+
+        .device-card.enabled:hover {
+            box-shadow: 0 0 25px rgba(0, 255, 65, 0.6);
+        }
+
+        /* Enable Status */
+        .enable-label {
+            color: var(--text-color);
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        /* Device Info */
+        .device-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
         }
 
         .device-id {
-            color: var(--text-color);
+            color: var(--primary-green);
             font-family: monospace;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            text-transform: uppercase;
         }
 
         .device-name {
-            color: var(--secondary-green);
+            color: var(--text-color);
             font-size: 0.85rem;
-            opacity: 0.8;
+            opacity: 0.7;
         }
 
-        /* Drop zones */
+        /* Drop Zones */
         .drop-zone {
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px dashed var(--border-color);
-            border-radius: 4px;
-            padding: 0.5rem;
-            min-height: 36px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px dashed var(--border-color);
+            border-radius: 6px;
+            padding: 0.75rem;
+            min-height: 42px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -261,15 +211,33 @@
             position: relative;
         }
 
+        .drop-zone-label {
+            color: rgba(0, 255, 65, 0.5);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
         .drop-zone.drag-over {
             background: rgba(0, 255, 65, 0.2);
             border-color: var(--primary-green);
-            box-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.5);
         }
 
         .drop-zone.has-value {
-            background: rgba(0, 255, 65, 0.1);
-            border: 1px solid var(--primary-green);
+            background: rgba(0, 255, 65, 0.15);
+            border: 2px solid var(--primary-green);
+        }
+
+        .drop-zone.has-value .drop-zone-label {
+            display: none;
+        }
+
+        .drop-zone-value {
+            color: var(--primary-green);
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .drop-zone.conflict {
@@ -277,20 +245,85 @@
             border-color: #ff4444;
         }
 
-        .drop-zone-text {
-            color: var(--text-color);
-            font-size: 0.85rem;
-            opacity: 0.6;
+        /* Right Panel Container */
+        .right-panels {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
         }
 
-        .drop-zone.has-value .drop-zone-text {
-            opacity: 1;
+        /* Device Types and Locations Panels */
+        .types-panel, .locations-panel {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+        }
+
+        /* Draggable Items Container */
+        .draggable-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 250px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        /* Draggable Item */
+        .draggable-item {
+            padding: 0.75rem 1rem;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid var(--primary-green);
+            border-radius: 6px;
             color: var(--primary-green);
+            cursor: grab;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
         }
 
+        .draggable-item:hover {
+            background: rgba(0, 255, 65, 0.2);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.5);
+            transform: scale(1.05);
+        }
+
+        .draggable-item.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        /* Add New Button */
+        .add-new-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: transparent;
+            border: 2px dashed var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            border-radius: 6px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .add-new-btn:hover {
+            border-color: var(--primary-green);
+            color: var(--primary-green);
+            background: rgba(0, 255, 65, 0.1);
+        }
+
+        /* Clear button for drop zones */
         .clear-btn {
             position: absolute;
-            right: 5px;
+            right: 8px;
             top: 50%;
             transform: translateY(-50%);
             background: none;
@@ -298,71 +331,13 @@
             color: #ff4444;
             cursor: pointer;
             padding: 2px 6px;
-            font-size: 0.9rem;
+            font-size: 1rem;
             opacity: 0.7;
             transition: opacity 0.3s;
         }
 
         .clear-btn:hover {
             opacity: 1;
-        }
-
-        /* Validation warning */
-        .validation-warning {
-            background: rgba(255, 68, 68, 0.2);
-            border: 1px solid #ff4444;
-            border-radius: 4px;
-            padding: 1rem;
-            margin-top: 1rem;
-            display: none;
-        }
-
-        .validation-warning.show {
-            display: block;
-        }
-
-        .warning-title {
-            color: #ff4444;
-            font-weight: bold;
-            margin-bottom: 0.5rem;
-        }
-
-        .warning-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .warning-list li {
-            color: var(--text-color);
-            padding: 0.25rem 0;
-        }
-
-        /* Statistics */
-        .stats-bar {
-            background: rgba(0, 0, 0, 0.6);
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            display: flex;
-            gap: 2rem;
-            margin-top: 1rem;
-        }
-
-        .stat-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .stat-label {
-            color: var(--text-color);
-            opacity: 0.8;
-            font-size: 0.85rem;
-        }
-
-        .stat-value {
-            color: var(--primary-green);
-            font-weight: bold;
         }
 
         /* Loading overlay */
@@ -372,7 +347,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.9);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -384,6 +359,10 @@
             display: flex;
         }
 
+        .loading-content {
+            text-align: center;
+        }
+
         .loading-spinner {
             border: 3px solid var(--border-color);
             border-top-color: var(--primary-green);
@@ -391,174 +370,122 @@
             width: 50px;
             height: 50px;
             animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
         }
 
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
 
-        /* Modal for adding custom items */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-        }
-
-        .modal.show {
-            display: block;
-        }
-
-        .modal-content {
-            background: var(--card-gradient);
-            margin: 15% auto;
-            padding: 20px;
-            border: 2px solid var(--border-color);
-            border-radius: 8px;
-            width: 400px;
-            box-shadow: 0 0 30px rgba(0, 255, 65, 0.4);
-        }
-
-        .modal-header {
+        .loading-text {
             color: var(--primary-green);
-            font-size: 1.2rem;
-            margin-bottom: 1rem;
+            font-size: 1.1rem;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
         }
 
-        .modal-input {
-            width: 100%;
-            padding: 0.5rem;
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
+        /* Scrollbar styling */
+        .devices-list::-webkit-scrollbar,
+        .draggable-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .devices-list::-webkit-scrollbar-track,
+        .draggable-list::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.4);
             border-radius: 4px;
-            margin-bottom: 1rem;
         }
 
-        .modal-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 1rem;
+        .devices-list::-webkit-scrollbar-thumb,
+        .draggable-list::-webkit-scrollbar-thumb {
+            background: var(--primary-green);
+            border-radius: 4px;
+        }
+
+        .devices-list::-webkit-scrollbar-thumb:hover,
+        .draggable-list::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary-green);
         }
     </style>
 </head>
-<body>
+<body class="cyberpunk-theme">
     <div class="devices-container">
-        <div class="devices-header">
-            <h1 class="devices-title">Device Configuration</h1>
-            <div class="backend-name">{{ backend_name }}</div>
-        </div>
-
+        <!-- Top Control Bar -->
         <div class="controls-bar">
             <div class="control-group">
-                <button class="btn primary" onclick="fetchEntities()">
-                    <span>↻</span> Fetch Devices
-                </button>
-                <button class="btn secondary" onclick="saveAllMappings()">
-                    <span>💾</span> Save Configuration
-                </button>
+                <button class="btn primary" onclick="fetchDevices()">🔄 FETCH DEVICES</button>
+                <button class="btn primary" onclick="saveConfiguration()">💾 SAVE CONFIGURATION</button>
             </div>
             <div class="control-group">
                 <input type="text" class="search-input" placeholder="Search devices..." onkeyup="filterDevices(this.value)">
             </div>
             <div class="control-group">
-                <button class="btn secondary" onclick="validateMappings()">
-                    <span>✓</span> Validate
-                </button>
-                <button class="btn secondary" onclick="window.location.href='/backends'">
-                    <span>←</span> Back
-                </button>
+                <button class="btn validate" onclick="validateMappings()">✓ VALIDATE</button>
+                <button class="btn back" onclick="window.location.href='/backends'">← BACK</button>
             </div>
         </div>
 
+        <!-- Main Layout -->
         <div class="main-layout">
-            <!-- Left Panel - Device Types -->
-            <div class="side-panel">
-                <div class="panel-title">Device Types</div>
-                <div id="device-types-list"></div>
-                <button class="add-new-btn" onclick="showAddDeviceTypeModal()">+ Add Device Type</button>
-            </div>
+            <!-- Left Panel - Devices -->
+            <div class="devices-panel">
+                <div class="panel-title">DEVICES</div>
 
-            <!-- Center Panel - Devices List -->
-            <div class="center-panel">
-                <div class="panel-title">Devices</div>
-                <table class="devices-table">
-                    <thead>
-                        <tr>
-                            <th width="40">Enable</th>
-                            <th>Device ID</th>
-                            <th width="150">Device Type</th>
-                            <th width="150">Location</th>
-                        </tr>
-                    </thead>
-                    <tbody id="devices-tbody">
-                        <!-- Devices will be populated here -->
-                    </tbody>
-                </table>
-                <div class="validation-warning" id="validation-warning">
-                    <div class="warning-title">⚠ Validation Errors</div>
-                    <ul class="warning-list" id="warning-list"></ul>
+                <!-- Header Row -->
+                <div class="devices-header">
+                    <div class="header-label">ENABLE</div>
+                    <div class="header-label">DEVICE ID</div>
+                    <div class="header-label">DEVICE TYPE</div>
+                    <div class="header-label">LOCATION</div>
                 </div>
-                <div class="stats-bar">
-                    <div class="stat-item">
-                        <span class="stat-label">Total:</span>
-                        <span class="stat-value" id="stat-total">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Enabled:</span>
-                        <span class="stat-value" id="stat-enabled">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Mapped:</span>
-                        <span class="stat-value" id="stat-mapped">0</span>
-                    </div>
+
+                <!-- Device Cards List -->
+                <div class="devices-list" id="devices-list">
+                    <!-- Device cards will be dynamically inserted here -->
                 </div>
             </div>
 
-            <!-- Right Panel - Locations -->
-            <div class="side-panel">
-                <div class="panel-title">Locations</div>
-                <div id="locations-list"></div>
-                <button class="add-new-btn" onclick="showAddLocationModal()">+ Add Location</button>
+            <!-- Right Panels -->
+            <div class="right-panels">
+                <!-- Device Types Panel -->
+                <div class="types-panel">
+                    <div class="panel-title">DEVICE TYPES</div>
+                    <div class="draggable-list" id="device-types-list">
+                        <!-- Device type items will be dynamically inserted here -->
+                    </div>
+                    <button class="add-new-btn" onclick="showAddDeviceTypeModal()">+ ADD DEVICE TYPE</button>
+                </div>
+
+                <!-- Locations Panel -->
+                <div class="locations-panel">
+                    <div class="panel-title">LOCATIONS</div>
+                    <div class="draggable-list" id="locations-list">
+                        <!-- Location items will be dynamically inserted here -->
+                    </div>
+                    <button class="add-new-btn" onclick="showAddLocationModal()">+ ADD LOCATION</button>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loading-overlay">
-        <div class="loading-spinner"></div>
-    </div>
-
-    <!-- Add Device Type Modal -->
-    <div id="add-device-type-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">Add Device Type</div>
-            <input type="text" class="modal-input" id="new-device-type" placeholder="Enter device type name...">
-            <div class="modal-buttons">
-                <button class="btn secondary" onclick="hideAddDeviceTypeModal()">Cancel</button>
-                <button class="btn primary" onclick="addDeviceType()">Add</button>
-            </div>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">LOADING...</div>
         </div>
     </div>
 
-    <!-- Add Location Modal -->
-    <div id="add-location-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">Add Location</div>
-            <input type="text" class="modal-input" id="new-location" placeholder="Enter location name...">
-            <div class="modal-buttons">
-                <button class="btn secondary" onclick="hideAddLocationModal()">Cancel</button>
-                <button class="btn primary" onclick="addLocation()">Add</button>
-            </div>
-        </div>
+    <!-- Modal for adding device type -->
+    <div id="addDeviceTypeModal" style="display:none;">
+        <!-- Modal content will be added by JavaScript -->
     </div>
 
-    <script src="/static/js/backend_entities.js"></script>
+    <!-- Modal for adding location -->
+    <div id="addLocationModal" style="display:none;">
+        <!-- Modal content will be added by JavaScript -->
+    </div>
+
+    <script src="{{ url_for('static', path='/js/backend_entities.js') }}"></script>
 </body>
 </html>
