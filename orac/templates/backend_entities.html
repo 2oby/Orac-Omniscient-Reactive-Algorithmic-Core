@@ -158,8 +158,8 @@
 
         .device-card.disabled {
             opacity: 0.6;
-            border-color: #ff6600;
-            background: rgba(255, 102, 0, 0.05);
+            border-color: #ff8c00;
+            background: rgba(255, 140, 0, 0.05);
         }
 
         .device-card:hover {
@@ -177,6 +177,14 @@
             text-align: center;
         }
 
+        .device-card.enabled .enable-label {
+            color: var(--primary-green);
+        }
+
+        .device-card.disabled .enable-label {
+            color: #ff8c00;
+        }
+
         /* Device Info */
         .device-info {
             display: flex;
@@ -185,15 +193,30 @@
         }
 
         .device-id {
-            color: var(--primary-green);
             font-family: monospace;
             font-size: 0.95rem;
             text-transform: uppercase;
         }
 
+        .device-card.enabled .device-id {
+            color: var(--primary-green);
+        }
+
+        .device-card.disabled .device-id {
+            color: #ff8c00;
+        }
+
         .device-name {
-            color: var(--text-color);
             font-size: 0.85rem;
+        }
+
+        .device-card.enabled .device-name {
+            color: var(--primary-green);
+            opacity: 0.8;
+        }
+
+        .device-card.disabled .device-name {
+            color: #ff8c00;
             opacity: 0.7;
         }
 
@@ -216,6 +239,14 @@
             font-size: 0.85rem;
             text-transform: uppercase;
             letter-spacing: 1px;
+        }
+
+        .device-card.disabled .drop-zone-label {
+            color: rgba(255, 140, 0, 0.5);
+        }
+
+        .device-card.disabled .drop-zone {
+            border-color: rgba(255, 140, 0, 0.3);
         }
 
         .drop-zone.drag-over {
