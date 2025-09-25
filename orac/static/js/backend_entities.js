@@ -71,7 +71,21 @@ function renderDevices() {
     }
     devicesList.innerHTML = '';
 
-    Object.entries(deviceMappings).forEach(([entityId, mapping]) => {
+    // Sort devices: enabled first, then by entity ID
+    const sortedDevices = Object.entries(deviceMappings).sort((a, b) => {
+        const [entityIdA, mappingA] = a;
+        const [entityIdB, mappingB] = b;
+
+        // First sort by enabled status (enabled devices first)
+        if (mappingA.enabled !== mappingB.enabled) {
+            return mappingB.enabled ? 1 : -1;
+        }
+
+        // Then sort alphabetically by entity ID
+        return entityIdA.localeCompare(entityIdB);
+    });
+
+    sortedDevices.forEach(([entityId, mapping]) => {
         const deviceCard = createDeviceCard(entityId, mapping);
         devicesList.appendChild(deviceCard);
     });
