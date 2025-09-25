@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <style>
+        /* Main Container */
+        .grammar-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        /* Header Controls */
+        .controls-bar {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            background: transparent;
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .btn.primary {
+            border-color: var(--primary-green);
+            color: var(--primary-green);
+        }
+
+        .btn.primary:hover {
+            background: var(--primary-green);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary-green);
+        }
+
+        .btn.back {
+            border-color: var(--text-color);
+        }
+
+        /* Main Panel */
+        .main-panel {
+            background: var(--card-gradient);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
+        }
+
+        .section {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(0, 255, 65, 0.2);
+        }
+
+        .section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .section h2 {
+            color: var(--primary-green);
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Configuration Display */
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .config-item {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 255, 65, 0.3);
+            border-radius: 4px;
+            padding: 1rem;
+        }
+
+        .config-item h3 {
+            color: var(--primary-green);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .config-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .config-tag {
+            background: rgba(0, 255, 65, 0.2);
+            color: var(--primary-green);
+            padding: 0.3rem 0.6rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+
+        /* Test Interface */
+        .test-input-group {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        .test-input {
+            flex: 1;
+        }
+
+        .test-input label {
+            display: block;
+            color: var(--primary-green);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .test-input input {
+            width: 100%;
+            padding: 0.8rem;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .test-input input:focus {
+            outline: none;
+            border-color: var(--primary-green);
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+        }
+
+        .test-input input::placeholder {
+            color: rgba(0, 255, 65, 0.5);
+        }
+
+        /* Result Display */
+        .result-display {
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            padding: 1rem;
+            margin-top: 1rem;
+            min-height: 150px;
+            display: none;
+        }
+
+        .result-display.visible {
+            display: block;
+        }
+
+        .result-success {
+            border-color: var(--primary-green);
+            background: rgba(0, 255, 65, 0.1);
+        }
+
+        .result-error {
+            border-color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+        }
+
+        .result-title {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .result-success .result-title {
+            color: var(--primary-green);
+        }
+
+        .result-error .result-title {
+            color: #ff6b6b;
+        }
+
+        .result-json {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 255, 65, 0.3);
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            color: var(--primary-green);
+        }
+
+        .result-mapping {
+            font-style: italic;
+            color: rgba(0, 255, 65, 0.8);
+        }
+
+        /* Status Display */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .status-item {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 255, 65, 0.3);
+            border-radius: 4px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .status-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-green);
+            margin-bottom: 0.5rem;
+        }
+
+        .status-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(0, 255, 65, 0.8);
+        }
+
+        /* Loading state */
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        /* Grammar examples */
+        .examples {
+            margin-top: 1rem;
+        }
+
+        .example {
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 3px solid var(--primary-green);
+            padding: 0.5rem 1rem;
+            margin: 0.5rem 0;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .example:hover {
+            background: rgba(0, 255, 65, 0.1);
+        }
+
+        .example-command {
+            color: var(--primary-green);
+            font-weight: bold;
+        }
+
+        .example-desc {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="grammar-container">
+        <!-- Header -->
+        <div class="controls-bar">
+            <div>
+                <h1>Grammar Testing - {{ backend_name }}</h1>
+                <p>Test commands against the dynamically generated GBNF grammar</p>
+            </div>
+            <div>
+                <button class="btn back" onclick="window.location.href='/backends/{{ backend_id }}/entities'">Back to Entities</button>
+                <button class="btn primary" onclick="window.location.href='/backends'">All Backends</button>
+            </div>
+        </div>
+
+        <div class="main-panel">
+            <!-- Configuration Section -->
+            <div class="section">
+                <h2>Configured Devices</h2>
+                <div id="configuration" class="config-grid">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Grammar Generation Section -->
+            <div class="section">
+                <h2>Grammar Generation</h2>
+                <div class="status-grid" id="grammar-status">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+                <div style="margin-top: 1rem;">
+                    <button class="btn primary" onclick="generateGrammar()">Generate Grammar</button>
+                    <button class="btn" onclick="loadGrammarStatus()">Refresh Status</button>
+                </div>
+            </div>
+
+            <!-- Test Commands Section -->
+            <div class="section">
+                <h2>Test Commands</h2>
+                <div class="test-input-group">
+                    <div class="test-input">
+                        <label for="command-input">Command</label>
+                        <input type="text" id="command-input" placeholder="turn on the lounge lights"
+                               onkeypress="if(event.key==='Enter') testCommand()">
+                    </div>
+                    <button class="btn primary" onclick="testCommand()">Test Command</button>
+                </div>
+
+                <div class="examples">
+                    <h3 style="color: var(--primary-green); margin-bottom: 1rem;">Example Commands:</h3>
+                    <div id="examples-list">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <div id="test-result" class="result-display">
+                    <!-- Test results will appear here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const backendId = '{{ backend_id }}';
+        let currentStatus = null;
+        let currentConfiguration = null;
+
+        // Load initial data
+        document.addEventListener('DOMContentLoaded', function() {
+            loadGrammarStatus();
+            loadConfiguration();
+        });
+
+        async function loadGrammarStatus() {
+            try {
+                const response = await fetch(`/api/backends/${backendId}/grammar/status`);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    currentStatus = data.grammar_status;
+                    updateStatusDisplay();
+                } else {
+                    console.error('Failed to load grammar status:', data);
+                }
+            } catch (error) {
+                console.error('Error loading grammar status:', error);
+            }
+        }
+
+        async function loadConfiguration() {
+            try {
+                const response = await fetch(`/api/backends/${backendId}/mappings?enabled=true`);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    currentConfiguration = data;
+                    updateConfigurationDisplay();
+                    updateExamples();
+                } else {
+                    console.error('Failed to load configuration:', data);
+                }
+            } catch (error) {
+                console.error('Error loading configuration:', error);
+            }
+        }
+
+        function updateStatusDisplay() {
+            if (!currentStatus) return;
+
+            const statusDiv = document.getElementById('grammar-status');
+            const grammarExists = currentStatus.grammar_file_exists;
+
+            statusDiv.innerHTML = `
+                <div class="status-item">
+                    <div class="status-value">${currentStatus.mapped_devices || 0}</div>
+                    <div class="status-label">Configured Devices</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value">${currentStatus.device_types_count || 0}</div>
+                    <div class="status-label">Device Types</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value">${currentStatus.locations_count || 0}</div>
+                    <div class="status-label">Locations</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-value">${grammarExists ? '✅' : '❌'}</div>
+                    <div class="status-label">Grammar Generated</div>
+                </div>
+            `;
+        }
+
+        function updateConfigurationDisplay() {
+            if (!currentConfiguration) return;
+
+            const configDiv = document.getElementById('configuration');
+            const deviceTypes = currentConfiguration.device_types || [];
+            const locations = currentConfiguration.locations || [];
+
+            configDiv.innerHTML = `
+                <div class="config-item">
+                    <h3>Device Types</h3>
+                    <div class="config-list">
+                        ${deviceTypes.map(type => `<span class="config-tag">${type}</span>`).join('')}
+                    </div>
+                </div>
+                <div class="config-item">
+                    <h3>Locations</h3>
+                    <div class="config-list">
+                        ${locations.map(loc => `<span class="config-tag">${loc}</span>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateExamples() {
+            if (!currentConfiguration) return;
+
+            const examplesDiv = document.getElementById('examples-list');
+            const devices = currentConfiguration.devices || [];
+
+            let examples = [];
+
+            // Generate examples from configured devices
+            devices.forEach(device => {
+                if (device.device_type && device.location) {
+                    examples.push({
+                        command: `turn on the ${device.location} ${device.device_type}`,
+                        desc: `Maps to: ${device.original_name || device.device_id}`
+                    });
+                }
+            });
+
+            // Add some generic examples
+            examples.push(
+                { command: 'turn off all lights', desc: 'Test generic command' },
+                { command: 'open the kitchen blinds', desc: 'Test location + device combo' },
+                { command: 'set bedroom heating to 22C', desc: 'Test temperature setting' }
+            );
+
+            examplesDiv.innerHTML = examples.map(ex => `
+                <div class="example" onclick="fillCommand('${ex.command}')">
+                    <div class="example-command">${ex.command}</div>
+                    <div class="example-desc">${ex.desc}</div>
+                </div>
+            `).join('');
+        }
+
+        function fillCommand(command) {
+            document.getElementById('command-input').value = command;
+        }
+
+        async function generateGrammar() {
+            try {
+                const button = event.target;
+                button.textContent = 'Generating...';
+                button.disabled = true;
+                button.classList.add('loading');
+
+                const response = await fetch(`/api/backends/${backendId}/grammar/generate`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    alert('Grammar generated successfully!');
+                    await loadGrammarStatus();
+                } else {
+                    alert('Failed to generate grammar: ' + (data.result?.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error generating grammar:', error);
+                alert('Error generating grammar: ' + error.message);
+            } finally {
+                const button = document.querySelector('button[onclick="generateGrammar()"]');
+                button.textContent = 'Generate Grammar';
+                button.disabled = false;
+                button.classList.remove('loading');
+            }
+        }
+
+        async function testCommand() {
+            const command = document.getElementById('command-input').value.trim();
+            if (!command) {
+                alert('Please enter a command to test');
+                return;
+            }
+
+            try {
+                const resultDiv = document.getElementById('test-result');
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result-display visible loading';
+                resultDiv.innerHTML = '<div class="result-title">Testing command...</div>';
+
+                const response = await fetch(`/api/backends/${backendId}/grammar/test`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ command: command })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success' && data.result.valid) {
+                    resultDiv.className = 'result-display visible result-success';
+                    resultDiv.innerHTML = `
+                        <div class="result-title">${data.result.message || '✅ Valid Command'}</div>
+                        <div class="result-json">${JSON.stringify(data.result.parsed_json, null, 2)}</div>
+                        ${data.result.device_mapping ?
+                            `<div class="result-mapping">Maps to: ${data.result.device_mapping.original_name} (${data.result.device_mapping.device_id})</div>`
+                            : ''}
+                    `;
+                } else {
+                    resultDiv.className = 'result-display visible result-error';
+                    resultDiv.innerHTML = `
+                        <div class="result-title">${data.result?.error || '❌ Invalid Command'}</div>
+                        ${data.result?.configured_devices ?
+                            `<div>Configured devices: ${data.result.configured_devices.join(', ')}</div>`
+                            : ''}
+                        ${data.result?.configured_locations ?
+                            `<div>Configured locations: ${data.result.configured_locations.join(', ')}</div>`
+                            : ''}
+                    `;
+                }
+            } catch (error) {
+                console.error('Error testing command:', error);
+                const resultDiv = document.getElementById('test-result');
+                resultDiv.className = 'result-display visible result-error';
+                resultDiv.innerHTML = `<div class="result-title">Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -47,6 +47,9 @@ from orac.dispatchers import dispatcher_registry
 # Add Backend Manager import
 from orac.backend_manager import BackendManager
 
+# Add Backend Grammar Generator import
+from orac.backend_grammar_generator import BackendGrammarGenerator
+
 # Configure logger
 logger = get_logger(__name__)
 
@@ -58,6 +61,9 @@ ha_executor = HAExecutor()
 
 # Initialize backend manager
 backend_manager = BackendManager()
+
+# Initialize backend grammar generator
+backend_grammar_generator = BackendGrammarGenerator(backend_manager)
 
 # Create FastAPI app
 app = FastAPI(
@@ -362,6 +368,75 @@ async def get_backend_mappings(backend_id: str, enabled: bool = None) -> Dict[st
         }
     except Exception as e:
         logger.error(f"Error getting mappings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Backend Grammar Generation endpoints (Sprint 3)
+@app.post("/api/backends/{backend_id}/grammar/generate", tags=["Backends"])
+async def generate_backend_grammar(backend_id: str) -> Dict[str, Any]:
+    """Generate GBNF grammar from backend device mappings."""
+    try:
+        result = backend_grammar_generator.generate_and_save_grammar(backend_id)
+        return {
+            "status": "success" if result.get("success") else "error",
+            "result": result
+        }
+    except Exception as e:
+        logger.error(f"Error generating grammar: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backends/{backend_id}/grammar", tags=["Backends"])
+async def get_backend_grammar(backend_id: str) -> Dict[str, Any]:
+    """Get generated grammar file content."""
+    try:
+        grammar_file = backend_grammar_generator.get_grammar_file_path(backend_id)
+        if not grammar_file.exists():
+            raise HTTPException(status_code=404, detail="Grammar file not found. Generate grammar first.")
+
+        with open(grammar_file, 'r') as f:
+            grammar_content = f.read()
+
+        return {
+            "status": "success",
+            "grammar_file": str(grammar_file),
+            "grammar_content": grammar_content
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting grammar: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/backends/{backend_id}/grammar/test", tags=["Backends"])
+async def test_grammar_command(backend_id: str, request: Request) -> Dict[str, Any]:
+    """Test a command against backend's generated grammar."""
+    try:
+        data = await request.json()
+        command = data.get("command")
+        if not command:
+            raise HTTPException(status_code=400, detail="command is required")
+
+        result = backend_grammar_generator.test_command_against_grammar(backend_id, command)
+        return {
+            "status": "success" if result.get("valid") else "error",
+            "result": result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error testing grammar command: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/backends/{backend_id}/grammar/status", tags=["Backends"])
+async def get_backend_grammar_status(backend_id: str) -> Dict[str, Any]:
+    """Get grammar generation status for a backend."""
+    try:
+        status = backend_grammar_generator.get_grammar_status(backend_id)
+        return {
+            "status": "success",
+            "grammar_status": status
+        }
+    except Exception as e:
+        logger.error(f"Error getting grammar status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Set up templates
@@ -1181,6 +1256,17 @@ async def backend_entities_page(request: Request, backend_id: str):
     return templates.TemplateResponse(
         "backend_entities.html",
         {"request": request, "backend_id": backend_id, "backend_name": backend.get("name", backend_id), "title": f"Configure Entities - {backend.get('name', backend_id)}"}
+    )
+
+@app.get("/backends/{backend_id}/test-grammar", response_class=HTMLResponse)
+async def backend_grammar_test_page(request: Request, backend_id: str):
+    """Serve the grammar testing interface."""
+    backend = backend_manager.get_backend(backend_id)
+    if not backend:
+        raise HTTPException(status_code=404, detail=f"Backend {backend_id} not found")
+    return templates.TemplateResponse(
+        "backend_grammar_test.html",
+        {"request": request, "backend_id": backend_id, "backend_name": backend.get("name", backend_id), "title": f"Grammar Test - {backend.get('name', backend_id)}"}
     )
 
 @app.get("/model-config", response_class=HTMLResponse)

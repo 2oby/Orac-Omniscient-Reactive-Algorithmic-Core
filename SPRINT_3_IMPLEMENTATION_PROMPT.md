@@ -1,20 +1,32 @@
 # Sprint 3 Implementation Prompt for Next Session
 
-## IMPORTANT: Start with Sprint 2 Testing
-Before implementing Sprint 3, you MUST first test the Sprint 2 implementation that's already deployed. Follow the `SPRINT_2_TEST.md` guide to:
-1. Create a Home Assistant backend
-2. Test the connection
-3. Fetch entities from Home Assistant
-4. Configure entities with friendly names and aliases
-5. Verify data persistence
+## IMPORTANT: Sprint 2 Status - COMPLETED ✅
+Sprint 2 is now fully implemented and working:
+1. ✅ Device fetching from Home Assistant (30 devices)
+2. ✅ Manual enable/disable of devices via card interface
+3. ✅ Drag-and-drop device type assignment (lights, heating, blinds, etc.)
+4. ✅ Drag-and-drop location assignment (lounge, bedroom, kitchen, etc.)
+5. ✅ Save configuration functionality
+6. ✅ Device validation and search/filter
 
-Only proceed with Sprint 3 after confirming Sprint 2 works correctly.
+Sprint 2 creates a **curated device registry** where users manually configure which devices are active and assign them types and locations.
 
-## Context for Next Session
-You are implementing Sprint 3 of the ORAC Core system. Sprints 1 and 2 are complete and deployed. The backend management system is live at http://192.168.8.192:8000/backends and users can create Home Assistant backends, fetch entities, and configure them with friendly names and aliases.
+## Context for Sprint 3
+You are implementing Sprint 3 of the ORAC Core system. ORAC Core runs on an **NVIDIA Orin Nano** (hostname: `orin4`) at IP `192.168.8.192`. Sprint 2 is complete - users can now:
+- Fetch devices from Home Assistant
+- Enable/disable devices manually
+- Assign device types (lights, heating, blinds, music)
+- Assign locations (bedroom, kitchen, lounge, etc.)
+- Save these configurations
+
+Sprint 3's goal is to **generate GBNF grammar from these device mappings** to constrain the LLM so it can only output JSON for devices the user has actually configured.
 
 ## Your Mission
-After testing Sprint 2, implement Sprint 3: Grammar Generation & Dispatcher Integration according to the specification document `SPRINT_3_GRAMMAR_DISPATCHER_INTEGRATION.md`. The primary goal is to generate GBNF grammars from configured Home Assistant entities and enable voice command testing.
+Implement Sprint 3: **Dynamic Grammar Generation** from Sprint 2's device mappings. The primary goal is to generate GBNF grammars that constrain the LLM to only output JSON for devices the user has actually enabled and configured.
+
+**Key Concept**: If user only configured a light in the lounge and heating in the bedroom, the grammar should ONLY allow those combinations and block everything else.
+
+**End Goal**: Test command "turn on the lounge lights" through ORAC Core's LLM and verify it generates valid JSON like `{"device":"lights","action":"on","location":"lounge"}` using the dynamically generated grammar.
 
 ## Current System State
 - **Completed**:
@@ -29,169 +41,183 @@ After testing Sprint 2, implement Sprint 3: Grammar Generation & Dispatcher Inte
   - Backend data stored in `/data/backends/{backend_id}.json`
   - Topic management system operational
 
-## Sprint 3 Primary Goal: Display Home Assistant Tiles
+## Sprint 3 Primary Goal: Dynamic Grammar Generation
 
-By the end of Sprint 3, you should see Home Assistant entity tiles displayed in the UI showing:
-- Entity state (on/off, temperature, etc.)
-- Interactive controls (toggle switches, sliders)
-- Real-time updates from Home Assistant
-- Grouped by room/area
-- Visual feedback for entity status
+By the end of Sprint 3, the system should:
+- Generate GBNF grammar files based on Sprint 2's device mappings
+- Constrain LLM to only output JSON for configured devices
+- Provide grammar testing interface
+- Link topics to backend-generated grammars
+- Block invalid device/location combinations at grammar level
 
 ## Key Implementation Tasks
 
-### Priority 1: Entity Tiles Display
-1. Create a new route `/backends/{id}/dashboard` for entity tiles view
-2. Implement real-time entity state fetching
-3. Create tile components for different entity types:
-   - Light tiles (on/off, brightness, color)
-   - Switch tiles (on/off toggle)
-   - Climate tiles (temperature, mode)
-   - Sensor tiles (display only)
-   - Scene tiles (activate button)
-
-### Priority 2: Grammar Generation
+### Priority 1: Backend Grammar Generator
 1. Create `BackendGrammarGenerator` class in `/orac/backend_grammar_generator.py`
-2. Generate GBNF grammar from enabled entities
-3. Include friendly names and aliases in grammar
-4. Store generated grammar in `/data/grammars/`
+2. Read Sprint 2 device mappings (enabled devices with device_type + location)
+3. Generate dynamic GBNF grammar based on `/data/grammars/default.gbnf` template
+4. Extract unique device types and locations from user configuration
+5. Create constraint-based grammar that only allows configured combinations
 
-### Priority 3: Testing Interface
-1. Create grammar test console
-2. Validate commands against generated grammar
-3. Show parsed command structure
-4. Display which entity would be controlled
-
-## SSH Access to Jetson Orin
-
-### Connection Method
-```bash
-ssh orin4
+### Priority 2: Grammar Generation Logic
+**Template**: Based on existing `/data/grammars/default.gbnf`
+```gbnf
+root ::= "{\"device\":\"" device "\",\"action\":\"" action "\",\"location\":\"" location "\"}"
+# Dynamic rules generated from Sprint 2 mappings:
+device ::= "lights" | "heating" | "blinds" | "UNKNOWN"  # Only configured device_types
+location ::= "lounge" | "bedroom" | "kitchen" | "UNKNOWN"  # Only configured locations
+# Static action rules (same as default.gbnf):
+action ::= "on" | "off" | "toggle" | "set 50%" | "warm" | "cold" | ...
 ```
 
-This is an SSH alias configured on your Mac that connects to:
-- **Host**: Jetson Orin Nano
-- **IP**: 192.168.8.192
-- **User**: toby
-- **Location**: Your local network
+### Priority 3: Grammar Testing Interface
+1. Create grammar test console at `/backends/{id}/test-grammar`
+2. Test commands like "turn on the lounge lights"
+3. Show if grammar allows/blocks the command
+4. Display which specific device mapping will be used
+5. Show generated JSON output
 
-### What This Does
-The `ssh orin4` command gives you direct terminal access to the Jetson Orin where ORAC is running in Docker containers. From there you can:
-- View logs: `docker logs orac`
-- Access container: `docker exec -it orac bash`
-- Check status: `docker ps`
-- Restart services: `docker-compose restart`
+## ORAC Core Infrastructure
+
+### NVIDIA Orin Nano Setup
+ORAC Core runs on an **NVIDIA Orin Nano** device with these details:
+- **Hostname**: `orin4`
+- **IP Address**: `192.168.8.192`
+- **Web Interface**: http://192.168.8.192:8000
+- **Container**: ORAC runs in Docker container named `orac`
+- **SSH Access**: Use `ssh orin4` (pre-configured alias on your Mac)
+
+### SSH Access to Orin
+```bash
+# Connect to the Orin Nano
+ssh orin4
+
+# Once connected, useful commands:
+docker logs orac --tail 50              # View ORAC container logs
+docker exec -it orac bash              # Enter ORAC container shell
+docker ps                              # Check container status
+docker restart orac                    # Restart ORAC container
+
+# Check grammar files
+docker exec orac ls -la /app/data/grammars/
+
+# View backend configurations
+docker exec orac ls -la /app/data/backends/
+```
 
 ## Deployment Process
 
 ### The Deploy Script
+The `deploy_and_test.sh` script handles the complete deployment workflow from your Mac to the Orin Nano:
+
 ```bash
 cd "/Users/2oby/pCloud Box/Projects/ORAC/Orac-Omniscient-Reactive-Algorithmic-Core"
-./scripts/deploy_and_test.sh "Sprint 3: Grammar generation" master orac light
+./deploy_and_test.sh "Sprint 3: Dynamic grammar generation"
 ```
 
 ### What deploy_and_test.sh Does
 
 1. **Local Git Operations**:
-   - Commits all changes with your message
-   - Pushes to GitHub repository
+   - Commits all your local changes with the provided message
+   - Pushes to GitHub repository (single source of truth)
 
-2. **Remote Operations via SSH**:
-   - Connects to `orin4` (Jetson Orin)
-   - Pulls latest code from GitHub
-   - Checks system resources (disk, memory, GPU)
-   - Rebuilds Docker container if needed
-   - Runs automated tests
-   - Restarts ORAC service
+2. **Remote Deployment via SSH**:
+   - Uses `ssh orin4` to connect to the Orin Nano
+   - Pulls latest code from GitHub onto the Orin
+   - Copies updated files into the running Docker container
+   - Restarts the ORAC container to pick up changes
+   - Runs automated tests to verify deployment
 
-3. **Parameters**:
-   - `"Sprint 3: Grammar generation"` - Git commit message
-   - `master` - Git branch to deploy
-   - `orac` - Docker service name
-   - `light` - Cleanup level (light/normal/aggressive)
+3. **Real-time Feedback**:
+   - Shows deployment progress and test results
+   - Displays container logs for debugging
+   - Provides rollback instructions if needed
 
-### Cleanup Levels
-- **light**: Minimal cleanup, preserves images and caches
-- **normal**: Removes stopped containers and unused images
-- **aggressive**: Full cleanup including build cache
+### Why This Process
+- **GitHub as Source of Truth**: All changes go through GitHub first
+- **Consistent Deployment**: Same process works for all changes
+- **Automatic Testing**: Verifies the deployment worked correctly
+- **Docker Integration**: Handles container updates seamlessly
 
-## Entity Tiles Implementation Guide
+## Grammar Generation Implementation Guide
 
-### Tile Template Structure
-```html
-<!-- /orac/templates/backend_dashboard.html -->
-<div class="entity-grid">
-  <!-- Light Tile -->
-  <div class="tile light-tile" data-entity-id="light.living_room">
-    <div class="tile-icon">💡</div>
-    <div class="tile-name">Living Room Light</div>
-    <div class="tile-state">On - 75%</div>
-    <div class="tile-controls">
-      <button class="toggle-btn" onclick="toggleEntity('light.living_room')">
-        <span class="toggle-switch on"></span>
-      </button>
-      <input type="range" class="brightness-slider" min="0" max="100" value="75">
-    </div>
-  </div>
+### Example: Sprint 2 Device Mappings
+```json
+{
+  "switch.lounge_lamp": {
+    "enabled": true,
+    "device_type": "lights",
+    "location": "lounge"
+  },
+  "climate.bedroom_thermostat": {
+    "enabled": true,
+    "device_type": "heating",
+    "location": "bedroom"
+  },
+  "cover.kitchen_blinds": {
+    "enabled": true,
+    "device_type": "blinds",
+    "location": "kitchen"
+  }
+}
+```
 
-  <!-- Climate Tile -->
-  <div class="tile climate-tile" data-entity-id="climate.bedroom">
-    <div class="tile-icon">🌡️</div>
-    <div class="tile-name">Bedroom AC</div>
-    <div class="tile-state">22°C - Cooling</div>
-    <div class="tile-controls">
-      <button class="temp-down">-</button>
-      <span class="temp-display">22°C</span>
-      <button class="temp-up">+</button>
-    </div>
-  </div>
+### Generated Grammar Output
+```gbnf
+root ::= "{\"device\":\"" device "\",\"action\":\"" action "\",\"location\":\"" location "\"}"
 
-  <!-- Switch Tile -->
-  <div class="tile switch-tile" data-entity-id="switch.garage">
-    <div class="tile-icon">🔌</div>
-    <div class="tile-name">Garage Door</div>
-    <div class="tile-state">Closed</div>
-    <div class="tile-controls">
-      <button class="action-btn">Open</button>
-    </div>
-  </div>
-</div>
+# Generated from user's configured device_types only
+device ::= "lights" | "heating" | "blinds" | "UNKNOWN"
+
+# Generated from user's configured locations only
+location ::= "lounge" | "bedroom" | "kitchen" | "UNKNOWN"
+
+# Standard action rules (copied from default.gbnf)
+action ::= "on" | "off" | "toggle" | "open" | "close" | "set 50%" | "warm" | "cold" | "UNKNOWN" | set-action | set-temp-action
+pct ::= "0%" | "10%" | "20%" | ... | "100%"
+temp ::= "5C" | "6C" | ... | "30C"
+set-action ::= "set " pct
+set-temp-action ::= "set " temp
 ```
 
 ### API Endpoints Needed
 ```python
-# Get current entity states
-GET /api/backends/{id}/entities/states
+# Generate grammar from backend device mappings
+POST /api/backends/{id}/grammar/generate
 
-# Control entity
-POST /api/backends/{id}/entities/{entity_id}/control
+# Get generated grammar file
+GET /api/backends/{id}/grammar
+
+# Test command against backend's grammar
+POST /api/backends/{id}/grammar/test
 Body: {
-  "service": "turn_on",
-  "data": {"brightness": 128}
+  "command": "turn on the lounge lights"
 }
 
-# Get entity history
-GET /api/backends/{id}/entities/{entity_id}/history
-
-# Subscribe to state changes (WebSocket)
-WS /api/backends/{id}/entities/stream
+# Get grammar generation status
+GET /api/backends/{id}/grammar/status
 ```
 
-### Real-time Updates
+### Grammar Testing Interface
 ```javascript
-// WebSocket connection for real-time updates
-const ws = new WebSocket(`ws://192.168.8.192:8000/api/backends/${backendId}/entities/stream`);
+// Test command against generated grammar
+async function testCommand() {
+  const command = document.getElementById('test-command').value;
+  const response = await fetch(`/api/backends/${backendId}/grammar/test`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({command})
+  });
 
-ws.onmessage = (event) => {
-  const update = JSON.parse(event.data);
-  updateTile(update.entity_id, update.state);
-};
+  const result = await response.json();
 
-// Fallback polling for non-WebSocket
-setInterval(async () => {
-  const states = await fetch(`/api/backends/${backendId}/entities/states`);
-  updateAllTiles(await states.json());
-}, 5000);
+  if (result.valid) {
+    showResult(`✅ Valid: ${JSON.stringify(result.parsed_json)}`);
+    showMappedDevice(result.device_mapping);
+  } else {
+    showResult(`❌ Invalid: ${result.error}`);
+  }
+}
 ```
 
 ## Files to Review First
@@ -216,101 +242,128 @@ setInterval(async () => {
 4. Document any issues found
 5. Fix any bugs before proceeding
 
-### Day 1-2: Entity Tiles Dashboard
-1. Create `/backends/{id}/dashboard` route
-2. Build tile template with cyberpunk styling
-3. Implement state fetching from HA
-4. Add basic toggle controls
+### Day 1-2: Backend Grammar Generator
+1. Create `BackendGrammarGenerator` class
+2. Read Sprint 2 device mappings from backend JSON files
+3. Extract unique device_types and locations from enabled devices
+4. Generate dynamic GBNF grammar based on default.gbnf template
 
-### Day 3-4: Interactive Controls
-1. Implement entity control endpoints
-2. Add brightness sliders for lights
-3. Add temperature controls for climate
-4. Add scene activation buttons
+### Day 3-4: Grammar Generation Logic
+1. Implement device and location rule generation
+2. Copy action rules from existing default.gbnf
+3. Add grammar validation and error handling
+4. Store generated grammars in `/data/grammars/backend_{id}.gbnf`
 
-### Day 5-6: Grammar Generation
-1. Create BackendGrammarGenerator
-2. Generate GBNF from enabled entities
-3. Store grammar files
-4. Add generation status to UI
+### Day 5-6: Grammar Testing Interface
+1. Create test console template at `/backends/{id}/test-grammar`
+2. Implement command testing against generated grammar
+3. Show JSON parsing results and device mappings
+4. Display grammar generation status and statistics
 
-### Day 7-8: Testing & Polish
-1. Create grammar test console
-2. Add real-time updates (polling or WebSocket)
-3. Group tiles by room
-4. Test with actual Home Assistant
+### Day 7-8: Topic Integration & Polish
+1. Link topics to backend-generated grammars
+2. Add grammar regeneration on device mapping changes
+3. Implement grammar caching and performance optimization
+4. Test end-to-end grammar constraint functionality
 
 ## Success Criteria
 
 By the end of Sprint 3, you should be able to:
-1. ✅ View all Home Assistant entities as interactive tiles
-2. ✅ Control entities directly from tiles (on/off, brightness, temperature)
-3. ✅ See real-time state updates
-4. ✅ Generate GBNF grammar from configured entities
-5. ✅ Test voice commands against generated grammar
-6. ✅ Group entities by room/area
-7. ✅ Maintain cyberpunk aesthetic
+1. ✅ Generate GBNF grammar dynamically from Sprint 2 device mappings
+2. ✅ Constrain ORAC Core's LLM to only output JSON for configured device/location combinations
+3. ✅ **Test "turn on the lounge lights" through ORAC Core and get valid JSON response**
+4. ✅ Verify grammar blocks invalid commands (e.g., "kitchen heating" if not configured)
+5. ✅ Link topics to backend-generated grammars
+6. ✅ Deploy and test on the Orin Nano using `deploy_and_test.sh`
+7. ✅ Demonstrate end-to-end LLM constraint functionality working on ORAC Core
 
 ## Testing Checklist
 
-### Sprint 2 Testing (Complete First)
-- [ ] Created Home Assistant backend successfully
-- [ ] Connection test shows entity count
-- [ ] Fetched all entities from Home Assistant
-- [ ] Can enable/disable entities
-- [ ] Can configure friendly names and aliases
-- [ ] Configurations persist after refresh
-- [ ] Backend shows as connected
+### Sprint 2 Status (✅ COMPLETED)
+- [✅] Home Assistant backend created and working
+- [✅] Device fetching working (30 devices)
+- [✅] Enable/disable functionality working
+- [✅] Device type assignment via drag-and-drop working
+- [✅] Location assignment via drag-and-drop working
+- [✅] Save configuration working
+- [✅] Search/filter functionality working
 
 ### Sprint 3 Manual Testing
-- [ ] Navigate to `/backends/{id}/dashboard`
-- [ ] See entity tiles with current states
-- [ ] Toggle a light on/off
-- [ ] Adjust brightness slider
-- [ ] Change climate temperature
-- [ ] Activate a scene
-- [ ] Verify state updates in real-time
-- [ ] Generate grammar from entities
-- [ ] Test a voice command in console
+- [ ] **Deploy to Orin**: Use `./deploy_and_test.sh "Sprint 3 implementation"`
+- [ ] **SSH to Orin**: Use `ssh orin4` to access the Orin Nano
+- [ ] **Generate Grammar**: Navigate to `/backends/{id}/test-grammar` and generate grammar
+- [ ] **Test Valid Command**: "turn on the lounge lights" (should work if configured)
+- [ ] **Test Invalid Command**: "turn on kitchen heating" (should fail if not configured)
+- [ ] **Verify Grammar Rules**: Check generated grammar only contains configured device types/locations
+- [ ] **Test ORAC Core LLM**: Send "turn on the lounge lights" to ORAC Core's LLM endpoint
+- [ ] **Verify JSON Output**: Confirm LLM returns `{"device":"lights","action":"on","location":"lounge"}`
+- [ ] **Test Grammar Constraint**: Verify invalid commands are blocked at grammar level
 
 ### Automated Testing
 ```bash
 # After implementation, run tests on Jetson
 ssh orin4
-docker exec -it orac pytest tests/test_tiles.py
-docker exec -it orac pytest tests/test_grammar_generation.py
+docker exec -it orac pytest tests/test_backend_grammar_generator.py
+docker exec -it orac pytest tests/test_grammar_constraints.py
 ```
 
 ## Deployment Command
 
-When ready to deploy:
+### Deployment Commands
+
+**Deploy Sprint 3 Implementation**:
 ```bash
 cd "/Users/2oby/pCloud Box/Projects/ORAC/Orac-Omniscient-Reactive-Algorithmic-Core"
-./scripts/deploy_and_test.sh "Sprint 3: Entity tiles and grammar generation" master orac light
+./deploy_and_test.sh "Sprint 3: Dynamic grammar generation from device mappings"
+```
+
+**Test Grammar on Orin**:
+```bash
+# SSH into the Orin Nano
+ssh orin4
+
+# Test the ORAC Core LLM endpoint with generated grammar
+curl -X POST http://192.168.8.192:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [{"role": "user", "content": "turn on the lounge lights"}],
+    "grammar": "backend_homeassistant_123.gbnf"
+  }'
+
+# Expected response: {"device":"lights","action":"on","location":"lounge"}
 ```
 
 ## Visual Goal
 
-By sprint end, the dashboard should look like:
+By sprint end, the grammar testing interface should look like:
 ```
 ╔════════════════════════════════════════════════════════════════════════╗
-║ HOME ASSISTANT DASHBOARD - Living Space                                 ║
+║ GRAMMAR TESTING - Home Assistant Backend                               ║
 ╠════════════════════════════════════════════════════════════════════════╣
 ║                                                                          ║
-║  Living Room                  Kitchen                 Bedroom           ║
-║  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                 ║
-║  │ 💡 Main Light│  │ 💡 Counter   │  │ 🌡️ AC Unit  │                 ║
-║  │    ON - 75%  │  │    OFF       │  │   22°C Cool  │                 ║
-║  │ [=======|--] │  │ [●        ] │  │  [−][22][+]  │                 ║
-║  └──────────────┘  └──────────────┘  └──────────────┘                 ║
+║ CONFIGURED DEVICES (from Sprint 2)                                     ║
+║ • switch.lounge_lamp → lights + lounge                               ║
+║ • climate.bedroom_thermostat → heating + bedroom                       ║
+║ • cover.kitchen_blinds → blinds + kitchen                             ║
 ║                                                                          ║
-║  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                 ║
-║  │ 🔌 Fan       │  │ 🎬 Movie Time│  │ 💡 Bed Light │                 ║
-║  │    ON        │  │    Scene     │  │   OFF        │                 ║
-║  │ [●        ] │  │ [ACTIVATE]   │  │ [○        ] │                 ║
-║  └──────────────┘  └──────────────┘  └──────────────┘                 ║
+║ GENERATED GRAMMAR RULES                                                 ║
+║ device ::= "lights" | "heating" | "blinds" | "UNKNOWN"                 ║
+║ location ::= "lounge" | "bedroom" | "kitchen" | "UNKNOWN"               ║
 ║                                                                          ║
-║ Grammar: Generated 5 min ago | 45 entities | Test Commands            ║
+║ TEST COMMAND                                                            ║
+║ ┌──────────────────────────────────────────────────────────────────┐ ║
+║ │ turn on the lounge lights                                      │ ║
+║ └──────────────────────────────────────────────────────────────────┘ ║
+║                                                                          ║
+║ [TEST COMMAND] [REGENERATE GRAMMAR]                                    ║
+║                                                                          ║
+║ RESULT                                                                  ║
+║ ✅ VALID - Grammar allows this command                                ║
+║ Generated JSON:                                                         ║
+║ {"device":"lights","action":"on","location":"lounge"}               ║
+║ Maps to: switch.lounge_lamp                                             ║
+║                                                                          ║
+║ Try invalid: "turn on kitchen heating" → ❌ BLOCKED (not configured)   ║
 ╚════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -334,13 +387,24 @@ docker logs orac --tail 50
 docker exec -it orac ls -la /app/data/backends/
 ```
 
+## Sprint 3 Summary
+
+**Primary Goal**: Generate dynamic GBNF grammar from Sprint 2's device mappings to create a **constrained ORAC Core LLM** that can only output JSON for devices the user has actually configured.
+
+**Success Test**: Send "turn on the lounge lights" to ORAC Core's LLM and receive `{"device":"lights","action":"on","location":"lounge"}` as a valid JSON response using the dynamically generated grammar.
+
+**Infrastructure**: Deploy and test on the NVIDIA Orin Nano using:
+1. `deploy_and_test.sh` commits to GitHub and deploys to Orin
+2. `ssh orin4` provides access to the Orin Nano
+3. ORAC Core runs in Docker container at http://192.168.8.192:8000
+
 ## Important Notes
 
-1. **WebSocket vs Polling**: Start with polling for simplicity, add WebSocket if time permits
-2. **Entity Types**: Focus on lights, switches, climate, and scenes first
-3. **Grammar Complexity**: Start simple (on/off commands), add complexity gradually
-4. **Performance**: Cache entity states, update only changed tiles
-5. **Error Handling**: Show connection errors clearly, provide retry options
+1. **Grammar Focus**: Base generation on existing `/data/grammars/default.gbnf` structure
+2. **Device Types**: Only include device_types from enabled Sprint 2 devices
+3. **Locations**: Only include locations from enabled Sprint 2 devices
+4. **LLM Testing**: The ultimate test is ORAC Core LLM producing valid JSON
+5. **Deployment**: Always use `deploy_and_test.sh` → GitHub → Orin workflow
 
 ## Questions to Answer During Implementation
 

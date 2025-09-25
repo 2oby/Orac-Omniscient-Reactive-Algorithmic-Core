@@ -1,30 +1,34 @@
 # Sprint 3: Grammar Generation & Dispatcher Integration
 
 ## Overview
-Sprint 3 bridges the gap between configured entities (Sprint 2) and actual voice command processing. This sprint implements grammar generation from backend entities, dispatcher configuration, and topic-backend association to enable end-to-end voice command execution.
+Sprint 3 implements **dynamic GBNF grammar generation** from Sprint 2's device mappings to create a **constrained LLM system**. The LLM can only output JSON for devices that users have explicitly enabled and configured in Sprint 2.
+
+**Key Concept**: Sprint 2 created a manual device registry where users assign device_type + location. Sprint 3 generates grammar that ONLY allows those specific combinations, blocking everything else at the grammar level.
 
 ## Current State
-- ✅ Backend management system complete (Sprint 2)
-- ✅ Entity configuration with friendly names and aliases
-- ✅ Existing grammar generation infrastructure (`HomeAssistantGrammarManager`)
-- ✅ Dispatcher registry system in place
+- ✅ Sprint 2 device configuration system complete
+- ✅ Manual enable/disable of devices via card interface
+- ✅ Drag-and-drop device_type assignment (lights, heating, blinds, music)
+- ✅ Drag-and-drop location assignment (lounge, bedroom, kitchen, etc.)
+- ✅ Save configuration functionality working
+- ✅ Existing default.gbnf template ready for dynamic generation
 - ✅ Topic management system operational
 
 ## Sprint Goals
 
 ### Primary Objectives
-1. **Grammar Generation**: Generate GBNF grammars from Device Type + Location mappings
-2. **Dispatcher Configuration**: Enable backend-specific dispatcher configuration
-3. **Topic-Backend Association**: Link topics to specific backends for command routing
-4. **Command Testing Interface**: Test voice commands against generated grammars
-5. **Unambiguous Mapping**: Ensure each Device Type + Location combination is unique
+1. **Dynamic Grammar Generation**: Generate GBNF grammars from Sprint 2's device_type + location mappings
+2. **LLM Constraint**: Ensure LLM can ONLY output JSON for configured device combinations
+3. **Grammar Testing Interface**: Test commands and show if they're allowed/blocked
+4. **Topic-Backend Association**: Link topics to backend-generated grammars
+5. **Command Validation**: Block invalid device/location combinations at grammar level
 
 ### User Stories
-1. **As a user**, I want my Device Type and Location mappings to generate unambiguous grammars
-2. **As a user**, I want to associate backends with topics for proper command routing
-3. **As a user**, I want to test voice commands before using them in production
-4. **As a user**, I want each location to have only one device of each type for clarity
-5. **As a user**, I want to see which grammars are active for each topic
+1. **As a user**, I want the LLM to only generate JSON for devices I've actually configured in Sprint 2
+2. **As a user**, I want commands like "turn on kitchen heating" to be blocked if I haven't configured heating in the kitchen
+3. **As a user**, I want to test commands and see if my grammar allows them
+4. **As a user**, I want grammar to automatically update when I change my device mappings
+5. **As a user**, I want to link topics to my backend's generated grammar
 
 ## Implementation Design
 
@@ -308,26 +312,26 @@ POST /api/grammar/validate                   # Validate grammar syntax
 
 ## Implementation Tasks
 
-### Task 1: Device Mapping Interface
-1. Create drag-and-drop UI for Device Type assignment
-2. Create drag-and-drop UI for Location assignment
-3. Implement uniqueness validation (Type + Location)
-4. Add custom Device Type and Location creation
-5. Show conflict warnings in real-time
+### Task 1: Backend Grammar Generator (NEW)
+1. Create `BackendGrammarGenerator` class in `/orac/backend_grammar_generator.py`
+2. Read Sprint 2 device mappings from backend JSON files
+3. Extract unique device_types and locations from ENABLED devices only
+4. Generate dynamic GBNF based on default.gbnf template
+5. Save generated grammar to `/data/grammars/backend_{id}.gbnf`
 
-### Task 2: Grammar Generator Implementation
-1. Create `BackendGrammarGenerator` class
-2. Generate GBNF from Device Type + Location mappings
-3. Validate uniqueness before generation
-4. Create action rules based on Device Types
-5. Generate location-specific commands
+### Task 2: API Endpoints for Grammar Generation
+1. Add `POST /api/backends/{id}/grammar/generate` endpoint
+2. Add `GET /api/backends/{id}/grammar` to retrieve generated grammar
+3. Add `POST /api/backends/{id}/grammar/test` for command testing
+4. Add `GET /api/backends/{id}/grammar/status` for generation status
+5. Integrate with backend_manager to trigger grammar updates
 
-### Task 3: Backend Details Page
-1. Create backend details template
-2. Add dispatcher configuration form
-3. Display grammar generation status
-4. Show device mapping statistics
-5. Add mapping validation status
+### Task 3: Grammar Testing Interface
+1. Create `/backends/{id}/test-grammar` route and template
+2. Add command input and test functionality
+3. Display grammar validation results (allowed/blocked)
+4. Show generated JSON output for valid commands
+5. Display which device mapping will be used
 
 ### Task 4: Topic-Backend Integration
 1. Extend Topic model with backend fields

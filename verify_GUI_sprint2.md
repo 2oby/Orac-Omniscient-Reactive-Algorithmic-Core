@@ -1,8 +1,8 @@
 # Sprint 2 GUI Verification & Debugging Guide
 **Date: 2025-09-23**
-**Status: FETCH DEVICES button not populating device list**
+**Status: ✅ COMPLETED - All Sprint 2 features working**
 
-## Current State (Updated: 2025-09-25)
+## Current State (Updated: 2025-09-25 - Sprint 2 Complete)
 
 ### ✅ What's Working
 1. **Backend API**: All endpoints are functional and returning data correctly
@@ -32,14 +32,27 @@
    - Drag and drop locations to devices
    - Visual feedback working correctly
 
-### ❌ What's Not Working
-1. **SAVE CONFIGURATION Button**: Returns "Failed to save configuration" error
-   - The `/api/backends/{id}/save` endpoint may not exist or has issues
-   - Need to investigate the backend save implementation
+### ✅ All Sprint 2 Features Completed (2025-09-25)
 
-2. **Other Buttons**: Still need testing
-   - VALIDATE - untested
-   - Search/filter functionality - untested
+1. **SAVE CONFIGURATION Button**: ✅ FIXED
+   - Added missing `/api/backends/{id}/save` endpoint in api.py
+   - Successfully saves all device configurations to disk
+   - Configurations persist across container restarts
+
+2. **VALIDATE Button**: ✅ IMPLEMENTED
+   - Calls `/api/backends/{id}/validate-mappings` endpoint
+   - Provides feedback on mapping validity
+   - Shows success message or lists any issues found
+
+3. **Search/Filter Functionality**: ✅ IMPLEMENTED
+   - Real-time filtering as you type
+   - Searches across: entity ID, device name, device type, and location
+   - Shows count of visible devices in console
+
+4. **UI Enhancements Completed**:
+   - ✅ Enabled devices now sort to the top of the list
+   - ✅ Text colors match border colors (green for enabled, bright orange for disabled)
+   - ✅ Improved orange color from muddy #ff6600 to bright #ff8c00
 
 ## Debug Strategy for Tomorrow
 
@@ -255,4 +268,32 @@ This script:
   - Restart: `docker restart orac`
 
 ---
-**Next Priority**: Fix the SAVE CONFIGURATION endpoint to properly persist device configurations
+
+## Sprint 2 Completion Summary (2025-09-25)
+
+### All Sprint 2 Requirements Met ✅
+
+**Core Functionality**:
+- ✅ Fetch devices from Home Assistant (30 devices loading)
+- ✅ Enable/disable devices with visual feedback
+- ✅ Drag-and-drop device types onto devices
+- ✅ Drag-and-drop locations onto devices
+- ✅ Save configuration to persist changes
+- ✅ Validate mappings for correctness
+- ✅ Search/filter devices in real-time
+
+**UI/UX Improvements**:
+- ✅ Card-based interface with modern design
+- ✅ Enabled devices sorted to top for better visibility
+- ✅ Color-coded states (green=enabled, orange=disabled)
+- ✅ Text colors match border colors for consistency
+- ✅ Improved orange color visibility (#ff8c00)
+- ✅ Responsive hover effects and transitions
+
+**Technical Achievements**:
+- Fixed data structure mismatch between API and frontend
+- Implemented missing backend save endpoint
+- Added validation and search functionality
+- Ensured all changes persist across container restarts
+
+**Sprint 2 Status**: 🎉 **COMPLETE** - Ready for Sprint 3 planning
