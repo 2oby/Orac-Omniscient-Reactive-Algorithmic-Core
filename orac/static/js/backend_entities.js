@@ -16,13 +16,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Load all device data
 async function loadDeviceData() {
+    console.log('loadDeviceData called');
     showLoading(true);
     try {
         const response = await fetch(`/api/backends/${backendId}/mappings`);
         const data = await response.json();
+        console.log('Mappings API response:', data);
 
         if (data.status === 'success') {
-            deviceMappings = data.device_mappings || {};
+            // Convert devices array to deviceMappings object
+            deviceMappings = {};
+            if (data.devices && Array.isArray(data.devices)) {
+                data.devices.forEach(device => {
+                    // Use device_id as the key for the mapping
+                    const entityId = device.device_id || `${device.domain}.${device.original_name.toLowerCase().replace(/ /g, '_')}`;
+                    deviceMappings[entityId] = {
+                        enabled: device.enabled || false,
+                        device_type: device.device_type || null,
+                        location: device.location || null,
+                        original_name: device.original_name,
+                        friendly_name: device.friendly_name || device.original_name,
+                        domain: device.domain,
+                        state: device.state,
+                        attributes: device.attributes
+                    };
+                });
+            }
+
+            console.log('Converted deviceMappings:', deviceMappings);
+            console.log('Number of devices:', Object.keys(deviceMappings).length);
+
             deviceTypes = data.device_types || ['lights', 'heating', 'media_player', 'blinds', 'switches'];
             locations = data.locations || [];
 
@@ -40,13 +63,19 @@ async function loadDeviceData() {
 
 // Render device cards
 function renderDevices() {
+    console.log('renderDevices called with:', Object.keys(deviceMappings).length, 'devices');
     const devicesList = document.getElementById('devices-list');
+    if (!devicesList) {
+        console.error('devices-list element not found!');
+        return;
+    }
     devicesList.innerHTML = '';
 
     Object.entries(deviceMappings).forEach(([entityId, mapping]) => {
         const deviceCard = createDeviceCard(entityId, mapping);
         devicesList.appendChild(deviceCard);
     });
+    console.log('Rendered', devicesList.children.length, 'device cards');
 }
 
 // Create a device card element
@@ -401,6 +430,7 @@ async function updateDeviceMapping(entityId, mapping) {
 
 // Fetch devices from Home Assistant
 async function fetchDevices() {
+    console.log('fetchDevices called');
     showLoading(true);
     try {
         const response = await fetch(`/api/backends/${backendId}/entities/fetch`, {
@@ -408,11 +438,15 @@ async function fetchDevices() {
         });
 
         const data = await response.json();
+        console.log('Fetch entities response:', data);
+
         if (data.status === 'success') {
-            showNotification(`Fetched ${data.result.total_entities} entities from Home Assistant`, 'success');
+            const entityCount = data.result.count || data.result.total_entities ||
+                               (data.result.devices ? data.result.devices.length : 0);
+            showNotification(`Fetched ${entityCount} entities from Home Assistant`, 'success');
             await loadDeviceData(); // Reload all data
         } else {
-            showNotification('Failed to fetch entities: ' + data.result.error, 'error');
+            showNotification('Failed to fetch entities: ' + (data.result.error || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Failed to fetch entities:', error);
@@ -571,3 +605,11 @@ function showNotification(message, type = 'info') {
         alert(message);
     }
 }
+
+// Expose functions to global scope for HTML onclick handlers
+window.fetchDevices = fetchDevices;
+window.saveConfiguration = saveConfiguration;
+window.validateMappings = validateMappings;
+window.filterDevices = filterDevices;
+window.showAddDeviceTypeModal = showAddDeviceTypeModal;
+window.showAddLocationModal = showAddLocationModal;
