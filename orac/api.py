@@ -261,6 +261,21 @@ async def bulk_update_entities(backend_id: str, request: Request) -> Dict[str, A
         logger.error(f"Error in bulk update: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/backends/{backend_id}/save", tags=["Backends"])
+async def save_backend_configuration(backend_id: str) -> Dict[str, Any]:
+    """Save the current backend configuration to disk."""
+    try:
+        if backend_manager.save_backend(backend_id):
+            return {
+                "status": "success",
+                "message": "Configuration saved successfully"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save configuration")
+    except Exception as e:
+        logger.error(f"Error saving backend configuration: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/backends/{backend_id}/device-types", tags=["Backends"])
 async def add_device_type(backend_id: str, request: Request) -> Dict[str, Any]:
     """Add a custom device type to a backend."""

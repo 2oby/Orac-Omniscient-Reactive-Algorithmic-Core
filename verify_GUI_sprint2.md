@@ -2,7 +2,7 @@
 **Date: 2025-09-23**
 **Status: FETCH DEVICES button not populating device list**
 
-## Current State
+## Current State (Updated: 2025-09-25)
 
 ### ✅ What's Working
 1. **Backend API**: All endpoints are functional and returning data correctly
@@ -21,16 +21,25 @@
    - JavaScript file loads without errors
    - Functions are callable from HTML onclick handlers
 
-### ❌ What's Not Working
-1. **FETCH DEVICES Button**: Clicking doesn't populate the devices list
-   - Button click registers (no console errors)
-   - API call may be succeeding but devices don't appear
-   - The `loadDeviceData()` function runs on page load but shows no devices
+4. **FETCH DEVICES Button**: ✅ FIXED - Now populates device list
+   - Fixed data structure mismatch (devices array vs device_mappings object)
+   - Successfully loads and displays 30 devices
+   - Debug logging added to trace data flow
 
-2. **Other Buttons**: Untested due to no devices being displayed
-   - SAVE CONFIGURATION
-   - VALIDATE
-   - Search/filter functionality
+5. **Device Configuration**: Working functionality
+   - Enable/disable devices by clicking cards (green/orange)
+   - Drag and drop device types to devices
+   - Drag and drop locations to devices
+   - Visual feedback working correctly
+
+### ❌ What's Not Working
+1. **SAVE CONFIGURATION Button**: Returns "Failed to save configuration" error
+   - The `/api/backends/{id}/save` endpoint may not exist or has issues
+   - Need to investigate the backend save implementation
+
+2. **Other Buttons**: Still need testing
+   - VALIDATE - untested
+   - Search/filter functionality - untested
 
 ## Debug Strategy for Tomorrow
 
@@ -201,20 +210,49 @@ curl -s http://192.168.8.192:8000/static/js/backend_entities.js | grep "window.f
 ssh orin4 "docker logs orac --tail 50"
 ```
 
-## Expected Outcome
-When FETCH DEVICES is clicked:
-1. Loading overlay should appear
-2. API call to fetch entities from Home Assistant
-3. 30 devices should populate in the left panel
-4. Each device should be a clickable card
-5. Success notification: "Fetched 30 entities from Home Assistant"
+## Fixed Issues (2025-09-25)
 
-## Next Session Priority
-1. Open browser console before clicking anything
-2. Add debug logging to trace the exact failure point
-3. Compare API response format with JavaScript expectations
-4. Test with hardcoded mock data to isolate rendering issues
-5. Fix the data flow between fetch → load → render functions
+### Device Population Issue - RESOLVED ✅
+**Problem**: Devices weren't populating when FETCH DEVICES was clicked
+**Root Cause**: Data structure mismatch - API returned `devices` array but JavaScript expected `device_mappings` object
+**Solution**: Updated `loadDeviceData()` function to convert devices array to deviceMappings object
+**Result**: All 30 devices now load and display correctly
+
+## Remaining Issues
+
+### SAVE CONFIGURATION Error
+**Problem**: Clicking "SAVE CONFIGURATION" shows "Failed to save configuration" error
+**Investigation Needed**:
+1. Check if `/api/backends/{id}/save` endpoint exists in api.py
+2. Verify the endpoint implementation in backend_manager.py
+3. Check Docker logs for any backend errors
+4. May need to implement the save functionality
+
+## Deployment Process
+
+### Using deploy_and_test.sh
+The project uses a single deployment script that ensures proper GitHub workflow:
+```bash
+./deploy_and_test.sh "Your commit message"
+```
+
+This script:
+1. Commits all changes to GitHub (single source of truth)
+2. Pushes to GitHub
+3. SSH into Orin (using `ssh orin4`)
+4. Pulls from GitHub on the Orin
+5. Copies files into the Docker container
+6. Restarts the ORAC container
+7. Runs comprehensive tests
+
+### Infrastructure Notes
+- **ORAC runs in Docker** on an NVIDIA Orin Nano (hostname: orin4)
+- **Access**: SSH to orin4, then interact with Docker container named "orac"
+- **URL**: http://192.168.8.192:8000
+- **Container commands**:
+  - View logs: `docker logs orac --tail 50`
+  - Enter shell: `docker exec -it orac bash`
+  - Restart: `docker restart orac`
 
 ---
-**Note**: The backend is working perfectly. This is purely a frontend JavaScript data handling issue, likely in how the API response is processed and converted to the format expected by the rendering functions.
+**Next Priority**: Fix the SAVE CONFIGURATION endpoint to properly persist device configurations
