@@ -610,6 +610,61 @@ function showLoading(show) {
     }
 }
 
+// Validate device mappings
+async function validateMappings() {
+    showLoading(true);
+    try {
+        const response = await fetch(`/api/backends/${backendId}/validate-mappings`, {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            if (data.valid) {
+                showNotification('All mappings are valid!', 'success');
+            } else {
+                const issues = data.issues || [];
+                const message = `Validation found ${issues.length} issue(s):\n${issues.join('\n')}`;
+                showNotification(message, 'warning');
+            }
+        } else {
+            showNotification('Failed to validate mappings', 'error');
+        }
+    } catch (error) {
+        console.error('Failed to validate mappings:', error);
+        showNotification('Failed to validate mappings', 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Filter devices by search query
+function filterDevices(query) {
+    const deviceCards = document.querySelectorAll('.device-card');
+    const lowerQuery = query.toLowerCase().trim();
+
+    deviceCards.forEach(card => {
+        const entityId = card.dataset.entityId.toLowerCase();
+        const deviceName = card.querySelector('.device-name')?.textContent.toLowerCase() || '';
+        const deviceType = card.querySelector('.device-type-value')?.textContent.toLowerCase() || '';
+        const location = card.querySelector('.location-value')?.textContent.toLowerCase() || '';
+
+        const matches = !lowerQuery ||
+                       entityId.includes(lowerQuery) ||
+                       deviceName.includes(lowerQuery) ||
+                       deviceType.includes(lowerQuery) ||
+                       location.includes(lowerQuery);
+
+        card.style.display = matches ? '' : 'none';
+    });
+
+    // Update count display
+    const visibleCards = document.querySelectorAll('.device-card:not([style*="display: none"])').length;
+    const totalCards = deviceCards.length;
+    console.log(`Showing ${visibleCards} of ${totalCards} devices`);
+}
+
 // Show notification (you'll need to implement this or use a library)
 function showNotification(message, type = 'info') {
     console.log(`[${type.toUpperCase()}] ${message}`);
