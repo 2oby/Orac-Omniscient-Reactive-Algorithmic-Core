@@ -45,6 +45,10 @@ class HomeAssistantDispatcher(BaseDispatcher):
         if not self.ha_token:
             self.ha_token = os.getenv('HA_TOKEN', '')
 
+        # Sprint 5: Store device mappings from backend config
+        self.device_mappings = config.get('device_mappings', {}) if config else {}
+        logger.debug(f"HomeAssistantDispatcher initialized with {len(self.device_mappings)} device mappings")
+
         # Initialize mapping system
         self.resolver = MappingResolver(self.ha_url, self.ha_token)
         self.generator = MappingGenerator(self.ha_url, self.ha_token)
@@ -114,11 +118,20 @@ class HomeAssistantDispatcher(BaseDispatcher):
                     'error': f'Unknown action: {action}'
                 }
 
-            # Try to resolve entity using new mapping system
+            # Sprint 5: Try device_mappings from backend config first
             entity_id = None
             mapping_source = "unmapped"
 
-            if topic_id:
+            # Check backend device mappings first
+            mapping_key = f"{device}/{location}"
+            if mapping_key in self.device_mappings:
+                device_info = self.device_mappings[mapping_key]
+                entity_id = device_info.get('entity_id')
+                mapping_source = "backend_mapping"
+                logger.info(f"Resolved entity via backend mapping: {entity_id} for {mapping_key}")
+
+            # Try to resolve entity using new mapping system if not found
+            if not entity_id and topic_id:
                 try:
                     # Check if mapping file exists, generate if not
                     mapping_file = self.resolver.mappings_dir / f"topic_{topic_id}.yaml"

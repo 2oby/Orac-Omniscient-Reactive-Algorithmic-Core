@@ -34,9 +34,19 @@ class HomeAssistantBackend(AbstractBackend):
         # Initialize Home Assistant client
         self.client = self._create_client()
 
+        # Build device_mappings from devices list for dispatcher
+        self._build_device_mappings()
+
         # Sprint 5: Dispatcher is now internal!
         # Users no longer need to configure this separately
-        self.dispatcher = HomeAssistantDispatcher()
+        # Pass the HA URL and token to the dispatcher
+        ha_config = self.config.get('homeassistant', {})
+        dispatcher_config = {
+            'ha_url': ha_config.get('url', 'http://localhost:8123'),
+            'ha_token': ha_config.get('token', ''),
+            'device_mappings': self.config.get('device_mappings', {})
+        }
+        self.dispatcher = HomeAssistantDispatcher(dispatcher_config)
         logger.info(f"Initialized internal HomeAssistant dispatcher for backend '{self.name}'")
 
         # Grammar generator - will be initialized when needed
@@ -45,6 +55,35 @@ class HomeAssistantBackend(AbstractBackend):
         # Cache for entities
         self._entities_cache = []
         self._cache_valid = False
+
+    def _build_device_mappings(self):
+        """Build device_mappings from devices list for dispatcher compatibility."""
+        devices = self.config.get('devices', [])
+        device_mappings = {}
+
+        for device in devices:
+            if device.get('enabled'):
+                device_type = device.get('device_type', 'unknown')
+                location = device.get('location', 'default')
+                entity_id = device.get('entity_id')
+
+                # Create mapping key in format "device_type/location"
+                mapping_key = f"{device_type}/{location}"
+
+                # Store the entity mapping
+                device_mappings[mapping_key] = {
+                    'entity_id': entity_id,
+                    'name': device.get('name', ''),
+                    'state': device.get('state', 'unknown'),
+                    'device_type': device_type,
+                    'location': location
+                }
+
+                logger.debug(f"Added device mapping: {mapping_key} -> {entity_id}")
+
+        # Store in config for get_device_mappings() to retrieve
+        self.config['device_mappings'] = device_mappings
+        logger.info(f"Built {len(device_mappings)} device mappings from {len(devices)} devices")
 
     def _create_client(self) -> HomeAssistantClient:
         """Create and configure Home Assistant client.
