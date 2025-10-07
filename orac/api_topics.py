@@ -291,18 +291,18 @@ async def get_available_backends():
     """Get list of available backends for topic configuration"""
     try:
         backend_manager = BackendManager()
-        backends = backend_manager.list_backends()
+        backends_list = backend_manager.list_backends()
 
         backend_list = []
-        for backend_id, backend_data in backends.items():
+        for backend_data in backends_list:
             # Get device statistics
             devices = backend_data.get("devices", [])
             enabled_devices = [d for d in devices if d.get("enabled")]
             mapped_devices = [d for d in enabled_devices if d.get("device_type") and d.get("location")]
 
             backend_list.append({
-                "id": backend_id,
-                "name": backend_data.get("name", backend_id),
+                "id": backend_data.get("id"),
+                "name": backend_data.get("name", backend_data.get("id")),
                 "type": backend_data.get("type", "unknown"),
                 "connected": backend_data.get("status", {}).get("connected", False),
                 "total_devices": len(devices),
