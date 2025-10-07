@@ -91,16 +91,14 @@
    CYBERPUNK PULSE HOVER EFFECTS
    ========================================== */
 
-/* Pulse animation with glow - smooth start and end */
+/* Pulse animation with glow - no scale to prevent mouse offset jump */
 @keyframes cyberpunk-pulse {
     0%, 100% {
         box-shadow: 0 0 8px var(--glow-color);
-        transform: scale(1);
         filter: brightness(1);
     }
     50% {
         box-shadow: 0 0 25px var(--glow-color), 0 0 50px var(--glow-color), 0 0 75px var(--glow-color);
-        transform: scale(1.03);
         filter: brightness(1.3);
     }
 }
