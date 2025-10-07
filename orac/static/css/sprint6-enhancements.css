@@ -91,9 +91,9 @@
    CYBERPUNK PULSE HOVER EFFECTS
    ========================================== */
 
-/* Pulse animation with glow - faster and more intense */
+/* Pulse animation with glow - smooth start and end */
 @keyframes cyberpunk-pulse {
-    0% {
+    0%, 100% {
         box-shadow: 0 0 8px var(--glow-color);
         transform: scale(1);
         filter: brightness(1);
@@ -102,11 +102,6 @@
         box-shadow: 0 0 25px var(--glow-color), 0 0 50px var(--glow-color), 0 0 75px var(--glow-color);
         transform: scale(1.03);
         filter: brightness(1.3);
-    }
-    100% {
-        box-shadow: 0 0 8px var(--glow-color);
-        transform: scale(1);
-        filter: brightness(1);
     }
 }
 
@@ -379,12 +374,13 @@ textarea:focus-visible {
    ========================================== */
 
 /* Force emoji icons in primary buttons to be visible with green filter */
-.btn.primary {
+.btn.primary:not(:hover) {
     filter: hue-rotate(0deg) saturate(1.5) brightness(1.2);
 }
 
+/* Don't apply filter during pulse - it conflicts with animation filter */
 .btn.primary:hover {
-    filter: hue-rotate(0deg) saturate(2) brightness(1.5) !important;
+    /* Filter applied by animation instead */
 }
 
 /* Ensure button icons are visible */
@@ -420,6 +416,17 @@ button,
 .draggable-list {
     overflow-y: auto !important;
     overflow-x: visible !important;
+}
+
+/* Prevent scrollbar from getting green filter */
+.devices-list::-webkit-scrollbar-thumb,
+.draggable-list::-webkit-scrollbar-thumb {
+    filter: none !important;
+}
+
+.devices-list::-webkit-scrollbar-track,
+.draggable-list::-webkit-scrollbar-track {
+    filter: none !important;
 }
 
 /* Ensure parent containers don't clip children */
