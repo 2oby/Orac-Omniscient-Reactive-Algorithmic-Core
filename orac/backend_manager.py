@@ -214,7 +214,8 @@ class BackendManager:
                 'name': backend_config.get('name'),
                 'type': backend_config.get('type'),
                 'enabled': backend_config.get('enabled', True),
-                'device_mappings': backend_config.get('device_mappings', {})
+                'device_mappings': backend_config.get('device_mappings', {}),
+                'devices': backend_config.get('devices', [])  # Sprint 5: Pass devices for mapping
             }
 
             # Map connection details based on backend type
