@@ -211,8 +211,13 @@ class HomeAssistantBackend(AbstractBackend):
             context['backend_type'] = 'homeassistant'
 
             # Execute through internal dispatcher
-            logger.info(f"Executing command through internal dispatcher: {command}")
-            result = await self.dispatcher.execute(command, context)
+            # Convert dict to JSON string as dispatcher expects JSON string
+            import json
+            command_json = json.dumps(command)
+            logger.info(f"Executing command through internal dispatcher: {command_json}")
+
+            # Dispatcher.execute is not async, call it directly
+            result = self.dispatcher.execute(command_json, context)
 
             # Add backend info to result
             result['backend'] = {
