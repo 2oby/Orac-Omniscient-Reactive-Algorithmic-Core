@@ -397,19 +397,29 @@ button,
    PREVENT GLOW CUT-OFF
    ========================================== */
 
-/* Allow overflow for glow effects */
+/* Allow overflow for glow effects - but preserve scrolling */
 .controls-bar,
 .nav-bar,
 .backends-grid,
 .topics-grid,
-.devices-list,
 .backend-actions-row,
 .main-layout,
+.right-panels {
+    overflow: visible !important;
+}
+
+/* Panels need visible overflow but NOT scrollable lists inside them */
 .devices-panel,
-.right-panels,
 .types-panel,
 .locations-panel {
     overflow: visible !important;
+}
+
+/* Scrollable lists must keep overflow-y: auto */
+.devices-list,
+.draggable-list {
+    overflow-y: auto !important;
+    overflow-x: visible !important;
 }
 
 /* Ensure parent containers don't clip children */
