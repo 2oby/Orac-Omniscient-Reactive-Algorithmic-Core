@@ -66,30 +66,20 @@ async def receive_heartbeat(request: HeartbeatRequest):
                 logger.info(f"Auto-discovering new topic: {topic_id}")
                 topic = topic_manager.auto_discover_topic(topic_id)
                 topics_created += 1
-            else:
-                # Reload topics to get latest saved state (including dispatcher)
-                topic_manager.load_topics()
-                topic = topic_manager.get_topic(topic_id)
-            
-            # Update heartbeat information
-            topic.last_heartbeat = datetime.now()
-            topic.heartbeat_status = topic_hb.status
-            
-            # Update wake word info if provided
-            if topic_hb.wake_word:
-                topic.wake_word = topic_hb.wake_word
-            
-            # Update trigger info
-            if topic_hb.trigger_count > 0:
-                topic.trigger_count = topic_hb.trigger_count
-            if topic_hb.last_triggered:
-                # This could be more recent than last_used (which tracks generation)
-                pass  # We track these separately
+
+            # Sprint 5: Update ONLY heartbeat fields, preserve all other configuration
+            # Use update_heartbeat method instead of direct modification
+            topic_manager.update_topic_heartbeat(
+                topic_id,
+                heartbeat_status=topic_hb.status,
+                last_heartbeat=datetime.now(),
+                wake_word=topic_hb.wake_word if topic_hb.wake_word else None,
+                trigger_count=topic_hb.trigger_count if topic_hb.trigger_count > 0 else None
+            )
             
             topics_processed += 1
-        
-        # Save all updates
-        topic_manager.save_topics()
+
+        # Sprint 5: Removed save_topics() - update_topic_heartbeat already saves
         
         return HeartbeatResponse(
             status="ok",

@@ -239,7 +239,45 @@ class TopicManager:
         
         logger.info(f"Updated topic: {topic_id}")
         return self.topics[topic_id]
-    
+
+    def update_topic_heartbeat(self, topic_id: str,
+                              heartbeat_status: str = None,
+                              last_heartbeat: datetime = None,
+                              wake_word: str = None,
+                              trigger_count: int = None) -> None:
+        """Update ONLY heartbeat-related fields of a topic.
+
+        Sprint 5: This method preserves all topic configuration and only updates
+        heartbeat tracking fields. This prevents the heartbeat system from
+        overwriting backend_id and other important configuration.
+
+        Args:
+            topic_id: Topic identifier
+            heartbeat_status: Status from heartbeat (active, idle)
+            last_heartbeat: Timestamp of last heartbeat
+            wake_word: Associated wake word phrase
+            trigger_count: Number of times triggered
+        """
+        if topic_id not in self.topics:
+            logger.warning(f"Cannot update heartbeat for non-existent topic: {topic_id}")
+            return
+
+        topic = self.topics[topic_id]
+
+        # Update only the heartbeat-related fields
+        if heartbeat_status is not None:
+            topic.heartbeat_status = heartbeat_status
+        if last_heartbeat is not None:
+            topic.last_heartbeat = last_heartbeat
+        if wake_word is not None:
+            topic.wake_word = wake_word
+        if trigger_count is not None:
+            topic.trigger_count = trigger_count
+
+        # Save topics preserving all other fields
+        self.save_topics()
+        logger.debug(f"Updated heartbeat for topic {topic_id}: status={heartbeat_status}")
+
     def delete_topic(self, topic_id: str) -> bool:
         """Delete a topic
         
