@@ -27,7 +27,7 @@ class TopicCreateRequest(BaseModel):
     model: str
     settings: Dict[str, Any] = {}
     grammar: Dict[str, Any] = {}
-    dispatcher: str = None
+    backend_id: str = None  # Sprint 5: Backends handle dispatching internally
     enabled: bool = True
 
 
@@ -38,8 +38,7 @@ class TopicUpdateRequest(BaseModel):
     model: str
     settings: Dict[str, Any]
     grammar: Dict[str, Any]
-    backend_id: str = None  # Sprint 4: Backend linkage
-    dispatcher: str = None  # Optional field
+    backend_id: str = None  # Sprint 4 & 5: Backend linkage (now includes dispatching)
     enabled: bool
 
 
@@ -52,8 +51,7 @@ class TopicResponse(BaseModel):
     model: str
     settings: Dict[str, Any]
     grammar: Dict[str, Any]
-    backend_id: str = None  # Sprint 4: Backend linkage
-    dispatcher: str = None
+    backend_id: str = None  # Sprint 4 & 5: Backend linkage (now includes dispatching)
     auto_discovered: bool
     first_seen: str = None
     last_used: str = None
