@@ -42,7 +42,8 @@ from orac.homeassistant.ha_executor import HAExecutor
 from orac.api_heartbeat import router as heartbeat_router
 
 # Add Dispatcher imports
-from orac.dispatchers import dispatcher_registry
+# Sprint 5: Dispatcher registry no longer needed - backends handle dispatching internally
+# from orac.dispatchers import dispatcher_registry
 
 # Add Backend Manager import
 from orac.backend_manager import BackendManager
@@ -777,37 +778,49 @@ async def _generate_text_impl(request: GenerationRequest, topic_id: str = "gener
                     if not response_text.endswith('}'):
                         response_text += '}'
         
-        # Check if topic has a configured dispatcher
-        dispatcher_result = None
-        if topic.dispatcher:
+        # Sprint 5: Check if topic has a backend for command execution
+        backend_result = None
+        if topic.backend_id and response_text:
             try:
-                # Get the dispatcher from the registry
-                dispatcher = dispatcher_registry.create(topic.dispatcher)
-                if dispatcher:
-                    logger.info(f"Using dispatcher '{topic.dispatcher}' for topic '{topic_id}'")
-                    
-                    # Execute through dispatcher
-                    dispatcher_result = dispatcher.execute(response_text, {'topic': topic.dict()})
-                    
-                    # Store dispatcher execution details
-                    last_command_storage["dispatcher"] = topic.dispatcher
-                    last_command_storage["dispatcher_result"] = dispatcher_result
-                    last_command_storage["success"] = dispatcher_result.get("success", False)
-                    
-                    if dispatcher_result.get("error"):
-                        logger.error(f"Dispatcher execution failed: {dispatcher_result['error']}")
+                # Parse the JSON response
+                import json
+                try:
+                    parsed_json = json.loads(response_text)
+                    last_command_storage["generated_json"] = parsed_json
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse generated JSON: {e}")
+                    parsed_json = None
+
+                if parsed_json:
+                    # Sprint 5: Get the backend instance from BackendManager
+                    # The backend encapsulates the dispatcher internally
+                    backend = backend_manager.create_backend_instance(topic.backend_id)
+
+                    if backend:
+                        logger.info(f"Using backend '{topic.backend_id}' dispatcher for topic '{topic_id}'")
+
+                        # Execute through backend's internal dispatcher
+                        backend_result = await backend.dispatch_command(parsed_json, {'topic': topic.dict()})
+
+                        # Store backend execution details
+                        last_command_storage["backend_id"] = topic.backend_id
+                        last_command_storage["backend_result"] = backend_result
+                        last_command_storage["success"] = backend_result.get("success", False)
+
+                        if backend_result.get("error"):
+                            logger.error(f"Backend execution failed: {backend_result['error']}")
+                        else:
+                            logger.info(f"Backend execution successful")
                     else:
-                        logger.info(f"Dispatcher execution successful")
-                else:
-                    logger.warning(f"Dispatcher '{topic.dispatcher}' not found in registry")
+                        logger.warning(f"Backend '{topic.backend_id}' could not be instantiated")
             except Exception as e:
-                logger.error(f"Failed to execute through dispatcher: {e}")
+                logger.error(f"Failed to execute through backend: {e}")
                 last_command_storage["error"] = str(e)
                 last_command_storage["success"] = False
         
-        # Legacy: If this is a home_assistant topic and no dispatcher, use old HA executor
+        # Legacy: If this is a home_assistant topic and no backend, use old HA executor
         ha_result = None
-        if topic_id == "home_assistant" and response_text and not topic.dispatcher:
+        if topic_id == "home_assistant" and response_text and not topic.backend_id:
             try:
                 import json
                 parsed_json = json.loads(response_text)

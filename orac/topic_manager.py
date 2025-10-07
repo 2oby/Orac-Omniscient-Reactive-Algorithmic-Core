@@ -62,18 +62,33 @@ class TopicManager:
                 self.topics = {}
                 for topic_id, topic_data in topics_data.items():
                     try:
+                        # Sprint 5 Migration: Remove dispatcher field and store for backend migration
+                        if 'dispatcher' in topic_data and topic_data['dispatcher']:
+                            dispatcher_type = topic_data['dispatcher']
+                            logger.info(f"Sprint 5 Migration: Topic {topic_id} has dispatcher '{dispatcher_type}' - will migrate to backend")
+
+                            # If topic has a backend_id, update the backend to know its dispatcher type
+                            if topic_data.get('backend_id'):
+                                # Note: BackendManager will handle storing dispatcher_type internally
+                                # We just need to remove it from the topic
+                                logger.info(f"Backend '{topic_data['backend_id']}' will use dispatcher type '{dispatcher_type}'")
+
+                            # Remove dispatcher from topic data
+                            del topic_data['dispatcher']
+                            logger.info(f"Removed dispatcher field from topic {topic_id}")
+
                         # Handle datetime fields specially
                         if 'first_seen' in topic_data and isinstance(topic_data['first_seen'], str):
                             topic_data['first_seen'] = datetime.fromisoformat(topic_data['first_seen'])
                         if 'last_used' in topic_data and isinstance(topic_data['last_used'], str):
                             topic_data['last_used'] = datetime.fromisoformat(topic_data['last_used'])
-                        
+
                         # Ensure nested objects exist
                         if 'settings' not in topic_data:
                             topic_data['settings'] = {}
                         if 'grammar' not in topic_data:
                             topic_data['grammar'] = {}
-                        
+
                         self.topics[topic_id] = Topic(**topic_data)
                         # Log more details about loaded topic
                         if topic_id == 'general' and 'settings' in topic_data:
@@ -93,8 +108,7 @@ class TopicManager:
             topics_data = {}
             for topic_id, topic in self.topics.items():
                 topic_dict = topic.dict()
-                # Log dispatcher field for each topic being saved
-                logger.info(f"Saving topic {topic_id} - dispatcher in dict: {topic_dict.get('dispatcher', 'NOT PRESENT')}")
+                # Sprint 5: Dispatcher field removed - backends handle dispatching internally
                 
                 # Convert datetime objects to ISO format strings
                 if topic_dict.get('first_seen'):

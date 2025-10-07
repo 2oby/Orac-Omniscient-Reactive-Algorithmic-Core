@@ -12,6 +12,10 @@ from enum import Enum
 from orac.homeassistant.client import HomeAssistantClient
 from orac.homeassistant.config import HomeAssistantConfig
 
+# Sprint 5: Import new backend factory
+from orac.backends.backend_factory import BackendFactory
+from orac.backends.abstract_backend import AbstractBackend
+
 logger = logging.getLogger(__name__)
 
 
@@ -184,6 +188,61 @@ class BackendManager:
             The backend configuration or None
         """
         return self.backends.get(backend_id)
+
+    def create_backend_instance(self, backend_id: str) -> Optional[AbstractBackend]:
+        """Sprint 5: Create a backend instance using the new backend factory
+
+        This creates an instance of the appropriate backend class (e.g., HomeAssistantBackend)
+        which encapsulates the dispatcher internally.
+
+        Args:
+            backend_id: The backend ID
+
+        Returns:
+            Backend instance or None if not found or creation failed
+        """
+        backend_config = self.get_backend(backend_id)
+        if not backend_config:
+            logger.error(f"Backend configuration not found for {backend_id}")
+            return None
+
+        try:
+            # Transform the stored config format to the format expected by backends
+            # The stored format has 'connection' details that need to be mapped
+            transformed_config = {
+                'id': backend_config.get('id'),
+                'name': backend_config.get('name'),
+                'type': backend_config.get('type'),
+                'enabled': backend_config.get('enabled', True),
+                'device_mappings': backend_config.get('device_mappings', {})
+            }
+
+            # Map connection details based on backend type
+            if backend_config.get('type') == 'homeassistant':
+                connection = backend_config.get('connection', {})
+                transformed_config['homeassistant'] = {
+                    'url': f"{connection.get('url', 'http://localhost')}:{connection.get('port', 8123)}",
+                    'token': connection.get('token', ''),
+                    'verify_ssl': connection.get('verify_ssl', False)
+                }
+
+            # Sprint 5: If dispatcher_type was stored (from migration), include it
+            if 'dispatcher_type' in backend_config:
+                transformed_config['dispatcher_type'] = backend_config['dispatcher_type']
+
+            # Create backend instance using factory
+            backend_instance = BackendFactory.create(backend_id, transformed_config)
+
+            if backend_instance:
+                logger.info(f"Created backend instance for {backend_id}: {backend_instance}")
+            else:
+                logger.error(f"Failed to create backend instance for {backend_id}")
+
+            return backend_instance
+
+        except Exception as e:
+            logger.error(f"Error creating backend instance for {backend_id}: {e}")
+            return None
 
     def list_backends(self) -> List[Dict]:
         """List all backends

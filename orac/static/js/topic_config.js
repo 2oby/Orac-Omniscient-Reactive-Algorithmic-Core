@@ -19,11 +19,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     document.getElementById('topicId').textContent = topicId;
     
-    // Load available models, dispatchers and backends (Sprint 4)
+    // Load available models and backends (Sprint 5: dispatcher removed)
     console.log('Loading models...');
     await loadModels();
-    console.log('Loading dispatchers...');
-    await loadDispatchers();
+    // Sprint 5: Dispatcher loading removed - backends handle dispatching internally
     console.log('Loading backends...');
     await loadBackends();
     
@@ -78,51 +77,7 @@ async function loadModels() {
     }
 }
 
-// Load available dispatchers
-async function loadDispatchers() {
-    try {
-        console.log('Loading dispatchers from /v1/dispatchers...');
-        const response = await fetch('/v1/dispatchers');
-        console.log('Dispatcher response status:', response.status);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('Dispatcher data:', data);
-        
-        const select = document.getElementById('dispatcher');
-        if (!select) {
-            console.error('Dispatcher select element not found!');
-            return;
-        }
-        
-        select.innerHTML = '<option value="">None (Display Only)</option>';
-        
-        if (data.dispatchers && data.dispatchers.length > 0) {
-            console.log('Adding', data.dispatchers.length, 'dispatchers to dropdown');
-            data.dispatchers.forEach(dispatcher => {
-                const option = document.createElement('option');
-                option.value = dispatcher.id;
-                option.textContent = `${dispatcher.name} - ${dispatcher.description}`;
-                select.appendChild(option);
-                console.log('Added dispatcher:', dispatcher.id, 'to dropdown');
-            });
-            console.log('Dispatcher dropdown final HTML:', select.innerHTML);
-        } else {
-            console.log('No dispatchers found in response');
-        }
-    } catch (error) {
-        console.error('Error loading dispatchers:', error);
-        console.error('Stack trace:', error.stack);
-        // Show error in UI
-        const select = document.getElementById('dispatcher');
-        if (select) {
-            select.innerHTML = '<option value="">Error loading dispatchers</option>';
-        }
-    }
-}
+// Sprint 5: Dispatcher function removed - backends handle dispatching internally
 
 // Sprint 4: Load available backends for topic configuration
 async function loadBackends() {
@@ -163,8 +118,7 @@ function populateForm(data) {
     // Model
     document.getElementById('model').value = data.model || '';
     
-    // Dispatcher
-    document.getElementById('dispatcher').value = data.dispatcher || '';
+    // Sprint 5: Dispatcher removed - backends handle dispatching internally
     
     // Generation settings
     const settings = data.settings || {};
@@ -239,12 +193,7 @@ function updateSliderValue(sliderId) {
 async function saveTopic() {
     console.log('saveTopic() called');
     
-    // Debug dispatcher value
-    const dispatcherElement = document.getElementById('dispatcher');
-    console.log('Dispatcher element:', dispatcherElement);
-    console.log('Dispatcher value:', dispatcherElement.value);
-    console.log('Dispatcher selected index:', dispatcherElement.selectedIndex);
-    console.log('Dispatcher selected option:', dispatcherElement.options[dispatcherElement.selectedIndex]);
+    // Sprint 5: Dispatcher debugging removed - backends handle dispatching internally
     
     const formData = {
         name: document.getElementById('name').value,
@@ -252,7 +201,7 @@ async function saveTopic() {
         enabled: document.getElementById('enabled').checked,
         model: document.getElementById('model').value,
         backend_id: document.getElementById('backendId').value === '' ? null : document.getElementById('backendId').value,
-        dispatcher: document.getElementById('dispatcher').value === '' ? null : document.getElementById('dispatcher').value,
+        // Sprint 5: dispatcher removed - backends handle dispatching internally
         settings: {
             system_prompt: document.getElementById('systemPrompt').value,
             temperature: parseFloat(document.getElementById('temperature').value),
@@ -266,7 +215,6 @@ async function saveTopic() {
     };
     
     console.log('Form data to save:', JSON.stringify(formData, null, 2));
-    console.log('Dispatcher field value:', formData.dispatcher);
     
     try {
         console.log(`Making PUT request to /api/topics/${topicId}`);

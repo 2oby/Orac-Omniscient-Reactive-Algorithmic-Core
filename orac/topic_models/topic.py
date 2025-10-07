@@ -29,11 +29,9 @@ class Topic(BaseModel):
     settings: TopicSettings = Field(default_factory=TopicSettings, description="Generation settings")
     grammar: GrammarConfig = Field(default_factory=GrammarConfig, description="Grammar configuration (deprecated - use backend_id)")
 
-    # Backend integration (Sprint 4)
-    backend_id: Optional[str] = Field(default=None, description="Linked backend for dynamic grammar generation")
-
-    # Dispatcher configuration
-    dispatcher: Optional[str] = Field(default=None, description="Dispatcher to use for executing LLM output")
+    # Backend integration (Sprint 4 & 5)
+    # Sprint 5: Backend now encapsulates dispatcher internally - no separate dispatcher field needed
+    backend_id: Optional[str] = Field(default=None, description="Linked backend for grammar generation and command execution")
     
     # Tracking fields
     auto_discovered: bool = Field(default=False, description="Whether topic was auto-created")
