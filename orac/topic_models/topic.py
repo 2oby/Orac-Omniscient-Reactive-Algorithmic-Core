@@ -27,8 +27,11 @@ class Topic(BaseModel):
     enabled: bool = Field(default=True, description="Whether the topic is active")
     model: str = Field(..., description="Model filename to use for this topic")
     settings: TopicSettings = Field(default_factory=TopicSettings, description="Generation settings")
-    grammar: GrammarConfig = Field(default_factory=GrammarConfig, description="Grammar configuration")
-    
+    grammar: GrammarConfig = Field(default_factory=GrammarConfig, description="Grammar configuration (deprecated - use backend_id)")
+
+    # Backend integration (Sprint 4)
+    backend_id: Optional[str] = Field(default=None, description="Linked backend for dynamic grammar generation")
+
     # Dispatcher configuration
     dispatcher: Optional[str] = Field(default=None, description="Dispatcher to use for executing LLM output")
     

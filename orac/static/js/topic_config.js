@@ -19,13 +19,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     document.getElementById('topicId').textContent = topicId;
     
-    // Load available models, dispatchers and grammars
+    // Load available models, dispatchers and backends (Sprint 4)
     console.log('Loading models...');
     await loadModels();
     console.log('Loading dispatchers...');
     await loadDispatchers();
-    console.log('Loading grammars...');
-    await loadGrammars();
+    console.log('Loading backends...');
+    await loadBackends();
     
     // Load topic data
     console.log('Loading topic data...');
@@ -124,23 +124,32 @@ async function loadDispatchers() {
     }
 }
 
-// Load available grammars
-async function loadGrammars() {
+// Sprint 4: Load available backends for topic configuration
+async function loadBackends() {
     try {
-        const response = await fetch('/api/topics/grammars');
+        const response = await fetch('/api/topics/backends/available');
         const data = await response.json();
-        
-        const select = document.getElementById('grammarFile');
-        select.innerHTML = '<option value="">No grammar selected</option>';
-        
-        data.grammars.forEach(grammar => {
-            const option = document.createElement('option');
-            option.value = grammar;
-            option.textContent = grammar;
-            select.appendChild(option);
-        });
+
+        const select = document.getElementById('backendId');
+        select.innerHTML = '<option value="">No backend linked</option>';
+
+        if (data.backends && data.backends.length > 0) {
+            data.backends.forEach(backend => {
+                const option = document.createElement('option');
+                option.value = backend.id;
+                const deviceInfo = `${backend.total_devices} devices, ${backend.enabled_devices} enabled`;
+                option.textContent = `${backend.name} (${backend.type}) - ${deviceInfo}`;
+                select.appendChild(option);
+            });
+
+            // Add "Create New Backend" option
+            const createOption = document.createElement('option');
+            createOption.value = 'create_new';
+            createOption.textContent = '+ Create New Backend';
+            select.appendChild(createOption);
+        }
     } catch (error) {
-        console.error('Error loading grammars:', error);
+        console.error('Error loading backends:', error);
     }
 }
 
@@ -172,11 +181,11 @@ function populateForm(data) {
     updateSliderValue('topP');
     updateSliderValue('topK');
     
-    // Grammar configuration
-    const grammar = data.grammar || {};
-    document.getElementById('grammarEnabled').checked = grammar.enabled || false;
-    document.getElementById('grammarFile').value = grammar.file || '';
-    document.getElementById('grammarFile').disabled = !grammar.enabled;
+    // Sprint 4: Backend configuration (replaces grammar)
+    if (data.backend_id) {
+        document.getElementById('backendId').value = data.backend_id;
+        loadBackendInfo(data.backend_id);
+    }
     
     // Disable delete button for general topic
     if (topicId === 'general') {
@@ -199,9 +208,18 @@ function setupEventListeners() {
     // Test button
     document.getElementById('testBtn').addEventListener('click', testTopic);
     
-    // Grammar enabled checkbox
-    document.getElementById('grammarEnabled').addEventListener('change', (e) => {
-        document.getElementById('grammarFile').disabled = !e.target.checked;
+    // Sprint 4: Backend selection change
+    document.getElementById('backendId').addEventListener('change', async (e) => {
+        if (e.target.value === 'create_new') {
+            // Redirect to backend creation page
+            window.location.href = '/backends';
+        } else if (e.target.value) {
+            // Load backend info
+            await loadBackendInfo(e.target.value);
+        } else {
+            // Hide backend status
+            document.getElementById('backendStatus').style.display = 'none';
+        }
     });
     
     // Slider updates
@@ -233,6 +251,7 @@ async function saveTopic() {
         description: document.getElementById('description').value,
         enabled: document.getElementById('enabled').checked,
         model: document.getElementById('model').value,
+        backend_id: document.getElementById('backendId').value === '' ? null : document.getElementById('backendId').value,
         dispatcher: document.getElementById('dispatcher').value === '' ? null : document.getElementById('dispatcher').value,
         settings: {
             system_prompt: document.getElementById('systemPrompt').value,
@@ -243,10 +262,7 @@ async function saveTopic() {
             no_think: document.getElementById('noThink').checked,
             force_json: document.getElementById('forceJson').checked
         },
-        grammar: {
-            enabled: document.getElementById('grammarEnabled').checked,
-            file: document.getElementById('grammarFile').value || null
-        }
+        grammar: {}  // Sprint 4: Empty grammar object for backward compatibility
     };
     
     console.log('Form data to save:', JSON.stringify(formData, null, 2));
@@ -346,9 +362,80 @@ function showStatus(message, type) {
     statusEl.textContent = message;
     statusEl.className = `status-message ${type}`;
     statusEl.style.display = 'block';
-    
+
     // Auto-hide after 5 seconds
     setTimeout(() => {
         statusEl.style.display = 'none';
     }, 5000);
+}
+
+// Sprint 4: Load and display backend information
+async function loadBackendInfo(backendId) {
+    try {
+        const response = await fetch(`/api/topics/${topicId}/backend`);
+
+        if (!response.ok) {
+            // Backend might not be linked yet, try to link it
+            const linkResponse = await fetch(`/api/topics/${topicId}/backend`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({backend_id: backendId})
+            });
+
+            if (linkResponse.ok) {
+                // Retry loading backend info
+                const retryResponse = await fetch(`/api/topics/${topicId}/backend`);
+                if (retryResponse.ok) {
+                    const data = await retryResponse.json();
+                    displayBackendInfo(data);
+                }
+            }
+        } else {
+            const data = await response.json();
+            displayBackendInfo(data);
+        }
+    } catch (error) {
+        console.error('Error loading backend info:', error);
+    }
+}
+
+// Display backend information in the UI
+function displayBackendInfo(backendInfo) {
+    const statusDiv = document.getElementById('backendStatus');
+    const infoDiv = document.getElementById('backendInfo');
+
+    if (!backendInfo) {
+        statusDiv.style.display = 'none';
+        return;
+    }
+
+    // Show backend status section
+    statusDiv.style.display = 'block';
+
+    // Build info HTML
+    const connectionStatus = backendInfo.status?.connected ?
+        '<span style="color: #00ff41;">✅ Connected</span>' :
+        '<span style="color: #ff4444;">❌ Disconnected</span>';
+
+    const grammarStatus = backendInfo.grammar_generated ?
+        '<span style="color: #00ff41;">✅ Generated</span>' :
+        '<span style="color: #ffaa00;">⚠️ Not Generated</span>';
+
+    infoDiv.innerHTML = `
+        <div style="display: grid; gap: 0.5rem;">
+            <div><strong>Name:</strong> ${backendInfo.name}</div>
+            <div><strong>Type:</strong> ${backendInfo.type}</div>
+            <div><strong>Connection:</strong> ${connectionStatus}</div>
+            <div><strong>Devices:</strong> ${backendInfo.statistics.total_devices} total,
+                ${backendInfo.statistics.enabled_devices} enabled,
+                ${backendInfo.statistics.mapped_devices} mapped</div>
+            <div><strong>Device Types:</strong> ${backendInfo.device_types.join(', ') || 'None'}</div>
+            <div><strong>Locations:</strong> ${backendInfo.locations.join(', ') || 'None'}</div>
+            <div><strong>Grammar:</strong> ${grammarStatus}</div>
+        </div>
+    `;
+
+    // Update button links
+    document.getElementById('configureBackendBtn').href = `/backends/${backendInfo.backend_id}/entities`;
+    document.getElementById('testGrammarBtn').href = `/backends/${backendInfo.backend_id}/test-grammar`;
 }

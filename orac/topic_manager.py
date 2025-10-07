@@ -316,15 +316,15 @@ class TopicManager:
     
     def get_available_grammars(self) -> list:
         """Get list of available grammar files
-        
+
         Returns:
             List of grammar filenames
         """
         grammar_dir = self.data_dir / "grammars"
-        
+
         if not grammar_dir.exists():
             return []
-        
+
         try:
             # List all .gbnf files in the grammar directory
             grammars = [f.name for f in grammar_dir.glob("*.gbnf")]
@@ -332,3 +332,88 @@ class TopicManager:
         except Exception as e:
             logger.error(f"Failed to list grammar files: {e}")
             return []
+
+    def link_to_backend(self, topic_id: str, backend_id: Optional[str]) -> Topic:
+        """Link a topic to a backend for dynamic grammar generation
+
+        Args:
+            topic_id: Topic identifier
+            backend_id: Backend identifier (None to unlink)
+
+        Returns:
+            Updated Topic instance
+        """
+        if topic_id not in self.topics:
+            raise ValueError(f"Topic '{topic_id}' does not exist")
+
+        # Validate backend exists if backend_id is provided
+        if backend_id:
+            from orac.backend_manager import BackendManager
+            backend_manager = BackendManager(str(self.data_dir))
+            backend = backend_manager.get_backend(backend_id)
+            if not backend:
+                raise ValueError(f"Backend '{backend_id}' does not exist")
+            logger.info(f"Linking topic '{topic_id}' to backend '{backend_id}'")
+        else:
+            logger.info(f"Unlinking topic '{topic_id}' from backend")
+
+        # Update the topic
+        topic = self.topics[topic_id]
+        topic.backend_id = backend_id
+
+        # If linking to a backend, disable static grammar
+        if backend_id:
+            topic.grammar.enabled = False
+            topic.grammar.file = None
+
+        self.save_topics()
+        logger.info(f"Topic '{topic_id}' backend linkage updated")
+        return topic
+
+    def get_topic_backend_info(self, topic_id: str) -> Optional[Dict[str, Any]]:
+        """Get backend information for a topic
+
+        Args:
+            topic_id: Topic identifier
+
+        Returns:
+            Backend information dict or None
+        """
+        topic = self.get_topic(topic_id)
+        if not topic or not topic.backend_id:
+            return None
+
+        from orac.backend_manager import BackendManager
+        from orac.backend_grammar_generator import BackendGrammarGenerator
+
+        backend_manager = BackendManager(str(self.data_dir))
+        backend = backend_manager.get_backend(topic.backend_id)
+
+        if not backend:
+            return None
+
+        # Get grammar status
+        grammar_generator = BackendGrammarGenerator(str(self.data_dir))
+        grammar_path = grammar_generator.get_grammar_file_path(topic.backend_id)
+        grammar_exists = grammar_path.exists()
+
+        # Get device statistics
+        enabled_devices = [d for d in backend.get("devices", []) if d.get("enabled")]
+        mapped_devices = [d for d in enabled_devices if d.get("device_type") and d.get("location")]
+        device_types = list(set(d.get("device_type") for d in mapped_devices if d.get("device_type")))
+        locations = list(set(d.get("location") for d in mapped_devices if d.get("location")))
+
+        return {
+            "backend_id": topic.backend_id,
+            "name": backend.get("name", "Unknown"),
+            "type": backend.get("type", "unknown"),
+            "status": backend.get("status", {}),
+            "statistics": {
+                "total_devices": len(backend.get("devices", [])),
+                "enabled_devices": len(enabled_devices),
+                "mapped_devices": len(mapped_devices)
+            },
+            "device_types": sorted(device_types),
+            "locations": sorted(locations),
+            "grammar_generated": grammar_exists
+        }

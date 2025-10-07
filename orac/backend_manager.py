@@ -100,6 +100,32 @@ class BackendManager:
                 json.dump(self.backends[backend_id], f, indent=2, default=str)
 
             logger.info(f"Saved backend {backend_id} to {backend_file}")
+
+            # Sprint 4: Auto-regenerate grammar when backend device mappings change
+            try:
+                from orac.backend_grammar_generator import BackendGrammarGenerator
+                grammar_generator = BackendGrammarGenerator(str(self.data_dir))
+
+                # Check if any devices are configured
+                backend = self.backends[backend_id]
+                has_mapped_devices = any(
+                    d.get("enabled") and d.get("device_type") and d.get("location")
+                    for d in backend.get("devices", [])
+                )
+
+                if has_mapped_devices:
+                    logger.info(f"Auto-regenerating grammar for backend {backend_id} after device changes")
+                    result = grammar_generator.generate_and_save_grammar(backend_id)
+                    if result["success"]:
+                        logger.info(f"Grammar regenerated successfully for backend {backend_id}")
+                    else:
+                        logger.warning(f"Failed to regenerate grammar: {result.get('error')}")
+                else:
+                    logger.info(f"No mapped devices for backend {backend_id}, skipping grammar generation")
+            except Exception as e:
+                logger.warning(f"Failed to auto-regenerate grammar for backend {backend_id}: {e}")
+                # Don't fail the save operation if grammar generation fails
+
             return True
         except Exception as e:
             logger.error(f"Failed to save backend {backend_id}: {e}")

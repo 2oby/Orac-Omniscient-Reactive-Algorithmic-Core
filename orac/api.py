@@ -661,32 +661,55 @@ async def _generate_text_impl(request: GenerationRequest, topic_id: str = "gener
         ha_keywords = ["turn on", "turn off", "light", "switch", "thermostat", "bedroom", "kitchen"]
         is_ha_command = any(keyword in request.prompt.lower() for keyword in ha_keywords)
         
-        # Use grammar from topic or request
+        # Sprint 4: Check for backend-linked grammar first
         grammar_file = request.grammar_file  # Use grammar_file from request first
-        
-        # If no grammar in request, check topic configuration
-        if not grammar_file and topic.grammar.enabled and topic.grammar.file:
+
+        if not grammar_file and topic.backend_id:
+            # Topic is linked to a backend - use backend-generated grammar
+            from orac.backend_manager import BackendManager
+            from orac.backend_grammar_generator import BackendGrammarGenerator
+
+            backend_manager = BackendManager(os.path.join(os.path.dirname(__file__), "..", "data"))
+            backend = backend_manager.get_backend(topic.backend_id)
+
+            if not backend:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Linked backend '{topic.backend_id}' not found for topic '{topic_id}'"
+                )
+
+            # Check if backend is connected
+            if not backend.get("status", {}).get("connected"):
+                logger.warning(f"Backend '{topic.backend_id}' is not connected")
+
+            # Get or generate grammar for the backend
+            grammar_generator = BackendGrammarGenerator(os.path.join(os.path.dirname(__file__), "..", "data"))
+            grammar_path = grammar_generator.get_grammar_file_path(topic.backend_id)
+
+            if not grammar_path.exists():
+                # Auto-generate grammar if missing
+                logger.info(f"Auto-generating grammar for backend '{topic.backend_id}'")
+                result = grammar_generator.generate_and_save_grammar(topic.backend_id)
+                if not result["success"]:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to generate grammar for backend: {result['error']}"
+                    )
+
+            grammar_file = str(grammar_path)
+            logger.info(f"Using backend-generated grammar for topic '{topic_id}': {grammar_file}")
+
+        # Fallback to static grammar if configured (backward compatibility)
+        elif not grammar_file and topic.grammar.enabled and topic.grammar.file:
             grammar_path = os.path.join(os.path.dirname(__file__), "..", "data", "grammars", topic.grammar.file)
             if os.path.exists(grammar_path):
                 grammar_file = grammar_path
-                logger.info(f"Using grammar from topic configuration: {topic.grammar.file}")
+                logger.info(f"Using static grammar from topic configuration: {topic.grammar.file}")
+
+        # Validate grammar file exists
         if grammar_file and not os.path.exists(grammar_file):
-            logger.warning(f"Grammar file not found: {grammar_file}, falling back to JSON grammar")
+            logger.warning(f"Grammar file not found: {grammar_file}")
             grammar_file = None
-        elif not grammar_file and is_ha_command and request.json_mode:
-            # Use default.gbnf as default for Home Assistant commands (static grammar, not HA-generated)
-            grammar_file = os.path.join(os.path.dirname(__file__), "..", "data", "grammars", "default.gbnf")
-            if os.path.exists(grammar_file):
-                logger.info(f"Using default.gbnf grammar for HA command (static, not HA-generated): {grammar_file}")
-            else:
-                logger.warning(f"default.gbnf not found at {grammar_file}, falling back to set_temp.gbnf")
-                fallback_grammar = os.path.join(os.path.dirname(__file__), "..", "data", "grammars", "set_temp.gbnf")
-                if os.path.exists(fallback_grammar):
-                    grammar_file = fallback_grammar
-                    logger.info(f"Using fallback grammar: {fallback_grammar}")
-                else:
-                    logger.warning(f"Fallback grammar not found, using JSON grammar")
-                    grammar_file = None
         
         # Format the prompt based on whether we're using a grammar file
         if grammar_file and os.path.exists(grammar_file):

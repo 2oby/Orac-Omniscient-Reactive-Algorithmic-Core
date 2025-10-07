@@ -366,22 +366,31 @@
                 </div>
             </div>
             
-            <!-- Grammar Configuration -->
+            <!-- Backend Configuration (Sprint 4: Replaces Grammar Configuration) -->
             <div class="form-section">
-                <h2 class="section-title">Grammar Configuration</h2>
-                
+                <h2 class="section-title">Backend Configuration</h2>
+
                 <div class="form-group">
-                    <div class="form-checkbox-wrapper">
-                        <input type="checkbox" id="grammarEnabled" class="form-checkbox">
-                        <label for="grammarEnabled" class="form-label" style="margin-bottom: 0;">Enable grammar</label>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Grammar File</label>
-                    <select id="grammarFile" class="form-select" disabled>
-                        <option value="">No grammar selected</option>
+                    <label class="form-label">Select Backend</label>
+                    <select id="backendId" class="form-select">
+                        <option value="">No backend linked</option>
+                        <!-- Options populated dynamically -->
                     </select>
+                    <small style="color: var(--secondary-green); display: block; margin-top: 0.5rem;">
+                        Link to a backend for dynamic grammar generation based on configured devices
+                    </small>
+                </div>
+
+                <!-- Backend Status Display -->
+                <div id="backendStatus" style="display: none; margin-top: 1.5rem; padding: 1rem; background: rgba(0, 0, 0, 0.3); border-radius: 4px;">
+                    <h3 style="color: var(--primary-green); margin-bottom: 1rem; font-size: 1rem;">Backend Status</h3>
+                    <div id="backendInfo">
+                        <!-- Populated dynamically -->
+                    </div>
+                    <div class="button-group" style="margin-top: 1rem;">
+                        <a id="configureBackendBtn" href="#" class="btn btn-secondary" style="margin-right: 0.5rem;">Configure Backend</a>
+                        <a id="testGrammarBtn" href="#" class="btn btn-secondary">Test Grammar</a>
+                    </div>
                 </div>
             </div>
             
