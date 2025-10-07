@@ -110,7 +110,7 @@
     }
 }
 
-/* Apply to all interactive elements - faster pulse (0.8s) */
+/* Apply to all interactive elements - single pulse on hover */
 button:not(:disabled):hover,
 .btn:not(:disabled):hover,
 .backend-btn:hover,
@@ -119,17 +119,17 @@ button:not(:disabled):hover,
 .nav-button:hover,
 a.nav-link:hover {
     --glow-color: var(--primary-green);
-    animation: cyberpunk-pulse 0.8s ease-in-out infinite;
+    animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
     z-index: 10;
 }
 
-/* Interactive cards - faster pulse and prevent glow cut-off */
+/* Interactive cards - single pulse on hover */
 .backend-card:hover,
 .topic-card:not(.disabled):hover,
 .device-card:hover {
     --glow-color: var(--primary-green);
-    animation: cyberpunk-pulse 0.8s ease-in-out infinite;
+    animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
     z-index: 10;
 }
@@ -164,7 +164,7 @@ a.nav-link:hover {
 /* Draggable items */
 .draggable-item:hover {
     --glow-color: var(--primary-green);
-    animation: cyberpunk-pulse 0.8s ease-in-out infinite;
+    animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
     z-index: 10;
 }
@@ -173,7 +173,7 @@ a.nav-link:hover {
 .add-backend-card:hover,
 .add-topic-card:hover {
     --glow-color: var(--primary-green);
-    animation: cyberpunk-pulse 0.8s ease-in-out infinite;
+    animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
     z-index: 10;
 }
@@ -355,7 +355,9 @@ textarea:focus-visible {
 
 .topic-badge:hover {
     --glow-color: var(--primary-green);
-    animation: cyberpunk-pulse 1.5s ease-in-out infinite;
+    animation: cyberpunk-pulse 0.8s ease-in-out 1;
+    position: relative;
+    z-index: 10;
 }
 
 /* Entity count text colors */
@@ -402,7 +404,11 @@ button,
 .topics-grid,
 .devices-list,
 .backend-actions-row,
-.main-layout {
+.main-layout,
+.devices-panel,
+.right-panels,
+.types-panel,
+.locations-panel {
     overflow: visible !important;
 }
 
@@ -412,6 +418,23 @@ button,
 .topics-container,
 .config-container {
     overflow: visible !important;
+}
+
+/* Device card grid cells must not clip */
+.device-card {
+    overflow: visible !important;
+}
+
+/* Drop zones need to expand beyond their cells */
+.drop-zone {
+    overflow: visible !important;
+    position: relative;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over,
+.drop-zone.has-value {
+    z-index: 15 !important;
 }
 
 /* ==========================================
