@@ -11,14 +11,32 @@ logger = logging.getLogger(__name__)
 
 
 class TopicManager:
-    """Manages topic configurations and operations"""
-    
+    """Manages topic configurations and operations
+
+    Sprint 5: Implemented as a singleton to ensure all modules use the same instance.
+    This prevents the heartbeat from reloading topics from disk and overwriting changes.
+    """
+
+    _instance = None
+    _initialized = False
+
+    def __new__(cls, data_dir: str = None):
+        """Ensure only one instance exists (singleton pattern)"""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self, data_dir: str = None):
         """Initialize the topic manager
-        
+
         Args:
             data_dir: Directory to store topic configurations
         """
+        # Sprint 5: Only initialize once for singleton
+        if TopicManager._initialized:
+            return
+        TopicManager._initialized = True
+
         if data_dir is None:
             # Check if DATA_DIR environment variable is set (from docker-compose)
             data_dir = os.getenv('DATA_DIR')
@@ -26,20 +44,20 @@ class TopicManager:
                 # Fall back to default relative to this file
                 base_dir = Path(__file__).parent.parent
                 data_dir = base_dir / "data"
-        
+
         self.data_dir = Path(data_dir)
         self.topics_file = self.data_dir / "topics.yaml"
         self.topics: Dict[str, Topic] = {}
-        
+
         # Ensure data directory exists
         self.data_dir.mkdir(exist_ok=True)
-        
-        logger.info(f"TopicManager using data directory: {self.data_dir}")
+
+        logger.info(f"TopicManager singleton initialized with data directory: {self.data_dir}")
         logger.info(f"Topics file path: {self.topics_file}")
-        
+
         # Load existing topics
         self.load_topics()
-        
+
         # Ensure default topic exists
         self._ensure_default_topic()
     
