@@ -61,15 +61,22 @@ class TopicManager:
         # Ensure default topic exists
         self._ensure_default_topic()
     
+    def _normalize_topic_id(self, topic_id: str) -> str:
+        """Normalize topic ID to lowercase for consistent handling.
+
+        Sprint 5: Case-insensitive topic handling to prevent duplicates.
+        """
+        return topic_id.lower()
+
     def load_topics(self) -> None:
         """Load topics from YAML file"""
         logger.info(f"Attempting to load topics from {self.topics_file}")
-        
+
         if not self.topics_file.exists():
             logger.info(f"Topics file does not exist at {self.topics_file}, creating empty topics")
             self.topics = {}
             return
-        
+
         try:
             with open(self.topics_file, 'r') as f:
                 data = yaml.safe_load(f) or {}
@@ -79,6 +86,8 @@ class TopicManager:
                 
                 self.topics = {}
                 for topic_id, topic_data in topics_data.items():
+                    # Sprint 5: Normalize topic_id to lowercase for case-insensitive handling
+                    normalized_id = self._normalize_topic_id(topic_id)
                     try:
                         # Sprint 5 Migration: Remove dispatcher field and store for backend migration
                         if 'dispatcher' in topic_data and topic_data['dispatcher']:
@@ -107,13 +116,13 @@ class TopicManager:
                         if 'grammar' not in topic_data:
                             topic_data['grammar'] = {}
 
-                        self.topics[topic_id] = Topic(**topic_data)
+                        self.topics[normalized_id] = Topic(**topic_data)
                         # Log more details about loaded topic
-                        if topic_id == 'general' and 'settings' in topic_data:
+                        if normalized_id == 'general' and 'settings' in topic_data:
                             system_prompt = topic_data.get('settings', {}).get('system_prompt', 'N/A')
-                            logger.info(f"Loaded topic: {topic_id} with system prompt: {system_prompt[:50]}...")
+                            logger.info(f"Loaded topic: {normalized_id} (original: {topic_id}) with system prompt: {system_prompt[:50]}...")
                         else:
-                            logger.info(f"Loaded topic: {topic_id}")
+                            logger.info(f"Loaded topic: {normalized_id} (original: {topic_id})")
                     except Exception as e:
                         logger.error(f"Failed to load topic {topic_id}: {e}")
         except Exception as e:
@@ -176,29 +185,31 @@ class TopicManager:
             logger.info(f"General topic already exists with system prompt: {self.topics['general'].settings.system_prompt[:50]}...")
     
     def get_topic(self, topic_id: str) -> Optional[Topic]:
-        """Get a topic by ID
-        
+        """Get a topic by ID (case-insensitive)
+
         Args:
             topic_id: The topic identifier
-            
+
         Returns:
             Topic instance or None if not found
         """
-        return self.topics.get(topic_id)
+        normalized_id = self._normalize_topic_id(topic_id)
+        return self.topics.get(normalized_id)
     
     def create_topic(self, topic_id: str, topic_data: Dict[str, Any], auto_discovered: bool = False) -> Topic:
-        """Create a new topic
-        
+        """Create a new topic (case-insensitive)
+
         Args:
             topic_id: Unique identifier for the topic
             topic_data: Topic configuration data
             auto_discovered: Whether this topic was auto-created
-            
+
         Returns:
             Created Topic instance
         """
-        if topic_id in self.topics:
-            raise ValueError(f"Topic '{topic_id}' already exists")
+        normalized_id = self._normalize_topic_id(topic_id)
+        if normalized_id in self.topics:
+            raise ValueError(f"Topic '{topic_id}' already exists (case-insensitive match)")
         
         # Add metadata
         topic_data['auto_discovered'] = auto_discovered
@@ -211,23 +222,24 @@ class TopicManager:
             topic_data['model'] = "Qwen3-0.6B-Q8_0.gguf"  # Default model
         
         topic = Topic(**topic_data)
-        self.topics[topic_id] = topic
+        self.topics[normalized_id] = topic
         self.save_topics()
-        
-        logger.info(f"Created topic: {topic_id} (auto_discovered={auto_discovered})")
+
+        logger.info(f"Created topic: {normalized_id} (original: {topic_id}, auto_discovered={auto_discovered})")
         return topic
     
     def update_topic(self, topic_id: str, topic_data: Dict[str, Any]) -> Topic:
-        """Update an existing topic
-        
+        """Update an existing topic (case-insensitive)
+
         Args:
             topic_id: Topic identifier
             topic_data: Updated configuration data
-            
+
         Returns:
             Updated Topic instance
         """
-        if topic_id not in self.topics:
+        normalized_id = self._normalize_topic_id(topic_id)
+        if normalized_id not in self.topics:
             raise ValueError(f"Topic '{topic_id}' does not exist")
         
         # Log incoming data
@@ -235,7 +247,7 @@ class TopicManager:
         # Sprint 5: Dispatcher field removed - backends handle dispatching internally
 
         # Preserve metadata fields
-        existing_topic = self.topics[topic_id]
+        existing_topic = self.topics[normalized_id]
         topic_data['auto_discovered'] = existing_topic.auto_discovered
         topic_data['first_seen'] = existing_topic.first_seen
 
@@ -248,22 +260,22 @@ class TopicManager:
         # Sprint 5: Log backend_id instead of dispatcher
         logger.info(f"Created Topic instance - backend_id: {new_topic.backend_id}")
 
-        self.topics[topic_id] = new_topic
+        self.topics[normalized_id] = new_topic
 
         # Log what we're about to save
-        logger.info(f"Topic in memory before save - backend_id: {self.topics[topic_id].backend_id}")
-        
+        logger.info(f"Topic in memory before save - backend_id: {self.topics[normalized_id].backend_id}")
+
         self.save_topics()
-        
-        logger.info(f"Updated topic: {topic_id}")
-        return self.topics[topic_id]
+
+        logger.info(f"Updated topic: {normalized_id} (original: {topic_id})")
+        return self.topics[normalized_id]
 
     def update_topic_heartbeat(self, topic_id: str,
                               heartbeat_status: str = None,
                               last_heartbeat: datetime = None,
                               wake_word: str = None,
                               trigger_count: int = None) -> None:
-        """Update ONLY heartbeat-related fields of a topic.
+        """Update ONLY heartbeat-related fields of a topic (case-insensitive).
 
         Sprint 5: This method preserves all topic configuration and only updates
         heartbeat tracking fields. This prevents the heartbeat system from
@@ -276,11 +288,12 @@ class TopicManager:
             wake_word: Associated wake word phrase
             trigger_count: Number of times triggered
         """
-        if topic_id not in self.topics:
+        normalized_id = self._normalize_topic_id(topic_id)
+        if normalized_id not in self.topics:
             logger.warning(f"Cannot update heartbeat for non-existent topic: {topic_id}")
             return
 
-        topic = self.topics[topic_id]
+        topic = self.topics[normalized_id]
 
         # Update only the heartbeat-related fields
         if heartbeat_status is not None:
@@ -294,35 +307,37 @@ class TopicManager:
 
         # Save topics preserving all other fields
         self.save_topics()
-        logger.debug(f"Updated heartbeat for topic {topic_id}: status={heartbeat_status}")
+        logger.debug(f"Updated heartbeat for topic {normalized_id} (original: {topic_id}): status={heartbeat_status}")
 
     def delete_topic(self, topic_id: str) -> bool:
-        """Delete a topic
-        
+        """Delete a topic (case-insensitive)
+
         Args:
             topic_id: Topic identifier
-            
+
         Returns:
             True if deleted, False if not found
         """
-        if topic_id == 'general':
+        normalized_id = self._normalize_topic_id(topic_id)
+        if normalized_id == 'general':
             raise ValueError("Cannot delete the default 'general' topic")
-        
-        if topic_id in self.topics:
-            del self.topics[topic_id]
+
+        if normalized_id in self.topics:
+            del self.topics[normalized_id]
             self.save_topics()
-            logger.info(f"Deleted topic: {topic_id}")
+            logger.info(f"Deleted topic: {normalized_id} (original: {topic_id})")
             return True
         return False
     
     def mark_topic_used(self, topic_id: str) -> None:
-        """Mark a topic as used (update last_used timestamp)
-        
+        """Mark a topic as used (update last_used timestamp) (case-insensitive)
+
         Args:
             topic_id: Topic identifier
         """
-        if topic_id in self.topics:
-            self.topics[topic_id].last_used = datetime.now()
+        normalized_id = self._normalize_topic_id(topic_id)
+        if normalized_id in self.topics:
+            self.topics[normalized_id].last_used = datetime.now()
             self.save_topics()
     
     def auto_discover_topic(self, topic_id: str) -> Topic:
@@ -404,7 +419,7 @@ class TopicManager:
             return []
 
     def link_to_backend(self, topic_id: str, backend_id: Optional[str]) -> Topic:
-        """Link a topic to a backend for dynamic grammar generation
+        """Link a topic to a backend for dynamic grammar generation (case-insensitive)
 
         Args:
             topic_id: Topic identifier
@@ -413,7 +428,8 @@ class TopicManager:
         Returns:
             Updated Topic instance
         """
-        if topic_id not in self.topics:
+        normalized_id = self._normalize_topic_id(topic_id)
+        if normalized_id not in self.topics:
             raise ValueError(f"Topic '{topic_id}' does not exist")
 
         # Validate backend exists if backend_id is provided
@@ -428,7 +444,7 @@ class TopicManager:
             logger.info(f"Unlinking topic '{topic_id}' from backend")
 
         # Update the topic
-        topic = self.topics[topic_id]
+        topic = self.topics[normalized_id]
         topic.backend_id = backend_id
 
         # If linking to a backend, disable static grammar
@@ -437,7 +453,7 @@ class TopicManager:
             topic.grammar.file = None
 
         self.save_topics()
-        logger.info(f"Topic '{topic_id}' backend linkage updated")
+        logger.info(f"Topic '{normalized_id}' (original: {topic_id}) backend linkage updated")
         return topic
 
     def get_topic_backend_info(self, topic_id: str) -> Optional[Dict[str, Any]]:
