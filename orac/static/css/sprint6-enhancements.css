@@ -1,0 +1,407 @@
+/* Sprint 6: UI Enhancements - Cyberpunk Polish */
+/* Color Consistency & Hover Effects */
+
+/* ==========================================
+   STATE COLOR UTILITIES
+   ========================================== */
+
+/* State color variables - follows the green/amber/red scheme */
+:root {
+    --state-active: #00ff41;      /* Green - Active/Enabled/Success */
+    --state-warning: #ffaa00;     /* Amber - Warning/Disabled/Pending */
+    --state-error: #ff0033;       /* Red - Error/Critical/Offline */
+    --glow-intensity: 0.6;
+}
+
+/* State color classes */
+.state-active {
+    color: var(--state-active) !important;
+    border-color: var(--state-active) !important;
+}
+
+.state-warning {
+    color: var(--state-warning) !important;
+    border-color: var(--state-warning) !important;
+}
+
+.state-error {
+    color: var(--state-error) !important;
+    border-color: var(--state-error) !important;
+}
+
+/* State backgrounds */
+.state-active-bg {
+    background-color: rgba(0, 255, 65, 0.15) !important;
+}
+
+.state-warning-bg {
+    background-color: rgba(255, 170, 0, 0.15) !important;
+}
+
+.state-error-bg {
+    background-color: rgba(255, 0, 51, 0.15) !important;
+}
+
+/* ==========================================
+   COLOR CONSISTENCY FIXES
+   ========================================== */
+
+/* Disabled entities should show amber/orange text (not green) */
+.device-card.disabled .device-id,
+.device-card.disabled .device-name,
+.device-card.disabled .enable-label {
+    color: var(--state-warning) !important;
+}
+
+.device-card.disabled {
+    border-color: var(--state-warning) !important;
+    background: rgba(255, 170, 0, 0.05) !important;
+}
+
+/* Fix save/fetch icons to use proper state colors */
+.btn.primary {
+    color: var(--state-active) !important;
+    border-color: var(--state-active) !important;
+}
+
+.btn.primary:disabled {
+    color: var(--state-warning) !important;
+    border-color: var(--state-warning) !important;
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Ensure borders follow element state colors */
+.status-connected,
+.backend-card.status-connected {
+    border-color: var(--state-active) !important;
+}
+
+.status-disconnected,
+.backend-card.status-disconnected {
+    border-color: var(--state-error) !important;
+}
+
+.status-testing,
+.backend-card.status-testing {
+    border-color: var(--state-warning) !important;
+}
+
+/* ==========================================
+   CYBERPUNK PULSE HOVER EFFECTS
+   ========================================== */
+
+/* Pulse animation with glow */
+@keyframes cyberpunk-pulse {
+    0% {
+        box-shadow: 0 0 5px var(--glow-color);
+        transform: scale(1);
+        filter: brightness(1);
+    }
+    50% {
+        box-shadow: 0 0 20px var(--glow-color), 0 0 40px var(--glow-color);
+        transform: scale(1.02);
+        filter: brightness(1.2);
+    }
+    100% {
+        box-shadow: 0 0 5px var(--glow-color);
+        transform: scale(1);
+        filter: brightness(1);
+    }
+}
+
+/* Apply to all interactive elements */
+button:not(:disabled):hover,
+.btn:not(:disabled):hover,
+.backend-btn:hover,
+.topic-config-btn:hover,
+.nav-btn:hover,
+.nav-button:hover,
+a.nav-link:hover {
+    --glow-color: var(--primary-green);
+    animation: cyberpunk-pulse 1.5s ease-in-out infinite;
+}
+
+/* Interactive cards */
+.backend-card:hover,
+.topic-card:not(.disabled):hover,
+.device-card:hover {
+    --glow-color: var(--primary-green);
+    animation: cyberpunk-pulse 1.5s ease-in-out infinite;
+}
+
+/* State-based glow colors for cards */
+.backend-card.status-connected:hover,
+.topic-card.status-active:hover {
+    --glow-color: var(--state-active);
+}
+
+.backend-card.status-testing:hover,
+.topic-card.status-idle:hover {
+    --glow-color: var(--state-warning);
+}
+
+.backend-card.status-disconnected:hover,
+.topic-card.status-stale:hover,
+.topic-card.status-unknown:hover {
+    --glow-color: var(--state-error);
+}
+
+/* Form inputs */
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus,
+.search-input:focus {
+    --glow-color: var(--primary-green);
+    box-shadow: 0 0 15px var(--glow-color), 0 0 30px var(--glow-color);
+    filter: brightness(1.1);
+}
+
+/* Draggable items */
+.draggable-item:hover {
+    --glow-color: var(--primary-green);
+    animation: cyberpunk-pulse 1.5s ease-in-out infinite;
+}
+
+/* Add card hover */
+.add-backend-card:hover,
+.add-topic-card:hover {
+    --glow-color: var(--primary-green);
+    animation: cyberpunk-pulse 1.5s ease-in-out infinite;
+}
+
+/* ==========================================
+   ENHANCED BUTTON STATES
+   ========================================== */
+
+/* Primary buttons (active state) */
+.btn.primary,
+.btn-primary,
+.modal-btn.primary {
+    --glow-color: var(--state-active);
+}
+
+.btn.primary:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
+.modal-btn.primary:hover:not(:disabled) {
+    background-color: var(--state-active) !important;
+    color: #000 !important;
+    box-shadow: 0 0 20px var(--state-active), 0 0 40px var(--state-active);
+}
+
+/* Warning/Test buttons */
+.btn.validate,
+.btn.test-btn,
+.modal-btn.test {
+    --glow-color: var(--state-warning);
+}
+
+.btn.validate:hover,
+.btn.test-btn:hover,
+.modal-btn.test:hover {
+    background-color: var(--state-warning) !important;
+    color: #000 !important;
+    box-shadow: 0 0 20px var(--state-warning), 0 0 40px var(--state-warning);
+}
+
+/* Danger/Delete buttons */
+.btn.delete-btn,
+.btn-danger {
+    --glow-color: var(--state-error);
+}
+
+.btn.delete-btn:hover,
+.btn-danger:hover {
+    background-color: var(--state-error) !important;
+    color: #000 !important;
+    box-shadow: 0 0 20px var(--state-error), 0 0 40px var(--state-error);
+}
+
+/* ==========================================
+   NAVIGATION BAR CONSISTENCY
+   ========================================== */
+
+/* Ensure all nav bars have consistent styling */
+.nav-bar {
+    background: var(--card-gradient) !important;
+    border: 2px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    padding: 1rem !important;
+    margin-bottom: 2rem !important;
+    display: flex !important;
+    justify-content: center !important;
+    gap: 1rem !important;
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.3) !important;
+}
+
+.nav-bar .nav-btn,
+.nav-bar .nav-link,
+.nav-bar a {
+    padding: 0.5rem 1rem !important;
+    background-color: var(--button-bg) !important;
+    border: 2px solid var(--border-color) !important;
+    color: var(--text-color) !important;
+    text-decoration: none !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    transition: all 0.3s ease !important;
+    border-radius: 4px !important;
+}
+
+.nav-bar .nav-btn:hover,
+.nav-bar .nav-link:hover,
+.nav-bar a:hover {
+    --glow-color: var(--primary-green);
+    background-color: var(--primary-green) !important;
+    color: #000 !important;
+    animation: cyberpunk-pulse 1.5s ease-in-out infinite;
+}
+
+/* ==========================================
+   STATUS INDICATORS
+   ========================================== */
+
+/* Live status indicators with proper colors */
+.status-indicator.connected,
+.live-status-indicator.active {
+    background-color: var(--state-active) !important;
+    border-color: var(--state-active) !important;
+    box-shadow: 0 0 10px var(--state-active) !important;
+}
+
+.status-indicator.disconnected,
+.live-status-indicator.stale,
+.live-status-indicator.unknown {
+    background-color: var(--state-error) !important;
+    border-color: var(--state-error) !important;
+    box-shadow: 0 0 10px var(--state-error) !important;
+}
+
+.status-indicator.testing,
+.live-status-indicator.idle {
+    background-color: var(--state-warning) !important;
+    border-color: var(--state-warning) !important;
+    box-shadow: 0 0 10px var(--state-warning) !important;
+}
+
+/* ==========================================
+   DROP ZONE COLOR CONSISTENCY
+   ========================================== */
+
+/* Drop zones should use green when active */
+.drop-zone.has-value {
+    background: rgba(0, 255, 65, 0.15) !important;
+    border: 2px solid var(--state-active) !important;
+}
+
+.drop-zone.drag-over {
+    background: rgba(0, 255, 65, 0.2) !important;
+    border-color: var(--state-active) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.5) !important;
+}
+
+/* Disabled drop zones use amber */
+.device-card.disabled .drop-zone {
+    border-color: rgba(255, 170, 0, 0.3) !important;
+}
+
+.device-card.disabled .drop-zone-label {
+    color: rgba(255, 170, 0, 0.5) !important;
+}
+
+/* ==========================================
+   ACCESSIBILITY & PERFORMANCE
+   ========================================== */
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Focus indicators for keyboard navigation */
+button:focus-visible,
+.btn:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 3px solid var(--state-active);
+    outline-offset: 2px;
+    box-shadow: 0 0 10px var(--state-active);
+}
+
+/* ==========================================
+   TOPIC/BACKEND SPECIFIC FIXES
+   ========================================== */
+
+/* Topic badges on overview should pulse when active */
+.topic-badge {
+    transition: all 0.3s ease;
+}
+
+.topic-badge:hover {
+    --glow-color: var(--primary-green);
+    animation: cyberpunk-pulse 1.5s ease-in-out infinite;
+}
+
+/* Entity count text colors */
+.entity-count {
+    color: var(--secondary-green) !important;
+}
+
+.entity-count strong {
+    color: var(--primary-green) !important;
+}
+
+/* Backend statistics colors */
+.backend-stats {
+    color: var(--text-color) !important;
+}
+
+/* ==========================================
+   VISUAL POLISH
+   ========================================== */
+
+/* Smooth transitions on all interactive elements */
+button,
+.btn,
+a,
+.card,
+input,
+select,
+textarea {
+    transition: all 0.3s ease;
+}
+
+/* Add subtle glow to all cards */
+.backend-card,
+.topic-card,
+.device-card {
+    transition: all 0.3s ease;
+}
+
+/* Panel titles with glow */
+.panel-title,
+.section-title,
+.config-title,
+.topics-title,
+.backends-title {
+    text-shadow: 0 0 20px var(--primary-green) !important;
+}
+
+/* Loading states */
+.loading,
+.loading-spinner {
+    border-top-color: var(--state-active) !important;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

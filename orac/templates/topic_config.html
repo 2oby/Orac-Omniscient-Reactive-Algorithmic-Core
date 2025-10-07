@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Topic Configuration - {{ topic_id }}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/sprint6-enhancements.css') }}">
     <style>
         .config-container {
             max-width: 900px;
@@ -259,8 +260,9 @@
 <body>
     <div class="config-container">
         <!-- Navigation -->
-        <nav class="nav-bar">
-            <a href="/topics" class="nav-link">← Back to Topics</a>
+        <nav class="nav-bar" style="background: var(--card-gradient); border: 2px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 2rem; display: flex; justify-content: center; gap: 1rem; box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);">
+            <a href="/" class="nav-link" style="padding: 0.5rem 1rem; border: 2px solid var(--border-color); border-radius: 4px; text-decoration: none;">OVERVIEW</a>
+            <a href="/topics" class="nav-link" style="padding: 0.5rem 1rem; border: 2px solid var(--border-color); border-radius: 4px; text-decoration: none;">← BACK TO TOPICS</a>
         </nav>
         
         <!-- Header -->

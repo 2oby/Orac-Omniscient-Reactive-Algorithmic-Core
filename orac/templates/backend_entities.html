@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/sprint6-enhancements.css') }}">
     <style>
         /* Main Container */
         .devices-container {
@@ -441,6 +442,12 @@
 </head>
 <body class="cyberpunk-theme">
     <div class="devices-container">
+        <!-- Navigation Bar -->
+        <div style="background: var(--card-gradient); border: 2px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; display: flex; justify-content: center; gap: 1rem; box-shadow: 0 0 20px rgba(0, 255, 65, 0.3);">
+            <a href="/" class="btn" style="text-decoration: none;">OVERVIEW</a>
+            <a href="/backends" class="btn" style="text-decoration: none;">← BACK TO BACKENDS</a>
+        </div>
+
         <!-- Top Control Bar -->
         <div class="controls-bar">
             <div class="control-group">
@@ -452,7 +459,6 @@
             </div>
             <div class="control-group">
                 <button class="btn validate" onclick="validateMappings()">✓ VALIDATE</button>
-                <button class="btn back" onclick="window.location.href='/backends'">← BACK</button>
             </div>
         </div>
 
