@@ -114,7 +114,7 @@ a.nav-link:hover {
     --glow-color: var(--primary-green);
     animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
-    z-index: 10;
+    z-index: 100 !important;
 }
 
 /* Interactive cards - single pulse on hover */
@@ -124,7 +124,7 @@ a.nav-link:hover {
     --glow-color: var(--primary-green);
     animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
-    z-index: 10;
+    z-index: 100 !important;
 }
 
 /* State-based glow colors for cards */
@@ -159,7 +159,7 @@ a.nav-link:hover {
     --glow-color: var(--primary-green);
     animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
-    z-index: 10;
+    z-index: 100 !important;
 }
 
 /* Add card hover */
@@ -168,7 +168,7 @@ a.nav-link:hover {
     --glow-color: var(--primary-green);
     animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
-    z-index: 10;
+    z-index: 100 !important;
 }
 
 /* ==========================================
@@ -350,7 +350,7 @@ textarea:focus-visible {
     --glow-color: var(--primary-green);
     animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
-    z-index: 10;
+    z-index: 100 !important;
 }
 
 /* Entity count text colors */
@@ -449,7 +449,7 @@ button,
 .drop-zone:hover,
 .drop-zone.drag-over,
 .drop-zone.has-value {
-    z-index: 15 !important;
+    z-index: 100 !important;
 }
 
 /* ==========================================
