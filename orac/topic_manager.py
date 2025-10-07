@@ -214,26 +214,26 @@ class TopicManager:
         
         # Log incoming data
         logger.info(f"update_topic received data for {topic_id}: {topic_data}")
-        logger.info(f"Dispatcher field in topic_data: {topic_data.get('dispatcher', 'NOT PRESENT')}")
-        
+        # Sprint 5: Dispatcher field removed - backends handle dispatching internally
+
         # Preserve metadata fields
         existing_topic = self.topics[topic_id]
         topic_data['auto_discovered'] = existing_topic.auto_discovered
         topic_data['first_seen'] = existing_topic.first_seen
-        
+
         # Log data before creating Topic instance
         logger.info(f"Creating Topic instance with data: {topic_data}")
-        
+
         # Update the topic
         new_topic = Topic(**topic_data)
-        
-        # Log the created topic's dispatcher
-        logger.info(f"Created Topic instance - dispatcher field: {new_topic.dispatcher}")
-        
+
+        # Sprint 5: Log backend_id instead of dispatcher
+        logger.info(f"Created Topic instance - backend_id: {new_topic.backend_id}")
+
         self.topics[topic_id] = new_topic
-        
+
         # Log what we're about to save
-        logger.info(f"Topic in memory before save - dispatcher: {self.topics[topic_id].dispatcher}")
+        logger.info(f"Topic in memory before save - backend_id: {self.topics[topic_id].backend_id}")
         
         self.save_topics()
         
