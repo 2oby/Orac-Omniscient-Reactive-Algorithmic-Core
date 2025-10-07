@@ -52,12 +52,18 @@ class HomeAssistantBackend(AbstractBackend):
         Returns:
             Configured HomeAssistantClient instance
         """
+        from orac.homeassistant.config import HomeAssistantConfig
+
         ha_config = self.config.get('homeassistant', {})
-        return HomeAssistantClient(
+
+        # Create HomeAssistantConfig object
+        config_obj = HomeAssistantConfig(
             url=ha_config.get('url', 'http://localhost:8123'),
             token=ha_config.get('token', ''),
             verify_ssl=ha_config.get('verify_ssl', False)
         )
+
+        return HomeAssistantClient(config_obj)
 
     async def fetch_entities(self) -> List[Dict]:
         """Fetch available entities from Home Assistant.
