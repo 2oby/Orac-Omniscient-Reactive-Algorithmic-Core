@@ -7,7 +7,7 @@ Users only need to configure the backend, not the dispatcher.
 import logging
 from typing import Dict, List, Optional, Any
 from .abstract_backend import AbstractBackend
-from orac.ha_client import HomeAssistantClient
+from orac.homeassistant.client import HomeAssistantClient
 from orac.dispatchers.homeassistant import HomeAssistantDispatcher
 from orac.backend_grammar_generator import BackendGrammarGenerator
 
