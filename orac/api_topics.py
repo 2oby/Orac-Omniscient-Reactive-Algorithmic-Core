@@ -130,8 +130,13 @@ async def get_topic(topic_id: str):
             topic_dict['first_seen'] = topic_dict['first_seen'].isoformat()
         if topic_dict.get('last_used'):
             topic_dict['last_used'] = topic_dict['last_used'].isoformat()
-        
-        return TopicResponse(id=topic_id, **topic_dict)
+
+        # Sprint 5: Filter out fields not in TopicResponse (heartbeat fields, etc.)
+        response_fields = ['name', 'description', 'enabled', 'model', 'settings',
+                          'grammar', 'backend_id', 'auto_discovered', 'first_seen', 'last_used']
+        filtered_dict = {k: v for k, v in topic_dict.items() if k in response_fields}
+
+        return TopicResponse(id=topic_id, **filtered_dict)
     except HTTPException:
         raise
     except Exception as e:
@@ -157,8 +162,13 @@ async def create_topic(topic_id: str, request: TopicCreateRequest):
             topic_dict['first_seen'] = topic_dict['first_seen'].isoformat()
         if topic_dict.get('last_used'):
             topic_dict['last_used'] = topic_dict['last_used'].isoformat()
-        
-        return TopicResponse(id=topic_id, **topic_dict)
+
+        # Sprint 5: Filter out fields not in TopicResponse (heartbeat fields, etc.)
+        response_fields = ['name', 'description', 'enabled', 'model', 'settings',
+                          'grammar', 'backend_id', 'auto_discovered', 'first_seen', 'last_used']
+        filtered_dict = {k: v for k, v in topic_dict.items() if k in response_fields}
+
+        return TopicResponse(id=topic_id, **filtered_dict)
     except HTTPException:
         raise
     except Exception as e:
@@ -185,8 +195,13 @@ async def update_topic(topic_id: str, request: TopicUpdateRequest):
             topic_dict['first_seen'] = topic_dict['first_seen'].isoformat()
         if topic_dict.get('last_used'):
             topic_dict['last_used'] = topic_dict['last_used'].isoformat()
-        
-        return TopicResponse(id=topic_id, **topic_dict)
+
+        # Sprint 5: Filter out fields not in TopicResponse (heartbeat fields, etc.)
+        response_fields = ['name', 'description', 'enabled', 'model', 'settings',
+                          'grammar', 'backend_id', 'auto_discovered', 'first_seen', 'last_used']
+        filtered_dict = {k: v for k, v in topic_dict.items() if k in response_fields}
+
+        return TopicResponse(id=topic_id, **filtered_dict)
     except HTTPException:
         raise
     except Exception as e:
