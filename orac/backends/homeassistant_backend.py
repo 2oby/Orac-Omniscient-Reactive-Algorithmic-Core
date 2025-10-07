@@ -53,14 +53,25 @@ class HomeAssistantBackend(AbstractBackend):
             Configured HomeAssistantClient instance
         """
         from orac.homeassistant.config import HomeAssistantConfig
+        from urllib.parse import urlparse
 
         ha_config = self.config.get('homeassistant', {})
 
-        # Create HomeAssistantConfig object
+        # Parse URL to get host and port
+        url = ha_config.get('url', 'http://localhost:8123')
+        parsed = urlparse(url)
+        host = parsed.hostname or 'localhost'
+        port = parsed.port or (443 if parsed.scheme == 'https' else 8123)
+        ssl = parsed.scheme == 'https'
+
+        # Create HomeAssistantConfig object with correct fields
         config_obj = HomeAssistantConfig(
-            url=ha_config.get('url', 'http://localhost:8123'),
+            host=host,
+            port=port,
             token=ha_config.get('token', ''),
-            verify_ssl=ha_config.get('verify_ssl', False)
+            ssl=ssl,
+            verify_ssl=ha_config.get('verify_ssl', False),
+            timeout=ha_config.get('timeout', 10)
         )
 
         return HomeAssistantClient(config_obj)
