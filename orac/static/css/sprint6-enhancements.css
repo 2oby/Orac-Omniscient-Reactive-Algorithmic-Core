@@ -91,26 +91,26 @@
    CYBERPUNK PULSE HOVER EFFECTS
    ========================================== */
 
-/* Pulse animation with glow */
+/* Pulse animation with glow - faster and more intense */
 @keyframes cyberpunk-pulse {
     0% {
-        box-shadow: 0 0 5px var(--glow-color);
+        box-shadow: 0 0 8px var(--glow-color);
         transform: scale(1);
         filter: brightness(1);
     }
     50% {
-        box-shadow: 0 0 20px var(--glow-color), 0 0 40px var(--glow-color);
-        transform: scale(1.02);
-        filter: brightness(1.2);
+        box-shadow: 0 0 25px var(--glow-color), 0 0 50px var(--glow-color), 0 0 75px var(--glow-color);
+        transform: scale(1.03);
+        filter: brightness(1.3);
     }
     100% {
-        box-shadow: 0 0 5px var(--glow-color);
+        box-shadow: 0 0 8px var(--glow-color);
         transform: scale(1);
         filter: brightness(1);
     }
 }
 
-/* Apply to all interactive elements */
+/* Apply to all interactive elements - faster pulse (0.8s) */
 button:not(:disabled):hover,
 .btn:not(:disabled):hover,
 .backend-btn:hover,
@@ -119,15 +119,19 @@ button:not(:disabled):hover,
 .nav-button:hover,
 a.nav-link:hover {
     --glow-color: var(--primary-green);
-    animation: cyberpunk-pulse 1.5s ease-in-out infinite;
+    animation: cyberpunk-pulse 0.8s ease-in-out infinite;
+    position: relative;
+    z-index: 10;
 }
 
-/* Interactive cards */
+/* Interactive cards - faster pulse and prevent glow cut-off */
 .backend-card:hover,
 .topic-card:not(.disabled):hover,
 .device-card:hover {
     --glow-color: var(--primary-green);
-    animation: cyberpunk-pulse 1.5s ease-in-out infinite;
+    animation: cyberpunk-pulse 0.8s ease-in-out infinite;
+    position: relative;
+    z-index: 10;
 }
 
 /* State-based glow colors for cards */
@@ -160,14 +164,18 @@ a.nav-link:hover {
 /* Draggable items */
 .draggable-item:hover {
     --glow-color: var(--primary-green);
-    animation: cyberpunk-pulse 1.5s ease-in-out infinite;
+    animation: cyberpunk-pulse 0.8s ease-in-out infinite;
+    position: relative;
+    z-index: 10;
 }
 
 /* Add card hover */
 .add-backend-card:hover,
 .add-topic-card:hover {
     --glow-color: var(--primary-green);
-    animation: cyberpunk-pulse 1.5s ease-in-out infinite;
+    animation: cyberpunk-pulse 0.8s ease-in-out infinite;
+    position: relative;
+    z-index: 10;
 }
 
 /* ==========================================
@@ -362,6 +370,48 @@ textarea:focus-visible {
 /* Backend statistics colors */
 .backend-stats {
     color: var(--text-color) !important;
+}
+
+/* ==========================================
+   BUTTON ICON COLORS
+   ========================================== */
+
+/* Force emoji icons in primary buttons to be visible with green filter */
+.btn.primary {
+    filter: hue-rotate(0deg) saturate(1.5) brightness(1.2);
+}
+
+.btn.primary:hover {
+    filter: hue-rotate(0deg) saturate(2) brightness(1.5) !important;
+}
+
+/* Ensure button icons are visible */
+button,
+.btn {
+    font-size: inherit;
+}
+
+/* ==========================================
+   PREVENT GLOW CUT-OFF
+   ========================================== */
+
+/* Allow overflow for glow effects */
+.controls-bar,
+.nav-bar,
+.backends-grid,
+.topics-grid,
+.devices-list,
+.backend-actions-row,
+.main-layout {
+    overflow: visible !important;
+}
+
+/* Ensure parent containers don't clip children */
+.devices-container,
+.backends-container,
+.topics-container,
+.config-container {
+    overflow: visible !important;
 }
 
 /* ==========================================
