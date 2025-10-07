@@ -311,10 +311,13 @@ function showStatus(message, type) {
     statusEl.className = `status-message ${type}`;
     statusEl.style.display = 'block';
 
-    // Auto-hide after 5 seconds
+    // Scroll to top to ensure message is visible
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Auto-hide after 8 seconds (increased from 5)
     setTimeout(() => {
         statusEl.style.display = 'none';
-    }, 5000);
+    }, 8000);
 }
 
 // Sprint 4: Load and display backend information
