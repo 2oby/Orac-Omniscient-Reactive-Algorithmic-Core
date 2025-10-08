@@ -5,12 +5,14 @@
    STATE COLOR UTILITIES
    ========================================== */
 
-/* State color variables - follows the green/amber/red scheme */
+/* State color variables - matches Hey ORAC cyberpunk scheme */
 :root {
-    --state-active: #00ff41;      /* Green - Active/Enabled/Success */
-    --state-warning: #ffaa00;     /* Amber - Warning/Disabled/Pending */
-    --state-error: #ff0033;       /* Red - Error/Critical/Offline */
+    --state-active: #00ff00;      /* Pure Green - Active/Enabled/Success */
+    --state-warning: #ff8800;     /* Orange - Warning/Disabled/Pending */
+    --state-error: #ff0000;       /* Pure Red - Error/Critical/Offline */
     --glow-intensity: 0.6;
+    --bg-dark: #000000;           /* Pure black background */
+    --bg-card: #0a0a0a;           /* Very dark gray for cards */
 }
 
 /* State color classes */
@@ -414,9 +416,9 @@ button,
 .draggable-list {
     overflow-y: auto !important;
     overflow-x: visible !important;
-    /* Add padding to allow glow space */
-    padding: 0 80px 0 80px !important;
-    margin: 0 -80px 0 -80px !important;
+    /* Add padding to allow glow space on all sides */
+    padding: 80px 80px 80px 80px !important;
+    margin: -80px -80px -80px -80px !important;
 }
 
 /* Prevent scrollbar from getting green filter */
@@ -436,6 +438,35 @@ button,
 .topics-container,
 .config-container {
     overflow: visible !important;
+}
+
+/* Force pure black backgrounds */
+body,
+.devices-container,
+.backends-container,
+.topics-container,
+.config-container {
+    background-color: var(--bg-dark) !important;
+}
+
+/* Card backgrounds very dark */
+.device-card,
+.backend-card,
+.topic-card,
+.devices-panel,
+.types-panel,
+.locations-panel,
+.controls-bar,
+.nav-bar {
+    background: var(--bg-card) !important;
+}
+
+.device-card.enabled {
+    background: rgba(0, 255, 0, 0.05) !important;
+}
+
+.device-card.disabled {
+    background: rgba(255, 136, 0, 0.05) !important;
 }
 
 /* Device card grid cells must not clip */
