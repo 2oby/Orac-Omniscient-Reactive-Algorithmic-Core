@@ -13,6 +13,8 @@
     --glow-intensity: 0.6;
     --bg-dark: #000000;           /* Pure black background */
     --bg-card: #0a0a0a;           /* Very dark gray for cards */
+    --primary-green: #00ff41;     /* Primary green color */
+    --glow-color-rgb: 0, 255, 65; /* Default glow color in RGB */
 }
 
 /* State color classes */
@@ -96,11 +98,11 @@
 /* Pulse animation with glow - no scale to prevent mouse offset jump */
 @keyframes cyberpunk-pulse {
     0%, 100% {
-        box-shadow: 0 0 8px var(--glow-color);
+        box-shadow: 0 0 3px rgba(var(--glow-color-rgb), 0.3);
         filter: brightness(1);
     }
     50% {
-        box-shadow: 0 0 25px var(--glow-color), 0 0 50px var(--glow-color), 0 0 75px var(--glow-color);
+        box-shadow: 0 0 8px rgba(var(--glow-color-rgb), 0.4), 0 0 17px rgba(var(--glow-color-rgb), 0.3), 0 0 25px rgba(var(--glow-color-rgb), 0.2);
         filter: brightness(1.3);
     }
 }
@@ -114,6 +116,7 @@ button:not(:disabled):hover,
 .nav-button:hover,
 a.nav-link:hover {
     --glow-color: var(--primary-green);
+    --glow-color-rgb: 0, 255, 65;
     animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
     z-index: 100 !important;
@@ -124,6 +127,7 @@ a.nav-link:hover {
 .topic-card:not(.disabled):hover,
 .device-card:hover {
     --glow-color: var(--primary-green);
+    --glow-color-rgb: 0, 255, 65;
     animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
     z-index: 100 !important;
@@ -133,17 +137,20 @@ a.nav-link:hover {
 .backend-card.status-connected:hover,
 .topic-card.status-active:hover {
     --glow-color: var(--state-active);
+    --glow-color-rgb: 0, 255, 0;
 }
 
 .backend-card.status-testing:hover,
 .topic-card.status-idle:hover {
     --glow-color: var(--state-warning);
+    --glow-color-rgb: 255, 136, 0;
 }
 
 .backend-card.status-disconnected:hover,
 .topic-card.status-stale:hover,
 .topic-card.status-unknown:hover {
     --glow-color: var(--state-error);
+    --glow-color-rgb: 255, 0, 0;
 }
 
 /* Form inputs */
@@ -152,13 +159,14 @@ a.nav-link:hover {
 .form-textarea:focus,
 .search-input:focus {
     --glow-color: var(--primary-green);
-    box-shadow: 0 0 15px var(--glow-color), 0 0 30px var(--glow-color);
+    box-shadow: 0 0 5px rgba(0, 255, 65, 0.4), 0 0 10px rgba(0, 255, 65, 0.3);
     filter: brightness(1.1);
 }
 
 /* Draggable items */
 .draggable-item:hover {
     --glow-color: var(--primary-green);
+    --glow-color-rgb: 0, 255, 65;
     animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
     z-index: 100 !important;
@@ -168,6 +176,7 @@ a.nav-link:hover {
 .add-backend-card:hover,
 .add-topic-card:hover {
     --glow-color: var(--primary-green);
+    --glow-color-rgb: 0, 255, 65;
     animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
     z-index: 100 !important;
@@ -182,6 +191,7 @@ a.nav-link:hover {
 .btn-primary,
 .modal-btn.primary {
     --glow-color: var(--state-active);
+    --glow-color-rgb: 0, 255, 0;
 }
 
 .btn.primary:hover:not(:disabled),
@@ -189,7 +199,7 @@ a.nav-link:hover {
 .modal-btn.primary:hover:not(:disabled) {
     background-color: var(--state-active) !important;
     color: #000 !important;
-    box-shadow: 0 0 20px var(--state-active), 0 0 40px var(--state-active);
+    box-shadow: 0 0 7px rgba(0, 255, 0, 0.5), 0 0 13px rgba(0, 255, 0, 0.4);
 }
 
 /* Warning/Test buttons */
@@ -197,6 +207,7 @@ a.nav-link:hover {
 .btn.test-btn,
 .modal-btn.test {
     --glow-color: var(--state-warning);
+    --glow-color-rgb: 255, 136, 0;
 }
 
 .btn.validate:hover,
@@ -204,20 +215,21 @@ a.nav-link:hover {
 .modal-btn.test:hover {
     background-color: var(--state-warning) !important;
     color: #000 !important;
-    box-shadow: 0 0 20px var(--state-warning), 0 0 40px var(--state-warning);
+    box-shadow: 0 0 7px rgba(255, 136, 0, 0.5), 0 0 13px rgba(255, 136, 0, 0.4);
 }
 
 /* Danger/Delete buttons */
 .btn.delete-btn,
 .btn-danger {
     --glow-color: var(--state-error);
+    --glow-color-rgb: 255, 0, 0;
 }
 
 .btn.delete-btn:hover,
 .btn-danger:hover {
     background-color: var(--state-error) !important;
     color: #000 !important;
-    box-shadow: 0 0 20px var(--state-error), 0 0 40px var(--state-error);
+    box-shadow: 0 0 7px rgba(255, 0, 0, 0.5), 0 0 13px rgba(255, 0, 0, 0.4);
 }
 
 /* ==========================================
@@ -234,7 +246,7 @@ a.nav-link:hover {
     display: flex !important;
     justify-content: center !important;
     gap: 1rem !important;
-    box-shadow: 0 0 20px rgba(0, 255, 65, 0.3) !important;
+    box-shadow: 0 0 7px rgba(0, 255, 65, 0.2) !important;
 }
 
 .nav-bar .nav-btn,
@@ -269,7 +281,7 @@ a.nav-link:hover {
 .live-status-indicator.active {
     background-color: var(--state-active) !important;
     border-color: var(--state-active) !important;
-    box-shadow: 0 0 10px var(--state-active) !important;
+    box-shadow: 0 0 3px rgba(0, 255, 0, 0.5) !important;
 }
 
 .status-indicator.disconnected,
@@ -277,14 +289,14 @@ a.nav-link:hover {
 .live-status-indicator.unknown {
     background-color: var(--state-error) !important;
     border-color: var(--state-error) !important;
-    box-shadow: 0 0 10px var(--state-error) !important;
+    box-shadow: 0 0 3px rgba(255, 0, 0, 0.5) !important;
 }
 
 .status-indicator.testing,
 .live-status-indicator.idle {
     background-color: var(--state-warning) !important;
     border-color: var(--state-warning) !important;
-    box-shadow: 0 0 10px var(--state-warning) !important;
+    box-shadow: 0 0 3px rgba(255, 136, 0, 0.5) !important;
 }
 
 /* ==========================================
@@ -300,7 +312,7 @@ a.nav-link:hover {
 .drop-zone.drag-over {
     background: rgba(0, 255, 65, 0.2) !important;
     border-color: var(--state-active) !important;
-    box-shadow: 0 0 15px rgba(0, 255, 65, 0.5) !important;
+    box-shadow: 0 0 5px rgba(0, 255, 65, 0.3) !important;
 }
 
 /* Disabled drop zones use amber */
@@ -336,7 +348,7 @@ select:focus-visible,
 textarea:focus-visible {
     outline: 3px solid var(--state-active);
     outline-offset: 2px;
-    box-shadow: 0 0 10px var(--state-active);
+    box-shadow: 0 0 3px rgba(0, 255, 0, 0.5);
 }
 
 /* ==========================================
@@ -350,6 +362,7 @@ textarea:focus-visible {
 
 .topic-badge:hover {
     --glow-color: var(--primary-green);
+    --glow-color-rgb: 0, 255, 65;
     animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
     z-index: 100 !important;
@@ -514,7 +527,7 @@ textarea {
 .config-title,
 .topics-title,
 .backends-title {
-    text-shadow: 0 0 20px var(--primary-green) !important;
+    text-shadow: 0 0 7px rgba(0, 255, 65, 0.5) !important;
 }
 
 /* Loading states */
