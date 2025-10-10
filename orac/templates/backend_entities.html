@@ -52,6 +52,12 @@
             color: var(--primary-green);
         }
 
+        /* Brighter green for button icons (like CRT beam) */
+        .btn.primary::first-letter {
+            color: #00ff88;
+            font-size: 1.1em;
+        }
+
         .btn.primary:hover {
             background: var(--primary-green);
             color: #000;
@@ -276,6 +282,16 @@
             letter-spacing: 1px;
         }
 
+        /* Drop zone values on disabled cards should be orange */
+        .device-card.disabled .drop-zone-value {
+            color: var(--state-warning);
+        }
+
+        .device-card.disabled .drop-zone.has-value {
+            background: rgba(255, 136, 0, 0.15);
+            border-color: var(--state-warning);
+        }
+
         .drop-zone.conflict {
             background: rgba(255, 68, 68, 0.2);
             border-color: #ff4444;
@@ -366,16 +382,26 @@
             transform: translateY(-50%);
             background: none;
             border: none;
-            color: #ff4444;
             cursor: pointer;
             padding: 2px 6px;
             font-size: 1rem;
             opacity: 0.7;
-            transition: opacity 0.3s;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        /* Clear button colors match parent card state */
+        .device-card.enabled .clear-btn {
+            color: var(--state-active);
+        }
+
+        .device-card.disabled .clear-btn {
+            color: var(--state-warning);
         }
 
         .clear-btn:hover {
             opacity: 1;
+            filter: brightness(1.5);
         }
 
         /* Loading overlay */
@@ -457,8 +483,8 @@
         <!-- Top Control Bar -->
         <div class="controls-bar">
             <div class="control-group">
-                <button class="btn primary" onclick="fetchDevices()">🔄 FETCH DEVICES</button>
-                <button class="btn primary" onclick="saveConfiguration()">💾 SAVE CONFIGURATION</button>
+                <button class="btn primary" onclick="fetchDevices()">◆ FETCH DEVICES</button>
+                <button class="btn primary" onclick="saveConfiguration()">◆ SAVE CONFIGURATION</button>
             </div>
             <div class="control-group">
                 <input type="text" class="search-input" placeholder="Search devices..." onkeyup="filterDevices(this.value)">
