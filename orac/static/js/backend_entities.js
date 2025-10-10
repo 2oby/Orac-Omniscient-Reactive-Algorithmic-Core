@@ -141,7 +141,7 @@ function createDeviceCard(entityId, mapping) {
 
         const clearBtn = document.createElement('button');
         clearBtn.className = 'clear-btn';
-        clearBtn.innerHTML = '×';
+        clearBtn.innerHTML = '<img src="/static/images/close.png" class="clear-icon" alt="Clear">';
         clearBtn.onclick = (e) => {
             e.stopPropagation();
             clearDeviceType(entityId);
@@ -169,7 +169,7 @@ function createDeviceCard(entityId, mapping) {
 
         const clearBtn = document.createElement('button');
         clearBtn.className = 'clear-btn';
-        clearBtn.innerHTML = '×';
+        clearBtn.innerHTML = '<img src="/static/images/close.png" class="clear-icon" alt="Clear">';
         clearBtn.onclick = (e) => {
             e.stopPropagation();
             clearLocation(entityId);
@@ -361,7 +361,7 @@ function updateDropZone(dropZone, value) {
 
     const clearBtn = document.createElement('button');
     clearBtn.className = 'clear-btn';
-    clearBtn.innerHTML = '×';
+    clearBtn.innerHTML = '<img src="/static/images/close.png" class="clear-icon" alt="Clear">';
     clearBtn.onclick = (e) => {
         e.stopPropagation();
         const entityId = dropZone.dataset.entityId;

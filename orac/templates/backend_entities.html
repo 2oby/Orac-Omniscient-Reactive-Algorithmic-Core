@@ -52,10 +52,13 @@
             color: var(--primary-green);
         }
 
-        /* Brighter green for button icons (like CRT beam) */
-        .btn.primary::first-letter {
-            color: #00ff88;
-            font-size: 1.1em;
+        /* Icon styling for buttons */
+        .btn-icon {
+            width: 16px;
+            height: 16px;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+            filter: brightness(1.2);
         }
 
         .btn.primary:hover {
@@ -383,25 +386,31 @@
             background: none;
             border: none;
             cursor: pointer;
-            padding: 2px 6px;
-            font-size: 1rem;
+            padding: 2px;
             opacity: 0.7;
             transition: all 0.3s ease;
-            font-weight: bold;
+            line-height: 0;
         }
 
-        /* Clear button colors match parent card state */
-        .device-card.enabled .clear-btn {
-            color: var(--state-active);
+        /* Clear icon image */
+        .clear-icon {
+            width: 14px;
+            height: 14px;
+            display: block;
+            transition: all 0.3s ease;
         }
 
-        .device-card.disabled .clear-btn {
-            color: var(--state-warning);
+        /* Clear button colors match parent card state via filter */
+        .device-card.enabled .clear-icon {
+            filter: brightness(1.2) hue-rotate(0deg);
         }
 
-        .clear-btn:hover {
-            opacity: 1;
-            filter: brightness(1.5);
+        .device-card.disabled .clear-icon {
+            filter: brightness(1.0) hue-rotate(-60deg) saturate(1.5);
+        }
+
+        .clear-btn:hover .clear-icon {
+            filter: brightness(1.8) drop-shadow(0 0 3px currentColor);
         }
 
         /* Loading overlay */
@@ -483,8 +492,8 @@
         <!-- Top Control Bar -->
         <div class="controls-bar">
             <div class="control-group">
-                <button class="btn primary" onclick="fetchDevices()">◆ FETCH DEVICES</button>
-                <button class="btn primary" onclick="saveConfiguration()">◆ SAVE CONFIGURATION</button>
+                <button class="btn primary" onclick="fetchDevices()"><img src="{{ url_for('static', path='/images/refresh.png') }}" class="btn-icon" alt="">FETCH DEVICES</button>
+                <button class="btn primary" onclick="saveConfiguration()"><img src="{{ url_for('static', path='/images/save.png') }}" class="btn-icon" alt="">SAVE CONFIGURATION</button>
             </div>
             <div class="control-group">
                 <input type="text" class="search-input" placeholder="Search devices..." onkeyup="filterDevices(this.value)">
