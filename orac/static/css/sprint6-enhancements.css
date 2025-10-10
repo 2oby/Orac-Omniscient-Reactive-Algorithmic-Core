@@ -422,6 +422,8 @@ button,
 .types-panel,
 .locations-panel {
     overflow: visible !important;
+    position: relative !important;
+    z-index: 1 !important;
 }
 
 /* Scrollable lists must keep overflow-y: auto but allow glow to extend */
@@ -485,6 +487,8 @@ body,
 /* Device card grid cells must not clip */
 .device-card {
     overflow: visible !important;
+    position: relative !important;
+    z-index: 10 !important;
 }
 
 /* Drop zones need to expand beyond their cells */
