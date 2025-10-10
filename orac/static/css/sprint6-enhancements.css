@@ -130,7 +130,7 @@ a.nav-link:hover {
     --glow-color-rgb: 0, 255, 65;
     animation: cyberpunk-pulse 0.8s ease-in-out 1;
     position: relative;
-    z-index: 100 !important;
+    z-index: 200 !important;
 }
 
 /* State-based glow colors for cards */
@@ -431,9 +431,9 @@ button,
 .draggable-list {
     overflow-y: auto !important;
     overflow-x: visible !important;
-    /* Add padding to allow glow space on all sides */
-    padding: 80px 80px 80px 80px !important;
-    margin: -80px -80px -80px -80px !important;
+    /* Add padding to allow glow space on all sides - reduced to prevent overlap */
+    padding: 30px 30px 30px 30px !important;
+    margin: -30px -30px -30px -30px !important;
 }
 
 /* Prevent scrollbar from getting green filter */
