@@ -77,8 +77,17 @@ echo "Copying files into Docker container..."
 
 # Copy Python backend files
 for file in orac/*.py orac/**/*.py; do
-    if [ -f "$file" ]; then
-        docker cp "$file" "orac:/app/$file" 2>/dev/null
+    if [ -f "\$file" ]; then
+        docker cp "\$file" "orac:/app/\$file" 2>/dev/null
+    fi
+done
+
+# Copy Python package directories (with __init__.py)
+for dir in orac/*/; do
+    if [ -d "\$dir" ] && [ -f "\${dir}__init__.py" ]; then
+        echo "Copying package directory: \$dir"
+        docker exec orac mkdir -p "/app/\$dir" 2>/dev/null
+        docker cp "\${dir}." "orac:/app/\$dir"
     fi
 done
 
