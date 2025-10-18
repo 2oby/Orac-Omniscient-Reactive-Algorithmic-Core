@@ -1,5 +1,80 @@
 # Sprint 1: Configuration Consolidation & Constants
 
+## Deployment Target Information
+
+**Target Machine:** NVIDIA Jetson Orin (orin4)
+- **Hostname:** orin4
+- **SSH Access:** `ssh orin4`
+- **ORAC Location:** `/home/toby/ORAC`
+- **Docker Container:** `orac`
+- **API URL:** http://192.168.8.192:8000
+- **Production HA URL:** http://192.168.8.99:8123
+
+**How to Deploy:**
+```bash
+# Automatic deployment (commits, pushes, pulls on orin, copies to Docker, tests)
+./deploy_and_test.sh "Your commit message here"
+
+# The script automatically:
+# 1. Commits changes to current branch
+# 2. Pushes to GitHub
+# 3. SSHs to orin4 and pulls latest from GitHub
+# 4. Copies files into Docker container (including Python packages)
+# 5. Restarts container
+# 6. Runs verification tests
+```
+
+**Manual Operations on Orin:**
+```bash
+# SSH to orin
+ssh orin4
+
+# View Docker logs
+docker logs orac --tail 50
+
+# Enter Docker shell
+docker exec -it orac bash
+
+# Restart container
+docker restart orac
+
+# Test imports in container
+docker exec orac python3 -c "from orac.config import NetworkConfig; print(NetworkConfig.DEFAULT_TIMEOUT)"
+```
+
+**Important Notes:**
+- We ALWAYS build and test on orin4 (not locally on Mac)
+- The deploy script automatically detects the current git branch
+- All Python package directories (with `__init__.py`) are automatically copied
+- Backups are created before each deployment in `backups/TIMESTAMP/`
+
+---
+
+## Current Progress (2025-10-18)
+
+**Completed:**
+- ✅ Created `cleanup` branch
+- ✅ Created `orac/config/` module structure
+  - ✅ `constants.py` - All configuration constants
+  - ✅ `loader.py` - ConfigLoader class
+  - ✅ `legacy.py` - Backward-compatible functions from old config.py
+  - ✅ `__init__.py` - Module exports
+- ✅ Updated `deploy_and_test.sh` to:
+  - Auto-detect current branch
+  - Copy Python package directories
+- ✅ Deployed and verified on orin4
+- ✅ All existing imports work (100% backward compatible)
+
+**Next Session:**
+- Replace magic numbers in `orac/api.py`
+- Replace magic numbers in `orac/homeassistant/cache.py`
+- Replace magic numbers in `orac/backend_manager.py`
+- Replace magic numbers in `orac/dispatchers/homeassistant.py`
+- Search for remaining magic numbers
+- Final deployment and verification
+
+---
+
 ## Prompt for Next LLM
 
 You are tasked with completing Sprint 1 of the ORAC Core cleanup and productionization effort. This sprint focuses on **eliminating magic numbers** and **consolidating configuration management** across the codebase.
@@ -8,20 +83,21 @@ You are tasked with completing Sprint 1 of the ORAC Core cleanup and productioni
 ORAC Core is a voice-command processing system that integrates with Home Assistant. It was developed rapidly across multiple sprints and now needs cleanup. The codebase has magic numbers scattered throughout (ports, timeouts, temperatures, etc.) and configuration spread across environment variables, YAML files, JSON files, and hardcoded values.
 
 **Your Mission:**
-1. Create a centralized configuration system with constants
-2. Replace ALL magic numbers with named constants
-3. Consolidate configuration loading logic
+1. ~~Create a centralized configuration system with constants~~ ✅ DONE
+2. Replace ALL magic numbers with named constants (IN PROGRESS)
+3. ~~Consolidate configuration loading logic~~ ✅ DONE
 4. Ensure everything still works by deploying and testing
 
 **Important:**
-- You are working on the `cleanup/productionization` branch
-- After completing this sprint, run `./deploy_and_test.sh "Sprint 1: Configuration consolidation"`
+- You are working on the `cleanup` branch
+- Use `./deploy_and_test.sh "message"` to deploy to orin4
+- The orin4 machine is the ONLY build/test target (not local Mac)
 - The test machine (orin4) is the source of truth - deployment must succeed there
-- Commit frequently with meaningful messages
+- Commit frequently with meaningful messages via deploy script
 - DO NOT break existing functionality
 
-**Prerequisites:**
-The pre-work requirements from cleanup.MD should already be completed (verification, git checkpoint, branch creation).
+**What's Already Done:**
+The config module (`orac/config/`) has been created and deployed successfully. All legacy functions are preserved for backward compatibility. Now we need to replace magic numbers throughout the codebase with references to the new constants.
 
 ---
 
