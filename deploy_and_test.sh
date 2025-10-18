@@ -47,12 +47,14 @@ fi
 
 # Always push to ensure GitHub is up to date
 echo "Pushing to GitHub..."
-git push origin master
+CURRENT_BRANCH=$(git branch --show-current)
+git push origin "$CURRENT_BRANCH"
 
 # Deploy to Orin
 echo ""
 echo "Deploying to Orin..."
-ssh orin4 << 'EOF'
+CURRENT_BRANCH=$(git branch --show-current)
+ssh orin4 << EOF
 cd /home/toby/ORAC
 
 # Stash any local changes to avoid merge conflicts
@@ -61,9 +63,14 @@ if ! git diff-index --quiet HEAD --; then
     git stash
 fi
 
-# Pull latest from GitHub
-echo "Pulling latest from GitHub..."
-git pull origin master
+# Fetch all branches
+echo "Fetching from GitHub..."
+git fetch origin
+
+# Checkout and pull the current branch
+echo "Switching to branch: $CURRENT_BRANCH"
+git checkout "$CURRENT_BRANCH" 2>/dev/null || git checkout -b "$CURRENT_BRANCH" origin/"$CURRENT_BRANCH"
+git pull origin "$CURRENT_BRANCH"
 
 # Copy ALL relevant files into Docker container
 echo "Copying files into Docker container..."
