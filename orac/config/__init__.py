@@ -13,6 +13,18 @@ from .constants import (
     LogConfig
 )
 from .loader import ConfigLoader
+from .legacy import (
+    DATA_DIR,
+    FAVORITES_PATH,
+    MODEL_CONFIGS_PATH,
+    DEFAULT_FAVORITES,
+    DEFAULT_MODEL_CONFIGS,
+    ensure_data_dir,
+    load_favorites,
+    load_model_configs,
+    save_favorites,
+    save_model_configs
+)
 
 __all__ = [
     'NetworkConfig',
@@ -21,5 +33,15 @@ __all__ = [
     'PathConfig',
     'APIConfig',
     'LogConfig',
-    'ConfigLoader'
+    'ConfigLoader',
+    'DATA_DIR',
+    'FAVORITES_PATH',
+    'MODEL_CONFIGS_PATH',
+    'DEFAULT_FAVORITES',
+    'DEFAULT_MODEL_CONFIGS',
+    'ensure_data_dir',
+    'load_favorites',
+    'load_model_configs',
+    'save_favorites',
+    'save_model_configs'
 ]
