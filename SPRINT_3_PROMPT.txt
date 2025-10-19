@@ -1,0 +1,13 @@
+Execute Sprint 3: Code Cleanup & Legacy Code Removal
+
+Please read and follow the detailed plan in sprint_3_detailed.md
+
+This sprint removes ~1500 lines of legacy code that has been replaced by the Backend system. All instructions for deployment, testing, and rollback are in the sprint_3_detailed.md file.
+
+Key points:
+- Use ./deploy_and_test.sh for all deployments
+- Deploy and test after each change
+- Follow the recommended order of execution
+- Git tag sprint1-before-legacy-removal is the rollback point
+
+Start by reading sprint_3_detailed.md from the beginning.

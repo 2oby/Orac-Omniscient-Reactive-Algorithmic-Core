@@ -1,9 +1,153 @@
 # Sprint 3: Code Cleanup & Legacy Code Removal (DETAILED)
 
-**Status:** Ready to Execute  
-**Goal:** Remove dead code, legacy implementations, and outdated systems  
-**Duration:** 2-3 days  
+**Status:** Ready to Execute
+**Goal:** Remove dead code, legacy implementations, and outdated systems
+**Duration:** 2-3 days
 **Baseline Tag:** `sprint1-before-legacy-removal` (created 2025-10-19)
+**Branch:** `cleanup`
+
+---
+
+## 🚀 Quick Start for Next LLM Session
+
+**You are being asked to execute Sprint 3 of the ORAC cleanup process.**
+
+**Everything you need is in this file.** Follow these steps:
+
+1. **Read the "Deployment & Environment Setup" section below** - Learn about:
+   - How to use `./deploy_and_test.sh` for deployment
+   - SSH commands for orin4
+   - Verification commands
+
+2. **Follow the "Order of Execution" section** - Do tasks in this order:
+   - Task 3.5: Remove commented code (safest)
+   - Task 3.4: Remove sprint comments
+   - Task 3.3: Remove Dispatcher Registry
+   - Task 3.2: Remove HAExecutor
+   - Task 3.1: Remove Grammar Scheduler
+   - Task 3.6: Move test files
+   - Task 3.7: Clean up documentation
+
+3. **After EACH task:**
+   - Deploy using: `./deploy_and_test.sh "Sprint 3: Removed [component name]"`
+   - Verify API is working
+   - Check for errors in logs
+
+4. **Use the "Testing Checklist" section** after each deployment
+
+5. **If anything breaks:** Use the "Rollback Plan" section
+
+**Context:**
+- Sprint 1 is complete (configuration consolidation)
+- This sprint removes ~1500 lines of dead code
+- All removed code has been replaced by the Backend system
+- System is currently working perfectly on orin4
+
+**Safety:**
+- Git tag `sprint1-before-legacy-removal` is your rollback point
+- Backups are created automatically by deploy script
+- Risk is LOW - all code being removed is unused
+
+**Ready? Start reading from "Deployment & Environment Setup" below.**
+
+---
+
+## Deployment & Environment Setup
+
+### Target Machine: NVIDIA Jetson Orin (orin4)
+
+**Important:** ORAC is developed and tested on the orin4 machine, NOT locally on Mac.
+
+**Machine Details:**
+- **Hostname:** orin4
+- **SSH Access:** `ssh orin4` (should be configured in your ~/.ssh/config)
+- **ORAC Location:** `/home/toby/ORAC`
+- **Docker Container:** `orac`
+- **API URL:** http://192.168.8.192:8000
+- **Production HA URL:** http://192.168.8.99:8123
+- **Current Branch:** `cleanup`
+
+### Deployment Script: ./deploy_and_test.sh
+
+**This script is your main deployment tool.** It automatically:
+1. Commits all changes to the current git branch
+2. Pushes to GitHub
+3. SSHs to orin4 and pulls from GitHub
+4. Copies Python files into the Docker container
+5. Restarts the Docker container
+6. Runs verification tests
+7. Creates backups in `backups/TIMESTAMP/`
+
+**Usage:**
+```bash
+# Deploy with a commit message
+./deploy_and_test.sh "Your commit message here"
+
+# Example:
+./deploy_and_test.sh "Sprint 3: Remove grammar scheduler system"
+```
+
+**The script will show:**
+- ✓ Container status
+- ✓ API health check
+- ✓ Backend endpoints working
+- ✓ Recent Docker logs
+
+### Manual SSH Commands
+
+If you need to manually check the orin4 machine:
+
+```bash
+# SSH to orin4
+ssh orin4
+
+# View Docker logs
+ssh orin4 'docker logs orac --tail 50'
+
+# View errors only
+ssh orin4 'docker logs orac 2>&1 | grep -i error | tail -20'
+
+# Enter Docker shell (for debugging)
+ssh orin4 'docker exec -it orac bash'
+
+# Restart container
+ssh orin4 'docker restart orac'
+
+# Test imports in container
+ssh orin4 'docker exec orac python3 -c "from orac.api import app; print(\"✅ Imports OK\")"'
+
+# Check if grammar scheduler is running
+ssh orin4 'docker logs orac 2>&1 | grep -i "grammar scheduler" | tail -10'
+```
+
+### Verification Commands
+
+After each deployment, verify the system is working:
+
+```bash
+# Check API status
+curl -s http://192.168.8.192:8000/v1/status | python3 -m json.tool
+
+# Check backend endpoints
+curl -s http://192.168.8.192:8000/api/backends | python3 -m json.tool
+
+# Check for errors in logs
+ssh orin4 'docker logs orac --tail 50 | grep -i error'
+```
+
+### Current Git Status
+
+**Branch:** `cleanup`
+**Last Tag:** `sprint1-before-legacy-removal`
+**Sprint 1:** ✅ Complete
+**Sprint 3:** 🟡 Starting now
+
+**Safety Net:**
+If anything breaks, you can rollback to the tag:
+```bash
+git checkout sprint1-before-legacy-removal
+./deploy_and_test.sh "Rollback to Sprint 1 complete"
+```
 
 ---
 
