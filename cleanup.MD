@@ -164,65 +164,51 @@ async def list_models(client: LlamaCppClient = Depends(get_llama_client)):
 
 ---
 
-### Sprint 3: Code Cleanup & Removal (2 days)
+### Sprint 3: Code Cleanup & Legacy Code Removal (2-3 days)
 
-**Goal:** Remove dead code, comments, and legacy implementations.
+**Goal:** Remove dead code, comments, and legacy implementations replaced by Backend system.
 
-**Current Issues:**
-- Commented out code (api.py line 45-46)
-- Sprint comments ("Sprint 5:", "Sprint 4:", etc.) throughout codebase
-- Legacy code paths (old HA executor alongside new backend system)
-- Dead imports and unused functions
+**Detailed Plan:** See `sprint_3_detailed.md` for comprehensive task breakdown.
 
-**Tasks:**
+**Baseline Tag:** `sprint1-before-legacy-removal` (created 2025-10-19)
 
-3.1. **Remove commented code**
-- Search for all commented imports/code blocks
-- Verify they're not needed (check git history if needed)
-- Delete permanently
+**Summary:**
+- Remove Grammar Scheduler system (5 files, 6 API endpoints) - **Runs nightly, wasting resources!**
+- Remove HAExecutor system (1 file, legacy execution code)
+- Remove Dispatcher Registry (2 files, 1 API endpoint)
+- Remove sprint comments and commented code
+- Move test files to proper directories
+- Clean up documentation structure
 
-3.2. **Clean up sprint comments**
-- Search for all "Sprint X:" comments
-- Convert useful ones to proper documentation
-- Remove the rest
-- Example:
-```python
-# BEFORE:
-# Sprint 5: Dispatcher field removed - backends handle dispatching internally
+**Estimated Impact:**
+- Remove ~15 API endpoints
+- Remove ~8 files
+- Remove ~1500 lines of code
+- Save nightly scheduler overhead and HA API calls
 
-# AFTER:
-# Backends encapsulate dispatcher functionality as of architecture refactor
-```
-
-3.3. **Remove legacy code paths**
-- Legacy HA executor in api.py (lines 821-850)
-- Dispatcher registry (commented but not removed)
-- Old mapping systems if superseded
-
-3.4. **Remove test files from root directory**
-- Move test_dispatcher_optimization.py to tests/
-- Move test_backend_grammar_generator.py to tests/
-- Move test_grammar_simple.py to tests/
-- Move SPRINT_2_TEST_SCRIPT.py to tests/ or archive
-
-3.5. **Clean up markdown documentation**
-- Archive old sprint planning docs to docs/archive/sprints/
-- Keep only relevant documentation in root
-- Update README.md to reflect current architecture
-
-**Deliverables:**
-- No commented code
-- Cleaned up comments (sprint references removed)
-- Removed legacy code
-- Organized test directory
-- Cleaner documentation structure
+**Key Files to Remove:**
+- `orac/homeassistant/grammar_scheduler.py`
+- `orac/homeassistant/grammar_manager.py`
+- `orac/homeassistant/mapping_config.py`
+- `orac/homeassistant/mapping_builder.py`
+- `orac/homeassistant/ha_executor.py`
+- `orac/dispatchers/registry.py`
 
 **Testing:**
 ```bash
-# Verify no tests were broken
-pytest
-./deploy_and_test.sh "Sprint 3: Code cleanup"
+# After each removal
+./deploy_and_test.sh "Sprint 3: Remove [component]"
+
+# Verify no scheduler running
+ssh orin4 'docker logs orac | grep -i scheduler'
 ```
+
+**Deliverables:**
+- Clean `orac/api.py` without legacy code
+- All legacy systems removed
+- Backend grammar generation verified working
+- Organized test directory
+- Clean documentation structure
 
 ---
 
@@ -647,9 +633,9 @@ All work happens on the `cleanup/productionization` branch until complete, then 
 
 | Sprint | Status | Completion Date | Notes |
 |--------|--------|-----------------|-------|
-| Sprint 1: Configuration | Not Started | - | - |
+| Sprint 1: Configuration | ✅ Completed | 2025-10-19 | Tag: `sprint1-before-legacy-removal`, all magic numbers replaced |
 | Sprint 2: API Decomposition | Not Started | - | - |
-| Sprint 3: Code Cleanup | Not Started | - | - |
+| Sprint 3: Code Cleanup | 🟡 Ready | - | Detailed plan in `sprint_3_detailed.md` |
 | Sprint 4: Duplicate Code | Not Started | - | - |
 | Sprint 5: Type Hints | Not Started | - | - |
 | Sprint 6: Architecture | Not Started | - | - |
