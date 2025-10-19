@@ -176,7 +176,7 @@ class GenerationService:
             if not backend.get("status", {}).get("connected"):
                 logger.warning(f"Backend '{topic.backend_id}' is not connected")
 
-            # Get or generate grammar for the backend
+            # Get or generate grammar for the backend using the injected grammar generator
             grammar_path = self.backend_grammar_generator.get_grammar_file_path(topic.backend_id)
 
             if not grammar_path.exists():
