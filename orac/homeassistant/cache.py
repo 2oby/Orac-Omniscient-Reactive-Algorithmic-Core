@@ -22,6 +22,8 @@ from typing import Any, Dict, Optional, List, Set
 from pathlib import Path
 from loguru import logger
 
+from orac.config import CacheConfig
+
 class HomeAssistantCache:
     """Cache manager for Home Assistant data with persistent storage."""
     
@@ -59,9 +61,9 @@ class HomeAssistantCache:
         'sun', 'zone', 'conversation', 'weather', 'tts', 'todo', 'person'
     }
     
-    def __init__(self, ttl: int = 300, max_size: int = 1000, cache_dir: Optional[Path] = None):
+    def __init__(self, ttl: int = CacheConfig.DEFAULT_TTL, max_size: int = CacheConfig.MAX_CACHE_SIZE, cache_dir: Optional[Path] = None):
         """Initialize the cache with TTL and size limits.
-        
+
         Args:
             ttl: Time-to-live for cache entries in seconds (default: 5 minutes)
             max_size: Maximum number of entries in cache (default: 1000)

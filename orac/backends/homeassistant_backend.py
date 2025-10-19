@@ -7,6 +7,7 @@ Users only need to configure the backend, not the dispatcher.
 import logging
 from typing import Dict, List, Optional, Any
 from .abstract_backend import AbstractBackend
+from orac.config import NetworkConfig
 from orac.homeassistant.client import HomeAssistantClient
 from orac.dispatchers.homeassistant import HomeAssistantDispatcher
 # Sprint 5: Grammar generator optional - focusing on dispatcher functionality
@@ -97,10 +98,10 @@ class HomeAssistantBackend(AbstractBackend):
         ha_config = self.config.get('homeassistant', {})
 
         # Parse URL to get host and port
-        url = ha_config.get('url', 'http://localhost:8123')
+        url = ha_config.get('url', f'http://localhost:{NetworkConfig.DEFAULT_HA_PORT}')
         parsed = urlparse(url)
         host = parsed.hostname or 'localhost'
-        port = parsed.port or (443 if parsed.scheme == 'https' else 8123)
+        port = parsed.port or (443 if parsed.scheme == 'https' else NetworkConfig.DEFAULT_HA_PORT)
         ssl = parsed.scheme == 'https'
 
         # Create HomeAssistantConfig object with correct fields
@@ -110,7 +111,7 @@ class HomeAssistantBackend(AbstractBackend):
             token=ha_config.get('token', ''),
             ssl=ssl,
             verify_ssl=ha_config.get('verify_ssl', False),
-            timeout=ha_config.get('timeout', 10)
+            timeout=ha_config.get('timeout', NetworkConfig.HA_TIMEOUT)
         )
 
         return HomeAssistantClient(config_obj)

@@ -17,20 +17,22 @@ from pathlib import Path
 import yaml
 import os
 
+from orac.config import NetworkConfig, CacheConfig
+
 class HomeAssistantConfig(BaseSettings):
     """Runtime configuration for Home Assistant integration."""
     
     # Connection Settings
     host: str = Field(..., description="Home Assistant host address")
-    port: int = Field(8123, description="Home Assistant port")
+    port: int = Field(NetworkConfig.DEFAULT_HA_PORT, description="Home Assistant port")
     token: str = Field(..., description="Long-lived access token")
     ssl: bool = Field(True, description="Use SSL for connection")
     verify_ssl: bool = Field(True, description="Verify SSL certificates")
-    timeout: int = Field(10, description="Request timeout in seconds")
-    
+    timeout: int = Field(NetworkConfig.HA_TIMEOUT, description="Request timeout in seconds")
+
     # Cache Settings
-    cache_ttl: int = Field(300, description="Cache TTL in seconds")
-    cache_max_size: int = Field(1000, description="Maximum number of cached items")
+    cache_ttl: int = Field(CacheConfig.DEFAULT_TTL, description="Cache TTL in seconds")
+    cache_max_size: int = Field(CacheConfig.MAX_CACHE_SIZE, description="Maximum number of cached items")
     cache_dir: Optional[Path] = Field(None, description="Directory for persistent cache")
     
     # Configuration Keys (for internal use)

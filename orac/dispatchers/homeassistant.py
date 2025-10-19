@@ -15,6 +15,8 @@ from .base import BaseDispatcher
 from .mapping_resolver import MappingResolver, UnmappedError, InvalidEntityError
 from .mapping_generator import MappingGenerator
 
+from orac.config import NetworkConfig
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,7 +43,7 @@ class HomeAssistantDispatcher(BaseDispatcher):
 
         # Fall back to environment variables (using correct HA_URL)
         if not self.ha_url:
-            self.ha_url = os.getenv('HA_URL', 'http://192.168.8.99:8123')
+            self.ha_url = os.getenv('HA_URL', f'http://{NetworkConfig.DEFAULT_HA_HOST}:{NetworkConfig.DEFAULT_HA_PORT}')
         if not self.ha_token:
             self.ha_token = os.getenv('HA_TOKEN', '')
 
@@ -241,7 +243,7 @@ class HomeAssistantDispatcher(BaseDispatcher):
         }
         
         logger.info(f"Calling HA API: {url} with entity: {entity_id}")
-        response = requests.post(url, headers=headers, json=data, timeout=10)
+        response = requests.post(url, headers=headers, json=data, timeout=NetworkConfig.HA_TIMEOUT)
         response.raise_for_status()
         
         return response.json() if response.text else {'status': 'success'}

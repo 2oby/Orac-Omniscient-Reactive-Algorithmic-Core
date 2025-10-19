@@ -9,6 +9,7 @@ import aiohttp
 import asyncio
 from enum import Enum
 
+from orac.config import NetworkConfig
 from orac.homeassistant.client import HomeAssistantClient
 from orac.homeassistant.config import HomeAssistantConfig
 
@@ -222,7 +223,7 @@ class BackendManager:
             if backend_config.get('type') == 'homeassistant':
                 connection = backend_config.get('connection', {})
                 transformed_config['homeassistant'] = {
-                    'url': f"{connection.get('url', 'http://localhost')}:{connection.get('port', 8123)}",
+                    'url': f"{connection.get('url', 'http://localhost')}:{connection.get('port', NetworkConfig.DEFAULT_HA_PORT)}",
                     'token': connection.get('token', ''),
                     'verify_ssl': connection.get('verify_ssl', False)
                 }
@@ -346,7 +347,7 @@ class BackendManager:
         try:
             # Extract connection details
             url = connection.get('url', '')
-            port = connection.get('port', 8123)
+            port = connection.get('port', NetworkConfig.DEFAULT_HA_PORT)
             token = connection.get('token', '')
 
             if not url or not token:
@@ -370,7 +371,7 @@ class BackendManager:
                 token=token,
                 ssl=url.startswith('https'),
                 verify_ssl=connection.get('verify_ssl', True),
-                timeout=connection.get('timeout', 10)
+                timeout=connection.get('timeout', NetworkConfig.HA_TIMEOUT)
             )
 
             # Create HA client and test connection
@@ -565,7 +566,7 @@ class BackendManager:
         try:
             # Extract connection details
             url = connection.get('url', '')
-            port = connection.get('port', 8123)
+            port = connection.get('port', NetworkConfig.DEFAULT_HA_PORT)
             token = connection.get('token', '')
 
             # Parse URL to extract host
@@ -583,7 +584,7 @@ class BackendManager:
                 token=token,
                 ssl=url.startswith('https'),
                 verify_ssl=connection.get('verify_ssl', True),
-                timeout=connection.get('timeout', 10)
+                timeout=connection.get('timeout', NetworkConfig.HA_TIMEOUT)
             )
 
             # Fetch entities

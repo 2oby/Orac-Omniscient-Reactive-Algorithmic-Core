@@ -24,6 +24,7 @@ from datetime import datetime
 from orac.logger import get_logger
 from orac.llama_cpp_client import LlamaCppClient
 from orac.config import load_favorites, save_favorites, load_model_configs, save_model_configs
+from orac.config import NetworkConfig, ModelConfig, APIConfig
 from orac.models import (
     ModelInfo, ModelListResponse, ModelLoadRequest, ModelLoadResponse,
     ModelUnloadResponse, GenerationRequest, GenerationResponse
@@ -68,9 +69,9 @@ backend_grammar_generator = BackendGrammarGenerator(backend_manager)
 
 # Create FastAPI app
 app = FastAPI(
-    title="ORAC",
-    description="Omniscient Reactive Algorithmic Core - Web Interface and API",
-    version="0.2.0"
+    title=APIConfig.TITLE,
+    description=APIConfig.DESCRIPTION,
+    version=APIConfig.VERSION
 )
 
 # Add CORS middleware
@@ -526,7 +527,7 @@ async def get_status() -> Dict[str, Any]:
         return {
             "status": "ok",
             "models_available": len(models),
-            "version": "0.2.0"
+            "version": APIConfig.VERSION
         }
     except Exception as e:
         logger.error(f"Error getting status: {e}")
@@ -755,7 +756,7 @@ async def _generate_text_impl(request: GenerationRequest, topic_id: str = "gener
             top_p=top_p,
             top_k=top_k,
             max_tokens=max_tokens,
-            timeout=30,  # Set a 30-second timeout for the API endpoint
+            timeout=NetworkConfig.DEFAULT_TIMEOUT,
             json_mode=json_mode,
             grammar_file=grammar_file
         )
@@ -1181,9 +1182,9 @@ async def startup_event():
                     logger.info(f"Starting default model with default.gbnf grammar (static, not HA-generated): {grammar_file}")
                     await client._ensure_server_running(
                         model=favorites["default_model"],
-                        temperature=0.1,  # Use 0.1 for grammar-constrained generation
-                        top_p=0.9,
-                        top_k=10,
+                        temperature=ModelConfig.GRAMMAR_TEMPERATURE,
+                        top_p=ModelConfig.GRAMMAR_TOP_P,
+                        top_k=ModelConfig.GRAMMAR_TOP_K,
                         json_mode=True,
                         grammar_file=grammar_file
                     )
@@ -1194,9 +1195,9 @@ async def startup_event():
                         logger.info(f"Using fallback grammar: {fallback_grammar}")
                         await client._ensure_server_running(
                             model=favorites["default_model"],
-                            temperature=0.1,
-                            top_p=0.9,
-                            top_k=10,
+                            temperature=ModelConfig.GRAMMAR_TEMPERATURE,
+                            top_p=ModelConfig.GRAMMAR_TOP_P,
+                            top_k=ModelConfig.GRAMMAR_TOP_K,
                             json_mode=True,
                             grammar_file=fallback_grammar
                         )
@@ -1204,9 +1205,9 @@ async def startup_event():
                         logger.warning(f"Fallback grammar not found, starting with default JSON grammar")
                         await client._ensure_server_running(
                             model=favorites["default_model"],
-                            temperature=0.7,
-                            top_p=0.7,
-                            top_k=40,
+                            temperature=ModelConfig.DEFAULT_TEMPERATURE,
+                            top_p=ModelConfig.DEFAULT_TOP_P,
+                            top_k=ModelConfig.DEFAULT_TOP_K,
                             json_mode=True
                         )
                 logger.info("Default model loaded successfully")

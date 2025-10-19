@@ -5,6 +5,7 @@ from typing import Dict, Optional, Any
 from datetime import datetime
 import logging
 
+from orac.config import ModelConfig
 from orac.topic_models.topic import Topic, TopicSettings, GrammarConfig
 
 logger = logging.getLogger(__name__)
@@ -170,10 +171,10 @@ class TopicManager:
                 model="Qwen3-0.6B-Q8_0.gguf",  # Default model
                 settings=TopicSettings(
                     system_prompt="You are a helpful AI assistant.",
-                    temperature=0.7,
-                    top_p=0.9,
-                    top_k=40,
-                    max_tokens=500
+                    temperature=ModelConfig.DEFAULT_TEMPERATURE,
+                    top_p=ModelConfig.DEFAULT_TOP_P,
+                    top_k=ModelConfig.DEFAULT_TOP_K,
+                    max_tokens=ModelConfig.LONG_MAX_TOKENS
                 ),
                 grammar=GrammarConfig(enabled=False),
                 auto_discovered=False,
