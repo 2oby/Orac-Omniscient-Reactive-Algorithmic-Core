@@ -33,8 +33,6 @@ from orac.models import (
 # Add Home Assistant imports
 from orac.homeassistant.client import HomeAssistantClient
 from orac.homeassistant.config import HomeAssistantConfig
-from orac.homeassistant.mapping_config import EntityMappingConfig
-from orac.homeassistant.grammar_manager import HomeAssistantGrammarManager
 
 # Add Topic management imports
 from orac.topic_manager import TopicManager
@@ -427,9 +425,6 @@ client = None
 
 # Global Home Assistant components
 ha_client = None
-ha_mapping_config = None
-ha_grammar_manager = None
-ha_grammar_scheduler = None
 
 # Store for last command
 last_command_storage = {
@@ -464,37 +459,6 @@ async def get_ha_client() -> HomeAssistantClient:
         # Initialize the async context manager
         await ha_client.__aenter__()
     return ha_client
-
-async def get_ha_mapping_config() -> EntityMappingConfig:
-    """Get or create the Home Assistant mapping config instance."""
-    global ha_mapping_config
-    if ha_mapping_config is None:
-        logger.info("Initializing Home Assistant mapping config")
-        client = await get_ha_client()
-        ha_mapping_config = EntityMappingConfig(client=client)
-    return ha_mapping_config
-
-async def get_ha_grammar_manager() -> HomeAssistantGrammarManager:
-    """Get or create the Home Assistant grammar manager instance."""
-    global ha_grammar_manager
-    if ha_grammar_manager is None:
-        logger.info("Initializing Home Assistant grammar manager")
-        client = await get_ha_client()
-        mapping_config = await get_ha_mapping_config()
-        ha_grammar_manager = HomeAssistantGrammarManager(client=client, mapping_config=mapping_config)
-    return ha_grammar_manager
-
-async def get_ha_grammar_scheduler() -> 'GrammarScheduler':
-    """Get or create the Home Assistant grammar scheduler instance."""
-    global ha_grammar_scheduler
-    if ha_grammar_scheduler is None:
-        logger.info("Initializing Home Assistant grammar scheduler")
-        client = await get_ha_client()
-        mapping_config = await get_ha_mapping_config()
-        ha_grammar_manager = await get_ha_grammar_manager()
-        from .homeassistant.grammar_scheduler import GrammarScheduler
-        ha_grammar_scheduler = GrammarScheduler(ha_grammar_manager, mapping_config, client)
-    return ha_grammar_scheduler
 
 @app.get("/v1/status", tags=["System"])
 async def get_status() -> Dict[str, Any]:
@@ -557,24 +521,6 @@ async def unload_model(model_name: str) -> ModelUnloadResponse:
         return ModelUnloadResponse(**result)
     except Exception as e:
         logger.error(f"Error unloading model: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/v1/homeassistant/grammar/gbnf", tags=["Home Assistant"])
-async def generate_gbnf_grammar() -> Dict[str, Any]:
-    """Generate GBNF grammar file for Home Assistant commands."""
-    try:
-        grammar_manager = await get_ha_grammar_manager()
-        gbnf_content = await grammar_manager.generate_gbnf_grammar()
-        grammar_file_path = await grammar_manager.save_gbnf_grammar()
-        
-        return {
-            "status": "success",
-            "message": "GBNF grammar generated successfully",
-            "grammar_file": grammar_file_path,
-            "grammar_content": gbnf_content
-        }
-    except Exception as e:
-        logger.error(f"Error generating GBNF grammar: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/v1/generate/{topic}", response_model=GenerationResponse, tags=["Generation"])
@@ -911,202 +857,6 @@ async def get_homeassistant_cache_stats() -> Dict[str, Any]:
         logger.error(f"Error getting Home Assistant cache stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# New Home Assistant Mapping API Endpoints
-
-@app.get("/v1/homeassistant/mapping/list", tags=["Home Assistant"])
-async def list_entity_mappings() -> Dict[str, Any]:
-    """List all entity mappings."""
-    try:
-        mapping_config = await get_ha_mapping_config()
-        summary = mapping_config.get_entity_mapping_summary()
-        
-        # Get the actual mappings from the internal attribute
-        mappings = mapping_config._mappings
-        
-        return {
-            "status": "success",
-            "mappings": mappings,
-            "summary": summary
-        }
-    except Exception as e:
-        logger.error(f"Error listing entity mappings: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/v1/homeassistant/mapping/check-null", tags=["Home Assistant"])
-async def check_null_mappings() -> Dict[str, Any]:
-    """Check for entities that need friendly names (NULL mappings)."""
-    try:
-        mapping_config = await get_ha_mapping_config()
-        mappings = mapping_config._mappings
-        
-        null_entities = []
-        for entity_id, friendly_name in mappings.items():
-            if not friendly_name or friendly_name.lower() == 'null':
-                null_entities.append({
-                    "entity_id": entity_id,
-                    "current_name": friendly_name,
-                    "suggested_name": entity_id.replace('_', ' ').replace('.', ' ')
-                })
-        
-        return {
-            "status": "success",
-            "null_entities": null_entities,
-            "total_null_count": len(null_entities),
-            "total_entities": len(mappings)
-        }
-    except Exception as e:
-        logger.error(f"Error checking null mappings: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/v1/homeassistant/mapping/save", tags=["Home Assistant"])
-async def save_entity_mapping(entity_id: str, friendly_name: str) -> Dict[str, Any]:
-    """Save a single entity mapping."""
-    try:
-        mapping_config = await get_ha_mapping_config()
-        mapping_config.add_mapping(entity_id, friendly_name)
-        await mapping_config.save_mappings()
-        
-        return {
-            "status": "success",
-            "message": f"Mapping saved: {entity_id} -> {friendly_name}",
-            "entity_id": entity_id,
-            "friendly_name": friendly_name
-        }
-    except Exception as e:
-        logger.error(f"Error saving entity mapping: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.put("/v1/homeassistant/mapping/update", tags=["Home Assistant"])
-async def update_entity_mappings(mappings: Dict[str, str]) -> Dict[str, Any]:
-    """Update multiple entity mappings."""
-    try:
-        mapping_config = await get_ha_mapping_config()
-        
-        updated_count = 0
-        for entity_id, friendly_name in mappings.items():
-            mapping_config.add_mapping(entity_id, friendly_name)
-            updated_count += 1
-        
-        await mapping_config.save_mappings()
-        
-        return {
-            "status": "success",
-            "message": f"Updated {updated_count} mappings",
-            "updated_count": updated_count,
-            "mappings": mappings
-        }
-    except Exception as e:
-        logger.error(f"Error updating entity mappings: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/v1/homeassistant/mapping/auto-discover", tags=["Home Assistant"])
-async def run_auto_discovery() -> Dict[str, Any]:
-    """Run auto-discovery to find and map new entities."""
-    try:
-        mapping_config = await get_ha_mapping_config()
-        
-        # Run auto-discovery
-        await mapping_config.auto_discover_entities()
-        
-        # Get updated mappings
-        mappings = mapping_config.get_all_mappings()
-        
-        return {
-            "status": "success",
-            "message": "Auto-discovery completed",
-            "total_mappings": len(mappings),
-            "entities_with_friendly_names": len([m for m in mappings.values() if m and m.lower() != 'null']),
-            "entities_needing_names": len([m for m in mappings.values() if not m or m.lower() == 'null'])
-        }
-    except Exception as e:
-        logger.error(f"Error running auto-discovery: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/v1/homeassistant/grammar", tags=["Home Assistant"])
-async def get_grammar() -> Dict[str, Any]:
-    """Get current grammar rules.
-    
-    Note: This returns the HA-generated grammar for reference. For production use,
-    the system uses the static default.gbnf grammar file, not this dynamic one.
-    """
-    try:
-        grammar_manager = await get_ha_grammar_manager()
-        grammar = await grammar_manager.generate_grammar()
-        
-        return {
-            "status": "success",
-            "grammar": grammar,
-            "device_count": len(grammar.get("properties", {}).get("device", {}).get("enum", [])),
-            "action_count": len(grammar.get("properties", {}).get("action", {}).get("enum", [])),
-            "location_count": len(grammar.get("properties", {}).get("location", {}).get("enum", []))
-        }
-    except Exception as e:
-        logger.error(f"Error getting grammar: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/v1/homeassistant/grammar/update", tags=["Home Assistant"])
-async def update_grammar(force: bool = False) -> Dict[str, Any]:
-    """Update grammar rules with latest Home Assistant data and validation."""
-    try:
-        # Get the grammar scheduler
-        scheduler = await get_ha_grammar_scheduler()
-        
-        # Run update with validation
-        result = await scheduler.update_grammar_with_validation(force_update=force)
-        
-        if result["status"] == "error":
-            raise HTTPException(status_code=500, detail=result["message"])
-        
-        return result
-    except Exception as e:
-        logger.error(f"Error updating grammar: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/v1/homeassistant/grammar/scheduler/status", tags=["Home Assistant"])
-async def get_grammar_scheduler_status() -> Dict[str, Any]:
-    """Get grammar scheduler status."""
-    try:
-        scheduler = await get_ha_grammar_scheduler()
-        return {
-            "status": "success",
-            "scheduler_status": scheduler.get_status()
-        }
-    except Exception as e:
-        logger.error(f"Error getting scheduler status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/v1/homeassistant/grammar/scheduler/start", tags=["Home Assistant"])
-async def start_grammar_scheduler() -> Dict[str, Any]:
-    """Start the grammar scheduler."""
-    try:
-        scheduler = await get_ha_grammar_scheduler()
-        await scheduler.start_scheduler()
-        
-        return {
-            "status": "success",
-            "message": "Grammar scheduler started",
-            "scheduler_status": scheduler.get_status()
-        }
-    except Exception as e:
-        logger.error(f"Error starting scheduler: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/v1/homeassistant/grammar/scheduler/stop", tags=["Home Assistant"])
-async def stop_grammar_scheduler() -> Dict[str, Any]:
-    """Stop the grammar scheduler."""
-    try:
-        scheduler = await get_ha_grammar_scheduler()
-        await scheduler.stop_scheduler()
-        
-        return {
-            "status": "success",
-            "message": "Grammar scheduler stopped",
-            "scheduler_status": scheduler.get_status()
-        }
-    except Exception as e:
-        logger.error(f"Error stopping scheduler: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.on_event("startup")
 async def startup_event():
     """Initialize the API on startup."""
@@ -1159,15 +909,7 @@ async def startup_event():
                 logger.info("Default model loaded successfully")
             except Exception as e:
                 logger.error(f"Failed to load default model: {e}")
-        
-        # Start the grammar scheduler for daily updates
-        try:
-            scheduler = await get_ha_grammar_scheduler()
-            await scheduler.start_scheduler()
-            logger.info("Grammar scheduler started successfully")
-        except Exception as e:
-            logger.error(f"Failed to start grammar scheduler: {e}")
-            # Don't fail startup if scheduler fails
+
     except Exception as e:
         logger.error(f"Error during startup: {e}")
         raise
@@ -1175,7 +917,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up resources on shutdown."""
-    global client, ha_client, ha_grammar_scheduler
+    global client, ha_client
     if client:
         try:
             await client.cleanup()
@@ -1188,14 +930,6 @@ async def shutdown_event():
             await ha_client.__aexit__(None, None, None)
         except Exception as e:
             logger.error(f"Error during HA client shutdown: {e}")
-    
-    # Stop grammar scheduler
-    if ha_grammar_scheduler:
-        try:
-            await ha_grammar_scheduler.stop_scheduler()
-            logger.info("Grammar scheduler stopped")
-        except Exception as e:
-            logger.error(f"Error stopping grammar scheduler: {e}")
 
 # Web interface routes
 @app.get("/", response_class=HTMLResponse)
