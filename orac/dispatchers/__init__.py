@@ -6,6 +6,5 @@ through different systems (Home Assistant, etc.)
 """
 
 from .base import BaseDispatcher
-from .registry import dispatcher_registry
 
-__all__ = ['BaseDispatcher', 'dispatcher_registry']
+__all__ = ['BaseDispatcher']

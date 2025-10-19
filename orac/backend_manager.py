@@ -13,7 +13,6 @@ from orac.config import NetworkConfig
 from orac.homeassistant.client import HomeAssistantClient
 from orac.homeassistant.config import HomeAssistantConfig
 
-# Sprint 5: Import new backend factory
 from orac.backends.backend_factory import BackendFactory
 from orac.backends.abstract_backend import AbstractBackend
 
@@ -106,7 +105,7 @@ class BackendManager:
 
             logger.info(f"Saved backend {backend_id} to {backend_file}")
 
-            # Sprint 4: Auto-regenerate grammar when backend device mappings change
+            # Auto-regenerate grammar when backend device mappings change
             try:
                 from orac.backend_grammar_generator import BackendGrammarGenerator
                 grammar_generator = BackendGrammarGenerator(str(self.data_dir))
@@ -191,9 +190,9 @@ class BackendManager:
         return self.backends.get(backend_id)
 
     def create_backend_instance(self, backend_id: str) -> Optional[AbstractBackend]:
-        """Sprint 5: Create a backend instance using the new backend factory
+        """Create a backend instance using the backend factory.
 
-        This creates an instance of the appropriate backend class (e.g., HomeAssistantBackend)
+        Creates an instance of the appropriate backend class (e.g., HomeAssistantBackend)
         which encapsulates the dispatcher internally.
 
         Args:
@@ -216,7 +215,7 @@ class BackendManager:
                 'type': backend_config.get('type'),
                 'enabled': backend_config.get('enabled', True),
                 'device_mappings': backend_config.get('device_mappings', {}),
-                'devices': backend_config.get('devices', [])  # Sprint 5: Pass devices for mapping
+                'devices': backend_config.get('devices', [])
             }
 
             # Map connection details based on backend type
@@ -228,7 +227,7 @@ class BackendManager:
                     'verify_ssl': connection.get('verify_ssl', False)
                 }
 
-            # Sprint 5: If dispatcher_type was stored (from migration), include it
+            # If dispatcher_type was stored (from legacy migration), include it
             if 'dispatcher_type' in backend_config:
                 transformed_config['dispatcher_type'] = backend_config['dispatcher_type']
 

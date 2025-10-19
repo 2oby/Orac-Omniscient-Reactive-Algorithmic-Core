@@ -67,8 +67,7 @@ async def receive_heartbeat(request: HeartbeatRequest):
                 topic = topic_manager.auto_discover_topic(topic_id)
                 topics_created += 1
 
-            # Sprint 5: Update ONLY heartbeat fields, preserve all other configuration
-            # Use update_heartbeat method instead of direct modification
+            # Update only heartbeat fields, preserve all other configuration
             topic_manager.update_topic_heartbeat(
                 topic_id,
                 heartbeat_status=topic_hb.status,
@@ -79,8 +78,8 @@ async def receive_heartbeat(request: HeartbeatRequest):
             
             topics_processed += 1
 
-        # Sprint 5: Removed save_topics() - update_topic_heartbeat already saves
-        
+        # Note: update_topic_heartbeat already saves changes
+
         return HeartbeatResponse(
             status="ok",
             topics_processed=topics_processed,

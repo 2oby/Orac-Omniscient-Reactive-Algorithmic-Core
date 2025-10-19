@@ -47,7 +47,7 @@ class HomeAssistantDispatcher(BaseDispatcher):
         if not self.ha_token:
             self.ha_token = os.getenv('HA_TOKEN', '')
 
-        # Sprint 5: Store device mappings from backend config
+        # Store device mappings from backend config
         self.device_mappings = config.get('device_mappings', {}) if config else {}
         logger.debug(f"HomeAssistantDispatcher initialized with {len(self.device_mappings)} device mappings")
 
@@ -120,7 +120,7 @@ class HomeAssistantDispatcher(BaseDispatcher):
                     'error': f'Unknown action: {action}'
                 }
 
-            # Sprint 5: Try device_mappings from backend config first
+            # Try device_mappings from backend config first
             entity_id = None
             mapping_source = "unmapped"
 

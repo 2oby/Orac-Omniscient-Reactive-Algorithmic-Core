@@ -29,8 +29,7 @@ class Topic(BaseModel):
     settings: TopicSettings = Field(default_factory=TopicSettings, description="Generation settings")
     grammar: GrammarConfig = Field(default_factory=GrammarConfig, description="Grammar configuration (deprecated - use backend_id)")
 
-    # Backend integration (Sprint 4 & 5)
-    # Sprint 5: Backend now encapsulates dispatcher internally - no separate dispatcher field needed
+    # Backend integration - backend encapsulates dispatcher internally
     backend_id: Optional[str] = Field(default=None, description="Linked backend for grammar generation and command execution")
     
     # Tracking fields

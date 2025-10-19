@@ -1,7 +1,7 @@
 """Backend implementations for ORAC Core.
 
-Sprint 5: Backends now encapsulate dispatchers internally.
-Each backend type manages its own dispatcher for command execution.
+Backends encapsulate dispatchers internally - each backend type manages
+its own dispatcher for command execution.
 """
 
 from .abstract_backend import AbstractBackend

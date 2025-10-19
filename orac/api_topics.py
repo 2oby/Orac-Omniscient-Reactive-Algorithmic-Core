@@ -27,7 +27,7 @@ class TopicCreateRequest(BaseModel):
     model: str
     settings: Dict[str, Any] = {}
     grammar: Dict[str, Any] = {}
-    backend_id: str = None  # Sprint 5: Backends handle dispatching internally
+    backend_id: str = None
     enabled: bool = True
 
 
@@ -38,7 +38,7 @@ class TopicUpdateRequest(BaseModel):
     model: str
     settings: Dict[str, Any]
     grammar: Dict[str, Any]
-    backend_id: str = None  # Sprint 4 & 5: Backend linkage (now includes dispatching)
+    backend_id: str = None
     enabled: bool
 
 
@@ -51,7 +51,7 @@ class TopicResponse(BaseModel):
     model: str
     settings: Dict[str, Any]
     grammar: Dict[str, Any]
-    backend_id: str = None  # Sprint 4 & 5: Backend linkage (now includes dispatching)
+    backend_id: str = None
     auto_discovered: bool
     first_seen: str = None
     last_used: str = None
@@ -131,7 +131,7 @@ async def get_topic(topic_id: str):
         if topic_dict.get('last_used'):
             topic_dict['last_used'] = topic_dict['last_used'].isoformat()
 
-        # Sprint 5: Filter out fields not in TopicResponse (heartbeat fields, etc.)
+        # Filter out heartbeat fields not in TopicResponse
         response_fields = ['name', 'description', 'enabled', 'model', 'settings',
                           'grammar', 'backend_id', 'auto_discovered', 'first_seen', 'last_used']
         filtered_dict = {k: v for k, v in topic_dict.items() if k in response_fields}
@@ -163,7 +163,7 @@ async def create_topic(topic_id: str, request: TopicCreateRequest):
         if topic_dict.get('last_used'):
             topic_dict['last_used'] = topic_dict['last_used'].isoformat()
 
-        # Sprint 5: Filter out fields not in TopicResponse (heartbeat fields, etc.)
+        # Filter out heartbeat fields not in TopicResponse
         response_fields = ['name', 'description', 'enabled', 'model', 'settings',
                           'grammar', 'backend_id', 'auto_discovered', 'first_seen', 'last_used']
         filtered_dict = {k: v for k, v in topic_dict.items() if k in response_fields}
@@ -196,7 +196,7 @@ async def update_topic(topic_id: str, request: TopicUpdateRequest):
         if topic_dict.get('last_used'):
             topic_dict['last_used'] = topic_dict['last_used'].isoformat()
 
-        # Sprint 5: Filter out fields not in TopicResponse (heartbeat fields, etc.)
+        # Filter out heartbeat fields not in TopicResponse
         response_fields = ['name', 'description', 'enabled', 'model', 'settings',
                           'grammar', 'backend_id', 'auto_discovered', 'first_seen', 'last_used']
         filtered_dict = {k: v for k, v in topic_dict.items() if k in response_fields}
@@ -228,7 +228,7 @@ async def delete_topic(topic_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Sprint 4: Topic-Backend Integration Endpoints
+# Topic-Backend Integration Endpoints
 
 class BackendLinkRequest(BaseModel):
     """Request model for linking a topic to a backend"""

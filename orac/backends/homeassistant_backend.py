@@ -1,7 +1,7 @@
 """Home Assistant backend implementation with integrated dispatcher.
 
-Sprint 5: The dispatcher is now encapsulated within the backend.
-Users only need to configure the backend, not the dispatcher.
+The dispatcher is encapsulated within the backend - users only need to
+configure the backend, not the dispatcher separately.
 """
 
 import logging
@@ -10,7 +10,6 @@ from .abstract_backend import AbstractBackend
 from orac.config import NetworkConfig
 from orac.homeassistant.client import HomeAssistantClient
 from orac.dispatchers.homeassistant import HomeAssistantDispatcher
-# Sprint 5: Grammar generator optional - focusing on dispatcher functionality
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +37,7 @@ class HomeAssistantBackend(AbstractBackend):
         # Build device_mappings from devices list for dispatcher
         self._build_device_mappings()
 
-        # Sprint 5: Dispatcher is now internal!
-        # Users no longer need to configure this separately
-        # Pass the HA URL and token to the dispatcher
+        # Dispatcher is internal - pass HA URL and token
         ha_config = self.config.get('homeassistant', {})
         dispatcher_config = {
             'ha_url': ha_config.get('url', 'http://localhost:8123'),
@@ -152,8 +149,7 @@ class HomeAssistantBackend(AbstractBackend):
                     'metadata': {'error': 'No device mappings configured'}
                 }
 
-            # Sprint 5: Grammar generation is optional - focus on dispatcher functionality
-            # For now, return a basic structure
+            # Grammar generation not yet implemented - return basic structure
             logger.info(f"Grammar generation not yet implemented for backend '{self.name}'")
             grammar_result = {
                 'grammar': '',
@@ -185,8 +181,8 @@ class HomeAssistantBackend(AbstractBackend):
     async def dispatch_command(self, command: Dict, context: Optional[Dict] = None) -> Dict:
         """Execute command through internal Home Assistant dispatcher.
 
-        Sprint 5: This replaces the need for separate dispatcher configuration.
-        The dispatcher is now an internal implementation detail.
+        The dispatcher is an internal implementation detail - no separate
+        dispatcher configuration needed.
 
         Args:
             command: The parsed command dictionary from LLM
@@ -286,7 +282,7 @@ class HomeAssistantBackend(AbstractBackend):
         stats = {
             'status': 'active' if self.enabled else 'disabled',
             'device_count': len(device_mappings),
-            'dispatcher_type': 'homeassistant (internal)',  # Sprint 5: Show it's internal
+            'dispatcher_type': 'homeassistant (internal)',
             'backend_type': 'homeassistant',
             'metrics': {
                 'entities_cached': len(self._entities_cache),

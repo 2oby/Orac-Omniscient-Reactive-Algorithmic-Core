@@ -1,7 +1,7 @@
 """Factory for creating backend instances.
 
-Sprint 5: Backends now encapsulate dispatchers internally.
-The factory creates the appropriate backend type based on configuration.
+Backends encapsulate dispatchers internally. The factory creates the
+appropriate backend type based on configuration.
 """
 
 import logging

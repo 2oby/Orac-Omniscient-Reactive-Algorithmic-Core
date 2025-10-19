@@ -1,7 +1,7 @@
 """Abstract base class for all backend implementations.
 
-Sprint 5: Backends now encapsulate dispatchers internally.
-Each backend type manages its own dispatcher for command execution.
+Backends encapsulate dispatchers internally - each backend type manages
+its own dispatcher for command execution.
 """
 
 from abc import ABC, abstractmethod

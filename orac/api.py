@@ -39,12 +39,7 @@ from orac.homeassistant.grammar_manager import HomeAssistantGrammarManager
 # Add Topic management imports
 from orac.topic_manager import TopicManager
 from orac.api_topics import router as topics_router
-from orac.homeassistant.ha_executor import HAExecutor
 from orac.api_heartbeat import router as heartbeat_router
-
-# Add Dispatcher imports
-# Sprint 5: Dispatcher registry no longer needed - backends handle dispatching internally
-# from orac.dispatchers import dispatcher_registry
 
 # Add Backend Manager import
 from orac.backend_manager import BackendManager
@@ -57,9 +52,6 @@ logger = get_logger(__name__)
 
 # Initialize topic manager
 topic_manager = TopicManager()
-
-# Initialize HA executor
-ha_executor = HAExecutor()
 
 # Initialize backend manager
 backend_manager = BackendManager()
@@ -97,20 +89,6 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # Include routers
 app.include_router(topics_router)
 app.include_router(heartbeat_router)
-
-# Dispatcher endpoints
-@app.get("/v1/dispatchers", tags=["Dispatchers"])
-async def list_dispatchers() -> Dict[str, Any]:
-    """List all available dispatchers."""
-    try:
-        dispatchers = dispatcher_registry.list_available()
-        return {
-            "status": "success",
-            "dispatchers": dispatchers
-        }
-    except Exception as e:
-        logger.error(f"Error listing dispatchers: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 # Backend Management endpoints
 @app.post("/api/backends", tags=["Backends"])
@@ -372,7 +350,7 @@ async def get_backend_mappings(backend_id: str, enabled: bool = None) -> Dict[st
         logger.error(f"Error getting mappings: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Backend Grammar Generation endpoints (Sprint 3)
+# Backend Grammar Generation endpoints
 @app.post("/api/backends/{backend_id}/grammar/generate", tags=["Backends"])
 async def generate_backend_grammar(backend_id: str) -> Dict[str, Any]:
     """Generate GBNF grammar from backend device mappings."""
@@ -663,7 +641,7 @@ async def _generate_text_impl(request: GenerationRequest, topic_id: str = "gener
         ha_keywords = ["turn on", "turn off", "light", "switch", "thermostat", "bedroom", "kitchen"]
         is_ha_command = any(keyword in request.prompt.lower() for keyword in ha_keywords)
         
-        # Sprint 4: Check for backend-linked grammar first
+        # Check for backend-linked grammar first
         grammar_file = request.grammar_file  # Use grammar_file from request first
 
         if not grammar_file and topic.backend_id:
@@ -779,7 +757,7 @@ async def _generate_text_impl(request: GenerationRequest, topic_id: str = "gener
                     if not response_text.endswith('}'):
                         response_text += '}'
         
-        # Sprint 5: Check if topic has a backend for command execution
+        # Check if topic has a backend for command execution
         backend_result = None
         if topic.backend_id and response_text:
             try:
@@ -793,8 +771,7 @@ async def _generate_text_impl(request: GenerationRequest, topic_id: str = "gener
                     parsed_json = None
 
                 if parsed_json:
-                    # Sprint 5: Get the backend instance from BackendManager
-                    # The backend encapsulates the dispatcher internally
+                    # Get backend instance (backend encapsulates dispatcher internally)
                     backend = backend_manager.create_backend_instance(topic.backend_id)
 
                     if backend:
@@ -818,38 +795,7 @@ async def _generate_text_impl(request: GenerationRequest, topic_id: str = "gener
                 logger.error(f"Failed to execute through backend: {e}")
                 last_command_storage["error"] = str(e)
                 last_command_storage["success"] = False
-        
-        # Legacy: If this is a home_assistant topic and no backend, use old HA executor
-        ha_result = None
-        if topic_id == "home_assistant" and response_text and not topic.backend_id:
-            try:
-                import json
-                parsed_json = json.loads(response_text)
-                last_command_storage["generated_json"] = parsed_json
-                
-                # Execute the command via HA executor
-                logger.info(f"Executing HA command (legacy): {parsed_json}")
-                ha_result = await ha_executor.execute_json_command(parsed_json)
-                
-                # Store HA execution details
-                last_command_storage["ha_request"] = ha_result.get("ha_request")
-                last_command_storage["ha_response"] = ha_result.get("ha_response")
-                last_command_storage["error"] = ha_result.get("error")
-                last_command_storage["success"] = ha_result.get("success", False)
-                
-                if ha_result.get("error"):
-                    logger.error(f"HA execution failed: {ha_result['error']}")
-                else:
-                    logger.info(f"HA execution successful")
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse generated JSON: {e}")
-                last_command_storage["error"] = f"Invalid JSON: {str(e)}"
-                last_command_storage["success"] = False
-            except Exception as e:
-                logger.error(f"Failed to execute HA command: {e}")
-                last_command_storage["error"] = str(e)
-                last_command_storage["success"] = False
-        
+
         return GenerationResponse(
             status="success",
             response=response_text,

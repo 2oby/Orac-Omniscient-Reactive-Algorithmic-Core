@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class TopicManager:
-    """Manages topic configurations and operations
+    """Manages topic configurations and operations.
 
-    Sprint 5: Implemented as a singleton to ensure all modules use the same instance.
-    This prevents the heartbeat from reloading topics from disk and overwriting changes.
+    Implemented as a singleton to ensure all modules use the same instance.
+    This prevents the heartbeat from reloading topics and overwriting changes.
     """
 
     _instance = None
@@ -33,7 +33,7 @@ class TopicManager:
         Args:
             data_dir: Directory to store topic configurations
         """
-        # Sprint 5: Only initialize once for singleton
+        # Only initialize once for singleton
         if TopicManager._initialized:
             return
         TopicManager._initialized = True
@@ -63,9 +63,9 @@ class TopicManager:
         self._ensure_default_topic()
     
     def _normalize_topic_id(self, topic_id: str) -> str:
-        """Normalize topic ID to lowercase for consistent handling.
+        """Normalize topic ID to lowercase for case-insensitive handling.
 
-        Sprint 5: Case-insensitive topic handling to prevent duplicates.
+        This prevents duplicate topics with different casing.
         """
         return topic_id.lower()
 
@@ -87,13 +87,13 @@ class TopicManager:
                 
                 self.topics = {}
                 for topic_id, topic_data in topics_data.items():
-                    # Sprint 5: Normalize topic_id to lowercase for case-insensitive handling
+                    # Normalize to lowercase for case-insensitive handling
                     normalized_id = self._normalize_topic_id(topic_id)
                     try:
-                        # Sprint 5 Migration: Remove dispatcher field and store for backend migration
+                        # Legacy migration: Remove dispatcher field (backends handle dispatching)
                         if 'dispatcher' in topic_data and topic_data['dispatcher']:
                             dispatcher_type = topic_data['dispatcher']
-                            logger.info(f"Sprint 5 Migration: Topic {topic_id} has dispatcher '{dispatcher_type}' - will migrate to backend")
+                            logger.info(f"Legacy migration: Topic {topic_id} has dispatcher '{dispatcher_type}' - will migrate to backend")
 
                             # If topic has a backend_id, update the backend to know its dispatcher type
                             if topic_data.get('backend_id'):
@@ -136,8 +136,7 @@ class TopicManager:
             topics_data = {}
             for topic_id, topic in self.topics.items():
                 topic_dict = topic.dict()
-                # Sprint 5: Dispatcher field removed - backends handle dispatching internally
-                
+
                 # Convert datetime objects to ISO format strings
                 if topic_dict.get('first_seen'):
                     topic_dict['first_seen'] = topic_dict['first_seen'].isoformat()
@@ -245,7 +244,6 @@ class TopicManager:
         
         # Log incoming data
         logger.info(f"update_topic received data for {topic_id}: {topic_data}")
-        # Sprint 5: Dispatcher field removed - backends handle dispatching internally
 
         # Preserve metadata fields
         existing_topic = self.topics[normalized_id]
@@ -258,7 +256,6 @@ class TopicManager:
         # Update the topic
         new_topic = Topic(**topic_data)
 
-        # Sprint 5: Log backend_id instead of dispatcher
         logger.info(f"Created Topic instance - backend_id: {new_topic.backend_id}")
 
         self.topics[normalized_id] = new_topic
@@ -278,9 +275,9 @@ class TopicManager:
                               trigger_count: int = None) -> None:
         """Update ONLY heartbeat-related fields of a topic (case-insensitive).
 
-        Sprint 5: This method preserves all topic configuration and only updates
-        heartbeat tracking fields. This prevents the heartbeat system from
-        overwriting backend_id and other important configuration.
+        This method preserves all topic configuration and only updates heartbeat
+        tracking fields. This prevents the heartbeat system from overwriting
+        backend_id and other important configuration.
 
         Args:
             topic_id: Topic identifier

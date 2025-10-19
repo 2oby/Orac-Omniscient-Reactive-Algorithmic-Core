@@ -1,11 +1,11 @@
 """
-Backend Grammar Generator for Sprint 3.
+Backend Grammar Generator.
 
-This module generates GBNF grammars dynamically from Backend device mappings
-created in Sprint 2. It constraints the LLM to only output JSON for devices
-the user has actually enabled and configured.
+This module generates GBNF grammars dynamically from Backend device mappings.
+It constrains the LLM to only output JSON for devices the user has actually
+enabled and configured.
 
-The key concept: If user only configured a light in the lounge and heating
+The key concept: If a user only configured a light in the lounge and heating
 in the bedroom, the grammar should ONLY allow those combinations and block
 everything else.
 """
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class BackendGrammarGenerator:
-    """Generates GBNF grammars from Sprint 2 backend device mappings."""
+    """Generates GBNF grammars from backend device mappings."""
 
     def __init__(self, backend_manager, data_dir: str = None):
         """Initialize the grammar generator.
