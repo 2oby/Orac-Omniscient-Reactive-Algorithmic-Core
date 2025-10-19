@@ -231,16 +231,25 @@ curl http://192.168.8.192:8000/api/backends/homeassistant_8ca84424/grammar
 
 ### Sprint 4: Duplicate Code & Refactoring (3-4 days)
 
-**Goal:** Eliminate code duplication and improve code reuse.
+**Goal:** Eliminate code duplication, improve code reuse, and fix bugs discovered in Sprint 2.
 
 **Current Issues:**
 - **TIMEZONE BUG:** Docker container logs in UTC, needs CET (Central European Time) for easier debugging
+- **BUG (Sprint 2):** BackendManager.auto_regenerate_grammar() passes string instead of BackendManager instance to BackendGrammarGenerator
+- **BUG (Sprint 2):** Generation endpoint sometimes returns "No response generated" - investigate llama.cpp client response handling
 - HomeAssistant connection setup duplicated in multiple files
 - URL parsing logic repeated
 - Error handling patterns duplicated
 - Similar validation logic scattered
 
 **Tasks:**
+
+4.0. **FIX: Bugs discovered during Sprint 2**
+- Fix BackendManager.auto_regenerate_grammar() to properly instantiate BackendGrammarGenerator with backend_manager instance
+- Investigate and fix "No response generated" issue in generation endpoint
+- Add error handling and logging around response text extraction
+- Test generation endpoints thoroughly after fixes
+- **Priority:** HIGH - Core functionality affected
 
 4.1. **FIX: Configure timezone to CET (Central European Time)**
 - Update Docker container to use CET timezone
@@ -659,9 +668,9 @@ All work happens on the `cleanup/productionization` branch until complete, then 
 | Sprint | Status | Completion Date | Notes |
 |--------|--------|-----------------|-------|
 | Sprint 1: Configuration | ✅ Completed | 2025-10-19 | Tag: `sprint1-before-legacy-removal`, all magic numbers replaced |
-| Sprint 2: API Decomposition | Not Started | - | - |
-| Sprint 3: Code Cleanup | 🟡 Ready | - | Detailed plan in `sprint_3_detailed.md` |
-| Sprint 4: Duplicate Code | Not Started | - | - |
+| Sprint 2: API Decomposition | ✅ Completed | 2025-10-19 | Refactored 995-line api.py into modular structure with routes and services |
+| Sprint 3: Code Cleanup | ✅ Completed | 2025-10-19 | Removed 2,180 lines of legacy code across 28 files |
+| Sprint 4: Duplicate Code | 🟡 Ready | - | Includes bug fixes from Sprint 2 |
 | Sprint 5: Type Hints | Not Started | - | - |
 | Sprint 6: Architecture | Not Started | - | - |
 | Sprint 7: Performance | Not Started | - | - |
