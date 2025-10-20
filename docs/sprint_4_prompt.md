@@ -29,6 +29,55 @@ You are working on the ORAC (Omniscient Reactive Algorithmic Core) project. We'v
 5. **Standardize error responses**
 6. **Consolidate logging setup**
 
+## Sprint 4 Progress (Updated 2025-10-20)
+
+### ✅ COMPLETED
+
+**Task 4.0: Bug Fixes (HIGH PRIORITY)**
+- ✅ **Bug 1 Fixed** - `backend_manager.py:111` - Fixed BackendGrammarGenerator instantiation
+  - Changed: `BackendGrammarGenerator(str(self.data_dir))` → `BackendGrammarGenerator(self, str(self.data_dir))`
+  - Verified: Logs show "Grammar regenerated successfully" - no more 'str' object error
+  - Commit: `898706e`
+
+- ✅ **Bug 2 Improved** - `llama_cpp_client.py:585-596` - Enhanced response logging and extraction
+  - Added debug logging to inspect full server responses
+  - Added fallback to check multiple response fields (`content`, `text`, `completion`)
+  - Will help diagnose empty response issues
+  - Commit: `898706e`
+
+**Task 4.1: Timezone to CET (HIGH PRIORITY)**
+- ✅ **Dockerfile Updated** - `Dockerfile:16-25`
+  - Added tzdata package installation
+  - Configured timezone to Europe/Amsterdam (CET/CEST)
+  - Set TZ environment variable
+  - Verified: Container now shows `CEST 2025` timestamps ✅
+  - Commit: `898706e`
+
+**Deployment Infrastructure**
+- ✅ **Enhanced deploy_and_test.sh**
+  - Added `--rebuild` flag for Dockerfile changes
+  - Fixed git pull conflicts with `git reset --hard origin/branch`
+  - GitHub enforced as single source of truth
+  - Commit: `898706e`
+
+- ✅ **Fixed Import Issues**
+  - Removed stale `grammar_manager` import from `orac/homeassistant/__init__.py`
+  - Commit: `586c1de`
+
+### 🔄 IN PROGRESS / REMAINING
+
+**Task 4.2: Extract HomeAssistant Client Creation** - NOT STARTED
+
+**Task 4.3: Create Common Utilities** - NOT STARTED
+
+**Task 4.4: Standardize Error Responses** - NOT STARTED
+
+**Task 4.5: Extract Repeated Patterns** - NOT STARTED
+
+**Task 4.6: Consolidate Logging Setup** - NOT STARTED
+
+**Final Testing** - PENDING
+
 ## Tasks (in order of priority)
 
 ### Task 4.0: Fix Bugs Discovered in Sprint 2 (HIGH PRIORITY)
