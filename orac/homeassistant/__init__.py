@@ -13,7 +13,6 @@ This module provides:
 from .client import HomeAssistantClient
 from .models import HomeAssistantEntity, HomeAssistantService
 from .config import HomeAssistantConfig
-from .grammar_manager import HomeAssistantGrammarManager
 from .cache import HomeAssistantCache
 
 __version__ = "0.1.0"
@@ -23,6 +22,5 @@ __all__ = [
     'HomeAssistantEntity',
     'HomeAssistantService',
     'HomeAssistantConfig',
-    'HomeAssistantGrammarManager',
     'HomeAssistantCache'
 ] 
