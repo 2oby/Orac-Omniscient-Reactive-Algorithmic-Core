@@ -583,8 +583,18 @@ class LlamaCppClient:
                         raise Exception(f"Server error: {error_text}")
                     
                     result = await response.json()
-                    response_text = result.get("content", "")
-                    
+
+                    # Log the full result for debugging
+                    logger.debug(f"Server response result: {result}")
+
+                    # Try multiple fields for response text (different llama-server versions use different field names)
+                    response_text = result.get("content") or result.get("text") or result.get("completion") or ""
+
+                    # Log if content is empty
+                    if not response_text:
+                        logger.warning(f"Empty content in server response. Full result keys: {result.keys()}")
+                        logger.warning(f"Full result: {result}")
+
                     # Clean up the response
                     response_text = response_text.strip()
 

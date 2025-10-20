@@ -108,7 +108,7 @@ class BackendManager:
             # Auto-regenerate grammar when backend device mappings change
             try:
                 from orac.backend_grammar_generator import BackendGrammarGenerator
-                grammar_generator = BackendGrammarGenerator(str(self.data_dir))
+                grammar_generator = BackendGrammarGenerator(self, str(self.data_dir))
 
                 # Check if any devices are configured
                 backend = self.backends[backend_id]

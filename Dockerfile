@@ -13,8 +13,16 @@ RUN --mount=type=cache,target=/var/cache/apt \
     apt-get install -y --no-install-recommends \
     python3 python3-pip python3-dev \
     libgomp1 \
+    tzdata \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Configure timezone to CET (Central European Time)
+RUN ln -fs /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime && \
+    dpkg-reconfigure -f noninteractive tzdata
+
+# Set timezone environment variable
+ENV TZ=Europe/Amsterdam
 
 # Create a non-root user that can be overridden at runtime
 RUN groupadd -r orac && useradd -r -g orac -u 1000 orac
