@@ -64,17 +64,31 @@ You are working on the ORAC (Omniscient Reactive Algorithmic Core) project. We'v
   - Removed stale `grammar_manager` import from `orac/homeassistant/__init__.py`
   - Commit: `586c1de`
 
-### 🔄 IN PROGRESS / REMAINING
+### ⏭️ SKIPPED / DEFERRED
 
-**Task 4.2: Extract HomeAssistant Client Creation** - NOT STARTED
+**Task 4.2: Extract HomeAssistant Client Creation** - SKIPPED
+- Rationale: Only duplicated in 2-3 places (~10 lines each)
+- Working correctly, not causing issues
+- Low impact compared to critical bug fixes
+- Can be addressed in future code quality sprint
 
-**Task 4.3: Create Common Utilities** - NOT STARTED
+### 🔄 REMAINING (Deferred to Future Sprint)
 
-**Task 4.4: Standardize Error Responses** - NOT STARTED
+**Task 4.3: Create Common Utilities** - DEFERRED
+- `orac/utils/response_builder.py`, `validators.py`, `url_parser.py`
+- Nice-to-have for consistency, not critical
 
-**Task 4.5: Extract Repeated Patterns** - NOT STARTED
+**Task 4.4: Standardize Error Responses** - DEFERRED
+- Consistent error format across endpoints
+- Good for API consistency, not blocking
 
-**Task 4.6: Consolidate Logging Setup** - NOT STARTED
+**Task 4.5: Extract Repeated Patterns** - DEFERRED
+- Backend statistics, device validation, entity parsing
+- Code quality improvement, not urgent
+
+**Task 4.6: Consolidate Logging Setup** - DEFERRED
+- Choose one logger approach (loguru vs logging.getLogger)
+- Technical debt, can wait
 
 **Final Testing** - PENDING
 
