@@ -12,8 +12,25 @@ echo "========================================="
 echo "ORAC Deploy and Test"
 echo "========================================="
 
-# Get commit message from command line or use default
-COMMIT_MSG="${1:-Code updates $(date +%Y%m%d_%H%M%S)}"
+# Parse arguments
+REBUILD=false
+COMMIT_MSG=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --rebuild)
+            REBUILD=true
+            shift
+            ;;
+        *)
+            COMMIT_MSG="$1"
+            shift
+            ;;
+    esac
+done
+
+# Use default commit message if not provided
+COMMIT_MSG="${COMMIT_MSG:-Code updates $(date +%Y%m%d_%H%M%S)}"
 
 # Create timestamp for this deployment
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -100,10 +117,21 @@ docker cp orac/templates/. orac:/app/orac/templates/
 echo "Files copied to Docker container"
 EOF
 
-# Restart the container
+# Rebuild and restart the container
 echo ""
-echo "Restarting ORAC container..."
-ssh orin4 "docker restart orac"
+if [ "$REBUILD" = true ]; then
+    echo "Rebuilding Docker image..."
+    ssh orin4 << EOF
+cd /home/toby/ORAC
+docker compose down
+docker compose build
+docker compose up -d
+EOF
+    echo "Container rebuilt and started"
+else
+    echo "Restarting ORAC container..."
+    ssh orin4 "docker restart orac"
+fi
 
 echo "Waiting for container to restart..."
 sleep 5
