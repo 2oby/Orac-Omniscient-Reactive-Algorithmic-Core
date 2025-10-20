@@ -87,7 +87,10 @@ git fetch origin
 # Checkout and pull the current branch
 echo "Switching to branch: $CURRENT_BRANCH"
 git checkout "$CURRENT_BRANCH" 2>/dev/null || git checkout -b "$CURRENT_BRANCH" origin/"$CURRENT_BRANCH"
-git pull origin "$CURRENT_BRANCH"
+
+# Reset to match origin (GitHub is source of truth)
+echo "Resetting to match origin/$CURRENT_BRANCH (GitHub is source of truth)"
+git reset --hard origin/"$CURRENT_BRANCH"
 
 # Copy ALL relevant files into Docker container
 echo "Copying files into Docker container..."
