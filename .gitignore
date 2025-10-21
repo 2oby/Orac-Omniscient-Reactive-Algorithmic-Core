@@ -79,3 +79,7 @@ data/.DS_Store
 data/favorites.json
 # Removed model_configs.yaml to allow version control
 # !data/grammars.yaml  # Explicitly allow grammars.yaml to be tracked
+
+# Documentation archive and current epics folders
+docs/archive/
+docs/current_epics/
