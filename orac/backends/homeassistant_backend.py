@@ -55,33 +55,41 @@ class HomeAssistantBackend(AbstractBackend):
         self._cache_valid = False
 
     def _build_device_mappings(self):
-        """Build device_mappings from devices list for dispatcher compatibility."""
-        devices = self.config.get('devices', [])
-        device_mappings = {}
+        """Build device_mappings from backend device_mappings for dispatcher compatibility.
 
-        for device in devices:
-            if device.get('enabled'):
-                device_type = device.get('device_type', 'unknown')
-                location = device.get('location', 'default')
-                entity_id = device.get('entity_id')
+        Transforms the backend manager's device_mappings structure (keyed by entity_id)
+        into the format expected by the dispatcher (keyed by device_type/location).
+        """
+        # Get device_mappings from backend manager (keyed by entity_id)
+        backend_device_mappings = self.config.get('device_mappings', {})
+
+        # Transform into dispatcher format (keyed by device_type/location)
+        dispatcher_device_mappings = {}
+
+        for entity_id, device_data in backend_device_mappings.items():
+            # Only include enabled devices
+            if device_data.get('enabled'):
+                device_type = device_data.get('device_type', 'unknown')
+                location = device_data.get('location', 'default')
 
                 # Create mapping key in format "device_type/location"
                 mapping_key = f"{device_type}/{location}"
 
-                # Store the entity mapping
-                device_mappings[mapping_key] = {
+                # Store the entity mapping for dispatcher
+                dispatcher_device_mappings[mapping_key] = {
                     'entity_id': entity_id,
-                    'name': device.get('name', ''),
-                    'state': device.get('state', 'unknown'),
+                    'name': device_data.get('friendly_name', device_data.get('original_name', '')),
+                    'state': device_data.get('state', 'unknown'),
                     'device_type': device_type,
-                    'location': location
+                    'location': location,
+                    'domain': device_data.get('domain', 'unknown')
                 }
 
                 logger.debug(f"Added device mapping: {mapping_key} -> {entity_id}")
 
-        # Store in config for get_device_mappings() to retrieve
-        self.config['device_mappings'] = device_mappings
-        logger.info(f"Built {len(device_mappings)} device mappings from {len(devices)} devices")
+        # Store dispatcher-formatted mappings in config for dispatcher to use
+        self.config['device_mappings'] = dispatcher_device_mappings
+        logger.info(f"Built {len(dispatcher_device_mappings)} device mappings for dispatcher from {len(backend_device_mappings)} backend devices")
 
     def _create_client(self) -> HomeAssistantClient:
         """Create and configure Home Assistant client.
