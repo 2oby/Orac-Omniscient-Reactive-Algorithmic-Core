@@ -55,12 +55,15 @@ app = FastAPI(
 setup_middleware(app)
 
 # Set up static files and templates for web interface
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
-TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
+# Static files are in orac/static (one level up from orac/api)
+STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
 
-# Create directories if they don't exist
-os.makedirs(STATIC_DIR, exist_ok=True)
-os.makedirs(TEMPLATES_DIR, exist_ok=True)
+# Verify directories exist (but don't create them - they should already exist)
+if not os.path.exists(STATIC_DIR):
+    logger.warning(f"Static directory not found: {STATIC_DIR}")
+if not os.path.exists(TEMPLATES_DIR):
+    logger.warning(f"Templates directory not found: {TEMPLATES_DIR}")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
