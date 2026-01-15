@@ -209,6 +209,37 @@ class GenerationService:
 
         return grammar_file
 
+    def _parse_grammar_options(self, grammar_file: str) -> Dict[str, list]:
+        """Parse GBNF grammar file to extract device and location options."""
+        options = {"devices": [], "locations": [], "actions": []}
+        try:
+            with open(grammar_file, 'r') as f:
+                content = f.read()
+
+            # Parse device ::= "option1" | "option2" | ...
+            device_match = re.search(r'device\s*::=\s*(.+?)(?:\n|$)', content)
+            if device_match:
+                devices = re.findall(r'"([^"]+)"', device_match.group(1))
+                options["devices"] = [d for d in devices if d != "UNKNOWN"]
+
+            # Parse location ::= "option1" | "option2" | ...
+            location_match = re.search(r'location\s*::=\s*(.+?)(?:\n|$)', content)
+            if location_match:
+                locations = re.findall(r'"([^"]+)"', location_match.group(1))
+                options["locations"] = [l for l in locations if l != "UNKNOWN"]
+
+            # Parse action ::= "option1" | "option2" | ...
+            action_match = re.search(r'action\s*::=\s*(.+?)(?:\n|$)', content)
+            if action_match:
+                actions = re.findall(r'"([^"]+)"', action_match.group(1))
+                options["actions"] = [a for a in actions if a != "UNKNOWN"]
+
+            logger.debug(f"Parsed grammar options: {options}")
+        except Exception as e:
+            logger.warning(f"Failed to parse grammar file: {e}")
+
+        return options
+
     def _format_prompt(
         self,
         request: GenerationRequest,
@@ -218,16 +249,21 @@ class GenerationService:
     ) -> str:
         """Format the prompt based on grammar file, topic, and model settings."""
         if grammar_file and os.path.exists(grammar_file):
-            # Use the same prompt format as the CLI test for grammar files
-            # But respect user-provided system prompt if available, otherwise use model's default
-            if request.system_prompt:
-                system_prompt = request.system_prompt
+            # Parse grammar to get available options
+            grammar_options = self._parse_grammar_options(grammar_file)
+            devices = grammar_options.get("devices", [])
+            locations = grammar_options.get("locations", [])
+
+            # Build minimal prompt with actual options
+            if devices or locations:
+                devices_str = ", ".join(devices) if devices else "UNKNOWN"
+                locations_str = ", ".join(locations) if locations else "UNKNOWN"
+                system_prompt = f"/no_think Match input to JSON. Devices: [{devices_str}]. Locations: [{locations_str}]. Use UNKNOWN if no match."
+                logger.info(f"Built dynamic prompt with devices={devices}, locations={locations}")
             else:
-                # Use the model's configured system prompt for grammar-based requests
-                system_prompt = model_config.get(
-                    "system_prompt",
-                    "You are a JSON-only formatter. For each user input, accurately interpret the intended command and respond with a single-line JSON object containing the keys: \"device\", \"action\", and \"location\". Match the \"device\" to the user-specified device (e.g., \"heating\" for heating, \"blinds\" for blinds) and select the \"action\" most appropriate for that device (e.g., \"on\", \"off\" for heating; \"open\", \"close\" for blinds) based on the provided grammar. Use \"UNKNOWN\" for unrecognized inputs. Output only the JSON object without explanations or additional text."
-                )
+                # Fallback if parsing failed
+                system_prompt = "/no_think Output JSON with device, action, location. Use UNKNOWN if unclear."
+
             # Start the JSON structure to give the model a clear starting point
             formatted_prompt = f"{system_prompt}\n\nUser: {request.prompt}\nAssistant: {{\"device\":\""
         else:
