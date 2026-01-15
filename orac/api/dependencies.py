@@ -41,7 +41,13 @@ _last_command_storage: Dict[str, Any] = {
     "ha_request": None,
     "ha_response": None,
     "error": None,
-    "success": False
+    "success": False,
+    # Performance tracking fields
+    "status": "idle",  # "idle" | "processing" | "complete" | "error"
+    "start_time": None,  # When processing started
+    "end_time": None,  # When processing completed
+    "elapsed_ms": None,  # Total processing time in milliseconds
+    "performance_config": None  # Notes about current config (power mode, model, etc.)
 }
 
 

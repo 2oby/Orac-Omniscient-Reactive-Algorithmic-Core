@@ -138,7 +138,9 @@ function populateForm(data) {
     // Sprint 4: Backend configuration (replaces grammar)
     if (data.backend_id) {
         document.getElementById('backendId').value = data.backend_id;
-        loadBackendInfo(data.backend_id);  // This also loads grammar options
+        loadBackendInfo(data.backend_id);
+        // Also load grammar options directly (in case backend info fails)
+        loadGrammarOptions();
     } else {
         // No backend linked - hide grammar options
         hideGrammarOptions();

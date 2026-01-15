@@ -66,11 +66,19 @@ class GenerationService:
         Raises:
             HTTPException: On validation or generation errors
         """
+        start_time = datetime.now()
         try:
-            # Store the last command
+            # Store the last command and set processing status
             self.last_command_storage["command"] = request.prompt
             self.last_command_storage["topic"] = topic_id
-            self.last_command_storage["timestamp"] = datetime.now()
+            self.last_command_storage["timestamp"] = start_time
+            self.last_command_storage["status"] = "processing"
+            self.last_command_storage["start_time"] = start_time
+            self.last_command_storage["end_time"] = None
+            self.last_command_storage["elapsed_ms"] = None
+            self.last_command_storage["error"] = None
+            self.last_command_storage["success"] = False
+            self.last_command_storage["generated_json"] = None
 
             # Get or auto-discover topic
             topic = self.topic_manager.get_topic(topic_id)
@@ -137,16 +145,39 @@ class GenerationService:
                 topic, topic_id, response_text
             )
 
+            # Mark processing complete
+            end_time = datetime.now()
+            elapsed_ms = (end_time - start_time).total_seconds() * 1000
+            self.last_command_storage["status"] = "complete"
+            self.last_command_storage["end_time"] = end_time
+            self.last_command_storage["elapsed_ms"] = elapsed_ms
+            self.last_command_storage["success"] = True
+            logger.info(f"Command completed in {elapsed_ms:.1f}ms")
+
             return GenerationResponse(
                 status="success",
                 response=response_text,
-                elapsed_ms=response.response_time * 1000,  # Convert to milliseconds
+                elapsed_ms=elapsed_ms,
                 model=model_to_use  # Return the actual model used
             )
 
-        except HTTPException:
+        except HTTPException as e:
+            # Mark processing as error
+            end_time = datetime.now()
+            elapsed_ms = (end_time - start_time).total_seconds() * 1000
+            self.last_command_storage["status"] = "error"
+            self.last_command_storage["end_time"] = end_time
+            self.last_command_storage["elapsed_ms"] = elapsed_ms
+            self.last_command_storage["error"] = str(e.detail)
             raise
         except Exception as e:
+            # Mark processing as error
+            end_time = datetime.now()
+            elapsed_ms = (end_time - start_time).total_seconds() * 1000
+            self.last_command_storage["status"] = "error"
+            self.last_command_storage["end_time"] = end_time
+            self.last_command_storage["elapsed_ms"] = elapsed_ms
+            self.last_command_storage["error"] = str(e)
             logger.error(f"Error generating text: {e}")
             if "timed out" in str(e):
                 raise HTTPException(status_code=504, detail="Generation timed out")

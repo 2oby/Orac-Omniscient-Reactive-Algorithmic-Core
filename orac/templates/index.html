@@ -308,10 +308,13 @@
             </div>
 
             <!-- Last Command Display -->
-            <div class="last-command" onclick="showCommandDetails()">
+            <div class="last-command" id="lastCommandBox" onclick="showCommandDetails()">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                     <div style="display: flex; flex-direction: column; flex: 1;">
-                        <span style="color: #00ff41; font-size: 12px; opacity: 0.7; margin-bottom: 5px;">LAST COMMAND (click for details)</span>
+                        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 5px;">
+                            <span style="color: #00ff41; font-size: 12px; opacity: 0.7;">LAST COMMAND (click for details)</span>
+                            <span id="commandTimer" style="font-size: 14px; font-weight: bold; color: #ffa500; display: none;"></span>
+                        </div>
                         <span id="lastCommand" style="color: #ffa500; font-size: 18px;">Waiting for command...</span>
                     </div>
                     <div id="activeTopicContainer" style="display: flex; align-items: center; gap: 20px;">
@@ -494,16 +497,100 @@
 
         // Store command details globally
         let lastCommandDetails = null;
-        
+        let currentCommandStatus = 'idle';
+        let timerInterval = null;
+
+        // Format milliseconds to display string
+        function formatElapsedTime(ms) {
+            if (ms === null || ms === undefined) return '';
+            const seconds = ms / 1000;
+            return seconds.toFixed(1) + 's';
+        }
+
+        // Update the command display based on status
+        function updateCommandDisplay(data) {
+            const lastCommandEl = document.getElementById('lastCommand');
+            const timerEl = document.getElementById('commandTimer');
+            const boxEl = document.getElementById('lastCommandBox');
+
+            if (data.command) {
+                lastCommandEl.textContent = data.command;
+            }
+
+            // Update colors and timer based on status
+            const status = data.status || 'idle';
+
+            if (status === 'processing') {
+                // Orange while processing
+                lastCommandEl.style.color = '#ffa500';
+                boxEl.style.borderColor = '#ffa500';
+                boxEl.style.boxShadow = '0 0 15px rgba(255, 165, 0, 0.5)';
+                timerEl.style.color = '#ffa500';
+                timerEl.style.display = 'inline';
+                timerEl.textContent = formatElapsedTime(data.elapsed_ms);
+
+                // Start fast polling if not already
+                if (currentCommandStatus !== 'processing') {
+                    startFastPolling();
+                }
+            } else if (status === 'complete') {
+                // Green when complete
+                lastCommandEl.style.color = '#00ff41';
+                boxEl.style.borderColor = '#00ff41';
+                boxEl.style.boxShadow = '0 0 15px rgba(0, 255, 65, 0.5)';
+                timerEl.style.color = '#00ff41';
+                timerEl.style.display = 'inline';
+                timerEl.textContent = formatElapsedTime(data.elapsed_ms);
+
+                // Stop fast polling
+                if (currentCommandStatus === 'processing') {
+                    stopFastPolling();
+                }
+            } else if (status === 'error') {
+                // Red on error
+                lastCommandEl.style.color = '#ff4444';
+                boxEl.style.borderColor = '#ff4444';
+                boxEl.style.boxShadow = '0 0 15px rgba(255, 68, 68, 0.5)';
+                timerEl.style.color = '#ff4444';
+                timerEl.style.display = 'inline';
+                timerEl.textContent = formatElapsedTime(data.elapsed_ms) + ' (ERROR)';
+
+                // Stop fast polling
+                if (currentCommandStatus === 'processing') {
+                    stopFastPolling();
+                }
+            } else {
+                // Idle/waiting
+                timerEl.style.display = 'none';
+            }
+
+            currentCommandStatus = status;
+        }
+
+        // Fast polling during processing (every 100ms)
+        let fastPollInterval = null;
+        function startFastPolling() {
+            if (fastPollInterval) return;
+            fastPollInterval = setInterval(getLastCommand, 100);
+        }
+
+        function stopFastPolling() {
+            if (fastPollInterval) {
+                clearInterval(fastPollInterval);
+                fastPollInterval = null;
+            }
+        }
+
         // Get last command from WebSocket or API
         async function getLastCommand() {
             try {
                 const response = await fetch('/api/last-command');
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.command) {
-                        document.getElementById('lastCommand').textContent = data.command;
-                    }
+
+                    // Update command display with status colors and timer
+                    updateCommandDisplay(data);
+
                     if (data.topic) {
                         const badge = document.getElementById('activeTopicBadge');
                         badge.textContent = data.topic.toUpperCase();
@@ -593,6 +680,18 @@
                     `;
                 }
                 
+                // Processing Time
+                if (lastCommandDetails.elapsed_ms) {
+                    detailsHtml += `
+                        <div class="command-detail">
+                            <div class="command-detail-label">Processing Time (ORAC Core)</div>
+                            <div class="command-detail-value" style="font-size: 24px; font-weight: bold;">
+                                ${(lastCommandDetails.elapsed_ms / 1000).toFixed(2)}s
+                            </div>
+                        </div>
+                    `;
+                }
+
                 // Status
                 const success = lastCommandDetails.success || (lastCommandDetails.ha_response && lastCommandDetails.ha_response.status === 200);
                 detailsHtml += `
@@ -603,7 +702,7 @@
                         </div>
                     </div>
                 `;
-                
+
                 modalBody.innerHTML = detailsHtml;
             }
             
