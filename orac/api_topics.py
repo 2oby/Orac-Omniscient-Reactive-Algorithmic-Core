@@ -299,6 +299,88 @@ async def unlink_topic_from_backend(topic_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class GrammarOptionsResponse(BaseModel):
+    """Response model for grammar options"""
+    has_grammar: bool
+    devices: List[str] = []
+    locations: List[str] = []
+    actions: List[str] = []
+    auto_prompt: str = ""
+
+
+@router.get("/{topic_id}/grammar-options", response_model=GrammarOptionsResponse)
+async def get_topic_grammar_options(topic_id: str):
+    """Get auto-generated grammar options for a topic.
+
+    Returns the devices, locations, and actions parsed from the backend's
+    generated grammar file. Also returns the auto-generated prompt hint.
+    """
+    import re
+    import os
+    from orac.backend_grammar_generator import BackendGrammarGenerator
+
+    try:
+        # Get the topic
+        topic = topic_manager.get_topic(topic_id)
+        if not topic:
+            raise HTTPException(status_code=404, detail=f"Topic '{topic_id}' not found")
+
+        # Check if topic has a backend
+        if not topic.backend_id:
+            return GrammarOptionsResponse(has_grammar=False)
+
+        # Get the grammar file path
+        backend_manager = BackendManager()
+        grammar_generator = BackendGrammarGenerator(backend_manager)
+        grammar_path = grammar_generator.get_grammar_file_path(topic.backend_id)
+
+        if not grammar_path.exists():
+            return GrammarOptionsResponse(has_grammar=False)
+
+        # Parse the grammar file
+        with open(grammar_path, 'r') as f:
+            content = f.read()
+
+        options = {"devices": [], "locations": [], "actions": []}
+
+        # Parse device ::= "option1" | "option2" | ...
+        device_match = re.search(r'device\s*::=\s*(.+?)(?:\n|$)', content)
+        if device_match:
+            devices = re.findall(r'"([^"]+)"', device_match.group(1))
+            options["devices"] = [d for d in devices if d != "UNKNOWN"]
+
+        # Parse location ::= "option1" | "option2" | ...
+        location_match = re.search(r'location\s*::=\s*(.+?)(?:\n|$)', content)
+        if location_match:
+            locations = re.findall(r'"([^"]+)"', location_match.group(1))
+            options["locations"] = [l for l in locations if l != "UNKNOWN"]
+
+        # Parse action ::= "option1" | "option2" | ...
+        action_match = re.search(r'action\s*::=\s*(.+?)(?:\n|$)', content)
+        if action_match:
+            actions = re.findall(r'"([^"]+)"', action_match.group(1))
+            options["actions"] = [a for a in actions if a != "UNKNOWN"]
+
+        # Build auto-generated prompt hint
+        devices_str = ", ".join(options["devices"]) if options["devices"] else "UNKNOWN"
+        locations_str = ", ".join(options["locations"]) if options["locations"] else "UNKNOWN"
+        auto_prompt = f"Devices: [{devices_str}]. Locations: [{locations_str}]. Use UNKNOWN if no match."
+
+        return GrammarOptionsResponse(
+            has_grammar=True,
+            devices=options["devices"],
+            locations=options["locations"],
+            actions=options["actions"],
+            auto_prompt=auto_prompt
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get grammar options for topic {topic_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/backends/available")
 async def get_available_backends():
     """Get list of available backends for topic configuration"""

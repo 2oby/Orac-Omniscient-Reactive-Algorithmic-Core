@@ -317,8 +317,22 @@
                 <h2 class="section-title">Generation Settings</h2>
                 
                 <div class="form-group">
-                    <label class="form-label">System Prompt</label>
-                    <textarea id="systemPrompt" class="form-textarea" placeholder="Enter system prompt for this topic"></textarea>
+                    <label class="form-label">System Prompt (Custom Prefix)</label>
+                    <textarea id="systemPrompt" class="form-textarea" placeholder="Enter custom prompt prefix (e.g., '/no_think Match input to JSON.')" style="min-height: 80px;"></textarea>
+                    <small style="color: var(--secondary-green); display: block; margin-top: 0.5rem;">
+                        Your custom prefix will be combined with the auto-generated grammar options below.
+                    </small>
+                </div>
+
+                <!-- Auto-generated Grammar Options (read-only) -->
+                <div class="form-group" id="grammarOptionsGroup" style="display: none;">
+                    <label class="form-label">Auto-Generated Grammar Hint (Read-Only)</label>
+                    <textarea id="grammarOptionsDisplay" class="form-textarea" readonly
+                        style="min-height: 60px; background: rgba(0, 0, 0, 0.7); color: #888; cursor: not-allowed; border-color: #333;"
+                        placeholder="Backend grammar options will appear here when a backend is linked..."></textarea>
+                    <small style="color: var(--secondary-green); display: block; margin-top: 0.5rem;">
+                        This is auto-generated from the backend's device/location configuration. Final prompt = Custom Prefix + Grammar Hint.
+                    </small>
                 </div>
                 
                 <div class="form-group">

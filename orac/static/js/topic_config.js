@@ -138,7 +138,10 @@ function populateForm(data) {
     // Sprint 4: Backend configuration (replaces grammar)
     if (data.backend_id) {
         document.getElementById('backendId').value = data.backend_id;
-        loadBackendInfo(data.backend_id);
+        loadBackendInfo(data.backend_id);  // This also loads grammar options
+    } else {
+        // No backend linked - hide grammar options
+        hideGrammarOptions();
     }
     
     // Disable delete button for general topic
@@ -168,11 +171,12 @@ function setupEventListeners() {
             // Redirect to backend creation page
             window.location.href = '/backends';
         } else if (e.target.value) {
-            // Load backend info
+            // Load backend info (which also loads grammar options)
             await loadBackendInfo(e.target.value);
         } else {
-            // Hide backend status
+            // Hide backend status and grammar options
             document.getElementById('backendStatus').style.display = 'none';
+            hideGrammarOptions();
         }
     });
     
@@ -389,4 +393,44 @@ function displayBackendInfo(backendInfo) {
     // Update button links
     document.getElementById('configureBackendBtn').href = `/backends/${backendInfo.backend_id}/entities`;
     document.getElementById('testGrammarBtn').href = `/backends/${backendInfo.backend_id}/test-grammar`;
+
+    // Load grammar options for display
+    loadGrammarOptions();
+}
+
+// Load and display grammar options from backend
+async function loadGrammarOptions() {
+    const grammarOptionsGroup = document.getElementById('grammarOptionsGroup');
+    const grammarOptionsDisplay = document.getElementById('grammarOptionsDisplay');
+
+    try {
+        const response = await fetch(`/api/topics/${topicId}/grammar-options`);
+        if (!response.ok) {
+            console.log('No grammar options available');
+            grammarOptionsGroup.style.display = 'none';
+            return;
+        }
+
+        const data = await response.json();
+        console.log('Grammar options:', data);
+
+        if (data.has_grammar && data.auto_prompt) {
+            grammarOptionsGroup.style.display = 'block';
+            grammarOptionsDisplay.value = data.auto_prompt;
+        } else {
+            grammarOptionsGroup.style.display = 'none';
+            grammarOptionsDisplay.value = '';
+        }
+    } catch (error) {
+        console.error('Error loading grammar options:', error);
+        grammarOptionsGroup.style.display = 'none';
+    }
+}
+
+// Hide grammar options when no backend is selected
+function hideGrammarOptions() {
+    const grammarOptionsGroup = document.getElementById('grammarOptionsGroup');
+    const grammarOptionsDisplay = document.getElementById('grammarOptionsDisplay');
+    grammarOptionsGroup.style.display = 'none';
+    grammarOptionsDisplay.value = '';
 }

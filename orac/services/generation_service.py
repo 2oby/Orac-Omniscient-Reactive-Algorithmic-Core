@@ -254,15 +254,26 @@ class GenerationService:
             devices = grammar_options.get("devices", [])
             locations = grammar_options.get("locations", [])
 
-            # Build minimal prompt with actual options
+            # Get user's custom prompt prefix from topic settings (defaults to standard instruction)
+            user_prompt_prefix = topic.settings.system_prompt.strip() if topic.settings.system_prompt else ""
+
+            # Default prefix if none provided
+            if not user_prompt_prefix:
+                user_prompt_prefix = "/no_think Match input to JSON."
+
+            # Build auto-generated grammar hint
             if devices or locations:
                 devices_str = ", ".join(devices) if devices else "UNKNOWN"
                 locations_str = ", ".join(locations) if locations else "UNKNOWN"
-                system_prompt = f"/no_think Match input to JSON. Devices: [{devices_str}]. Locations: [{locations_str}]. Use UNKNOWN if no match."
-                logger.info(f"Built dynamic prompt with devices={devices}, locations={locations}")
+                grammar_hint = f"Devices: [{devices_str}]. Locations: [{locations_str}]. Use UNKNOWN if no match."
+                logger.info(f"Built grammar hint with devices={devices}, locations={locations}")
             else:
                 # Fallback if parsing failed
-                system_prompt = "/no_think Output JSON with device, action, location. Use UNKNOWN if unclear."
+                grammar_hint = "Output JSON with device, action, location. Use UNKNOWN if unclear."
+
+            # Combine user prefix + auto-generated grammar hint
+            system_prompt = f"{user_prompt_prefix} {grammar_hint}"
+            logger.info(f"Combined prompt: prefix='{user_prompt_prefix}' + grammar_hint")
 
             # Start the JSON structure to give the model a clear starting point
             formatted_prompt = f"{system_prompt}\n\nUser: {request.prompt}\nAssistant: {{\"device\":\""
