@@ -80,6 +80,17 @@ class GenerationService:
             self.last_command_storage["success"] = False
             self.last_command_storage["generated_json"] = None
 
+            # Extract timing metadata from upstream services
+            timing = self.last_command_storage.get("timing", {})
+            if request.metadata:
+                timing["wake_word_time"] = request.metadata.get("wake_word_time")
+                timing["recording_end_time"] = request.metadata.get("recording_end_time")
+                timing["stt_start_time"] = request.metadata.get("stt_start_time")
+                timing["stt_end_time"] = request.metadata.get("stt_end_time")
+                logger.info(f"Received timing metadata: wake_word={timing.get('wake_word_time')}")
+            timing["llm_start_time"] = start_time.isoformat()
+            self.last_command_storage["timing"] = timing
+
             # Get or auto-discover topic
             topic = self.topic_manager.get_topic(topic_id)
             if not topic:
@@ -152,7 +163,25 @@ class GenerationService:
             self.last_command_storage["end_time"] = end_time
             self.last_command_storage["elapsed_ms"] = elapsed_ms
             self.last_command_storage["success"] = True
-            logger.info(f"Command completed in {elapsed_ms:.1f}ms")
+
+            # Update timing breakdown
+            timing = self.last_command_storage.get("timing", {})
+            timing["llm_end_time"] = end_time.isoformat()
+
+            # Calculate total end-to-end time if we have wake word time
+            if timing.get("wake_word_time"):
+                try:
+                    wake_time = datetime.fromisoformat(timing["wake_word_time"])
+                    total_e2e_ms = (end_time - wake_time).total_seconds() * 1000
+                    timing["total_end_to_end_ms"] = total_e2e_ms
+                    logger.info(f"Command completed: ORAC Core={elapsed_ms:.1f}ms, End-to-End={total_e2e_ms:.1f}ms")
+                except Exception as e:
+                    logger.warning(f"Could not calculate end-to-end time: {e}")
+                    logger.info(f"Command completed in {elapsed_ms:.1f}ms")
+            else:
+                logger.info(f"Command completed in {elapsed_ms:.1f}ms")
+
+            self.last_command_storage["timing"] = timing
 
             return GenerationResponse(
                 status="success",

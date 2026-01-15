@@ -540,7 +540,13 @@
                 boxEl.style.boxShadow = '0 0 15px rgba(0, 255, 65, 0.5)';
                 timerEl.style.color = '#00ff41';
                 timerEl.style.display = 'inline';
-                timerEl.textContent = formatElapsedTime(data.elapsed_ms);
+
+                // Show end-to-end time if available, otherwise ORAC Core time
+                if (data.timing && data.timing.total_end_to_end_ms) {
+                    timerEl.textContent = formatElapsedTime(data.timing.total_end_to_end_ms) + ' (E2E)';
+                } else {
+                    timerEl.textContent = formatElapsedTime(data.elapsed_ms);
+                }
 
                 // Stop fast polling
                 if (currentCommandStatus === 'processing') {
@@ -680,11 +686,48 @@
                     `;
                 }
                 
-                // Processing Time
-                if (lastCommandDetails.elapsed_ms) {
+                // End-to-End Timing Breakdown
+                if (lastCommandDetails.timing && lastCommandDetails.timing.total_end_to_end_ms) {
+                    const t = lastCommandDetails.timing;
                     detailsHtml += `
                         <div class="command-detail">
-                            <div class="command-detail-label">Processing Time (ORAC Core)</div>
+                            <div class="command-detail-label">End-to-End Time (Wake Word → Complete)</div>
+                            <div class="command-detail-value" style="font-size: 28px; font-weight: bold; color: #00ff41;">
+                                ${(t.total_end_to_end_ms / 1000).toFixed(2)}s
+                            </div>
+                        </div>
+                    `;
+
+                    // Show timing breakdown if we have details
+                    let breakdownHtml = '<div style="display: grid; gap: 8px; margin-top: 10px;">';
+
+                    // Calculate individual segment times
+                    if (t.wake_word_time && t.recording_end_time) {
+                        const recordingMs = new Date(t.recording_end_time) - new Date(t.wake_word_time);
+                        breakdownHtml += `<div>Recording: ${(recordingMs / 1000).toFixed(2)}s</div>`;
+                    }
+                    if (t.stt_start_time && t.stt_end_time) {
+                        const sttMs = new Date(t.stt_end_time) - new Date(t.stt_start_time);
+                        breakdownHtml += `<div>STT: ${(sttMs / 1000).toFixed(2)}s</div>`;
+                    }
+                    if (t.llm_start_time && t.llm_end_time) {
+                        const llmMs = new Date(t.llm_end_time) - new Date(t.llm_start_time);
+                        breakdownHtml += `<div>LLM: ${(llmMs / 1000).toFixed(2)}s</div>`;
+                    }
+
+                    breakdownHtml += '</div>';
+
+                    detailsHtml += `
+                        <div class="command-detail">
+                            <div class="command-detail-label">Timing Breakdown</div>
+                            <div class="command-detail-value">${breakdownHtml}</div>
+                        </div>
+                    `;
+                } else if (lastCommandDetails.elapsed_ms) {
+                    // Fallback to ORAC Core time only
+                    detailsHtml += `
+                        <div class="command-detail">
+                            <div class="command-detail-label">Processing Time (ORAC Core only)</div>
                             <div class="command-detail-value" style="font-size: 24px; font-weight: bold;">
                                 ${(lastCommandDetails.elapsed_ms / 1000).toFixed(2)}s
                             </div>

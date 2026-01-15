@@ -44,10 +44,20 @@ _last_command_storage: Dict[str, Any] = {
     "success": False,
     # Performance tracking fields
     "status": "idle",  # "idle" | "processing" | "complete" | "error"
-    "start_time": None,  # When processing started
-    "end_time": None,  # When processing completed
-    "elapsed_ms": None,  # Total processing time in milliseconds
-    "performance_config": None  # Notes about current config (power mode, model, etc.)
+    "start_time": None,  # When processing started (ORAC Core)
+    "end_time": None,  # When processing completed (ORAC Core)
+    "elapsed_ms": None,  # ORAC Core processing time in milliseconds
+    "performance_config": None,  # Notes about current config (power mode, model, etc.)
+    # End-to-end timing breakdown
+    "timing": {
+        "wake_word_time": None,  # When Hey ORAC detected wake word
+        "recording_end_time": None,  # When Hey ORAC finished recording
+        "stt_start_time": None,  # When ORAC STT started processing
+        "stt_end_time": None,  # When ORAC STT finished
+        "llm_start_time": None,  # When ORAC Core LLM started
+        "llm_end_time": None,  # When ORAC Core LLM finished
+        "total_end_to_end_ms": None  # Total time from wake word to completion
+    }
 }
 
 

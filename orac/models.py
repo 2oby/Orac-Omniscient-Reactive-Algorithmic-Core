@@ -71,6 +71,8 @@ class GenerationRequest(BaseModel):
     max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
     json_mode: bool = Field(False, description="Whether to force JSON output using grammar")
     grammar_file: Optional[str] = Field(None, description="Path to GBNF grammar file to use for generation")
+    # Timing metadata from upstream services (Hey ORAC, ORAC STT)
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Timing metadata from upstream services")
 
 
 class GenerationResponse(BaseModel):

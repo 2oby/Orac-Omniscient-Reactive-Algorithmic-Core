@@ -79,7 +79,9 @@ async def get_last_command() -> Dict[str, Any]:
         "start_time": storage.get("start_time").isoformat() if storage.get("start_time") else None,
         "end_time": storage.get("end_time").isoformat() if storage.get("end_time") else None,
         "elapsed_ms": elapsed_ms,
-        "performance_config": storage.get("performance_config")
+        "performance_config": storage.get("performance_config"),
+        # End-to-end timing breakdown
+        "timing": storage.get("timing", {})
     }
 
 
