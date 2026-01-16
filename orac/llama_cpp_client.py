@@ -71,6 +71,7 @@ class ServerState:
     model: str
     session: Optional[aiohttp.ClientSession] = None
     last_used: float = 0.0
+    grammar_file: Optional[str] = None  # Track grammar to avoid unnecessary restarts
 
 class LlamaCppClient:
     """Client for interacting with llama.cpp binaries."""
@@ -321,14 +322,12 @@ class LlamaCppClient:
         if model in self._servers:
             server = self._servers[model]
             if server.process.poll() is None:  # Server is still running
-                # Check if we need to restart due to grammar file change
-                # For now, we'll always restart when grammar_file is specified
-                # to ensure the correct grammar is used
-                if grammar_file:
-                    logger.info(f"Restarting server for model {model} to use grammar file: {grammar_file}")
+                # Only restart if grammar file actually changed
+                if grammar_file != server.grammar_file:
+                    logger.info(f"Restarting server for model {model}: grammar changed from {server.grammar_file} to {grammar_file}")
                     await self._stop_server(model)
                 else:
-                    # Update last used time
+                    # Reuse existing server - grammar matches
                     server.last_used = asyncio.get_event_loop().time()
                     return server
             else:
@@ -436,7 +435,8 @@ class LlamaCppClient:
                                 port=port,
                                 model=model,
                                 session=server_session,
-                                last_used=asyncio.get_event_loop().time()
+                                last_used=asyncio.get_event_loop().time(),
+                                grammar_file=grammar_file
                             )
             except Exception:
                 pass
@@ -529,12 +529,18 @@ class LlamaCppClient:
             # Get model's recommended settings
             recommended_settings = model_config.get("recommended_settings", {})
             
-            # Set parameters based on grammar usage (consistent with test scripts)
+            # Set parameters based on grammar usage
             if grammar_file or json_mode:
-                # Grammar mode: use optimized parameters (consistent with test scripts)
-                temperature = 0.0  # Match test scripts
-                top_p = 0.8
-                top_k = 30
+                # Grammar mode: use deterministic temperature, but RESPECT caller's top_p/top_k
+                # Only override if caller used default values (0.7/40 = function defaults)
+                temperature = 0.0  # Always deterministic for grammar mode
+                if top_p == 0.7:  # Caller used default, apply grammar-optimized value
+                    top_p = 0.8
+                # else: caller passed non-default (e.g., topic's 0.2), respect it
+                if top_k == 40:  # Caller used default, apply grammar-optimized value
+                    top_k = 30
+                # else: caller passed non-default (e.g., topic's 10), respect it
+                logger.info(f"Grammar mode - using: temp={temperature}, top_p={top_p}, top_k={top_k}")
             else:
                 # Free-form mode: use model recommendations as fallback for default values
                 if temperature == 0.7:  # User didn't override default
@@ -571,7 +577,11 @@ class LlamaCppClient:
             # When using a grammar file, the server is already configured with it
             if json_mode and not grammar_file:
                 request_data["grammar"] = self.get_grammar('json').strip()
-            
+
+            # Log the prompt being sent (truncated for readability)
+            prompt_preview = formatted_prompt[-200:] if len(formatted_prompt) > 200 else formatted_prompt
+            logger.info(f"Sending to LLM: ...{prompt_preview}")
+
             # Make request to server
             async with self._get_session() as session:
                 async with session.post(
@@ -597,6 +607,9 @@ class LlamaCppClient:
 
                     # Clean up the response
                     response_text = response_text.strip()
+
+                    # Log the raw LLM response for debugging
+                    logger.info(f"LLM raw response: {response_text[:200]}{'...' if len(response_text) > 200 else ''}")
 
                     if json_mode:
                         # JSON mode: validate and clean JSON response
