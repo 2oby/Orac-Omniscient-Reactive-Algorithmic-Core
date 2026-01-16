@@ -64,9 +64,10 @@ class GenerationRequest(BaseModel):
     prompt: str = Field(..., description="User prompt to send to the model")
     system_prompt: Optional[str] = Field(None, description="System prompt to send to the model")
     stream: bool = Field(False, description="Whether to stream the response")
-    temperature: float = Field(0.7, description="Sampling temperature")
-    top_p: float = Field(0.7, description="Top-p sampling parameter")
-    top_k: int = Field(40, description="Top-k sampling parameter")
+    # Optional sampling parameters - if None, topic settings are used
+    temperature: Optional[float] = Field(None, description="Sampling temperature (None = use topic setting)")
+    top_p: Optional[float] = Field(None, description="Top-p sampling (None = use topic setting)")
+    top_k: Optional[int] = Field(None, description="Top-k sampling (None = use topic setting)")
     stop: Optional[List[str]] = Field(None, description="Stop sequences")
     max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
     json_mode: bool = Field(False, description="Whether to force JSON output using grammar")
