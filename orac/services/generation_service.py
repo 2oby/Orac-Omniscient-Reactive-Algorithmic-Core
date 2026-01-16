@@ -300,6 +300,28 @@ class GenerationService:
 
         return options
 
+    def _strip_wake_word(self, prompt: str) -> str:
+        """Strip wake word prefix from STT transcriptions.
+
+        Voice commands include the wake word (e.g., "Computer turn off the light")
+        which can confuse small models. This strips common wake word patterns.
+        """
+        # Common wake word patterns (case-insensitive)
+        wake_words = ["computer", "hey computer", "ok computer", "orac", "hey orac"]
+
+        prompt_lower = prompt.lower().strip()
+        original_prompt = prompt.strip()
+
+        for wake_word in wake_words:
+            if prompt_lower.startswith(wake_word):
+                # Strip wake word and any trailing punctuation/whitespace
+                stripped = original_prompt[len(wake_word):].lstrip(" ,.:;!?")
+                if stripped:
+                    logger.info(f"Stripped wake word '{wake_word}' from prompt: '{original_prompt}' -> '{stripped}'")
+                    return stripped
+
+        return original_prompt
+
     def _format_prompt(
         self,
         request: GenerationRequest,
@@ -308,6 +330,9 @@ class GenerationService:
         grammar_file: Optional[str]
     ) -> str:
         """Format the prompt based on grammar file, topic, and model settings."""
+        # Strip wake word from voice commands (e.g., "Computer turn off light" -> "turn off light")
+        user_prompt = self._strip_wake_word(request.prompt)
+
         if grammar_file and os.path.exists(grammar_file):
             # Parse grammar to get available options
             grammar_options = self._parse_grammar_options(grammar_file)
@@ -336,7 +361,7 @@ class GenerationService:
             logger.info(f"Combined prompt: prefix='{user_prompt_prefix}' + grammar_hint")
 
             # Start the JSON structure to give the model a clear starting point
-            formatted_prompt = f"{system_prompt}\n\nUser: {request.prompt}\nAssistant: {{\"device\":\""
+            formatted_prompt = f"{system_prompt}\n\nUser: {user_prompt}\nAssistant: {{\"device\":\""
         else:
             # Use the standard prompt format for non-grammar requests
             prompt_format = model_config.get("prompt_format", {})
@@ -356,7 +381,7 @@ class GenerationService:
             # Format the prompt using the template
             formatted_prompt = template.format(
                 system_prompt=system_prompt,
-                user_prompt=request.prompt
+                user_prompt=user_prompt
             )
 
         return formatted_prompt
