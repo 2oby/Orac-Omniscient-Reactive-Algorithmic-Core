@@ -4,12 +4,20 @@ services:
     container_name: orac
     ports:
       - "8000:8000"
+
+    # CUDA requires more shared memory for cuBLAS operations
+    # 64MB default is too small, causing "resource allocation failed" errors
+    shm_size: 1g
+    ipc: host
+
     volumes:
       - ./models/gguf:/models/gguf:ro
       - ./third_party/llama_cpp:/app/third_party/llama_cpp:ro
       - ./logs:/app/logs
       - ./data:/app/data
       - ./cache:/app/cache
+      # Host Jetson CUDA libraries (container has SBSA libs which don't work on Jetson)
+      - /usr/local/cuda/targets/aarch64-linux/lib:/usr/local/cuda/targets/aarch64-linux/lib:ro
     # Use current user's UID/GID for proper permissions
     user: "${UID:-1000}:${GID:-1000}"
     # Override entrypoint to fix permissions before starting
@@ -30,6 +38,8 @@ services:
       - ORAC_MODELS_PATH=/app/models/gguf
       - HA_URL=${HA_URL:-http://192.168.8.100:8123}
       - HA_TOKEN=${HA_TOKEN}
+      # Jetson aarch64 CUDA libs FIRST, then llama.cpp libs (container's SBSA libs don't work)
+      - LD_LIBRARY_PATH=/usr/local/cuda/targets/aarch64-linux/lib:/app/third_party/llama_cpp/lib
     logging:
       driver: "json-file"
       options:
