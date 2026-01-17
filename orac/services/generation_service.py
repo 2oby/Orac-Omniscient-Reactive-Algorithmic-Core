@@ -94,11 +94,16 @@ class GenerationService:
             timing["llm_start_time"] = start_time.isoformat()
             self.last_command_storage["timing"] = timing
 
-            # Strip wake word early (needed for cache lookup and error correction)
+            # Strip wake word early (needed for cache lookup)
             stripped_prompt = self._strip_wake_word(request.prompt)
 
             # Check for error correction trigger ("computer error", etc.)
-            if self.stt_response_cache and self._is_error_correction_trigger(stripped_prompt):
+            # Check both original prompt AND stripped prompt (user might say "computer error" or just "error")
+            is_error_correction = (
+                self._is_error_correction_trigger(request.prompt) or
+                self._is_error_correction_trigger(stripped_prompt)
+            )
+            if self.stt_response_cache and is_error_correction:
                 removed = self.stt_response_cache.remove_last_entry(
                     timeout_seconds=CacheConfig.ERROR_CORRECTION_TIMEOUT
                 )
