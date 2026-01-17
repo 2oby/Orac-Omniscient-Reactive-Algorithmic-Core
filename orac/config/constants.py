@@ -60,6 +60,20 @@ class CacheConfig:
     SERVICE_CACHE_TTL = 600
     GRAMMAR_CACHE_TTL = 3600  # 1 hour
 
+    # STT Response Cache (skip LLM for repeated commands)
+    STT_CACHE_MAX_SIZE = 500  # Maximum entries (LRU eviction)
+    STT_CACHE_PERSIST = True  # Persist to disk across restarts
+    STT_CACHE_FILE = "data/stt_cache.json"
+
+    # Error correction configuration
+    ERROR_CORRECTION_TIMEOUT = 60  # Seconds to accept "computer error"
+    ERROR_CORRECTION_PHRASES = [
+        "computer error",
+        "that was wrong",
+        "wrong command",
+        "undo that"
+    ]
+
 
 # Path Configuration
 class PathConfig:

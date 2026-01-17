@@ -14,7 +14,8 @@ from orac.api.dependencies import (
     get_topic_manager,
     get_backend_manager,
     get_backend_grammar_generator,
-    get_last_command_storage
+    get_last_command_storage,
+    get_stt_response_cache
 )
 
 logger = get_logger(__name__)
@@ -31,7 +32,8 @@ async def generate_text_with_topic(topic: str, request: GenerationRequest) -> Ge
         topic_manager=get_topic_manager(),
         backend_manager=get_backend_manager(),
         backend_grammar_generator=get_backend_grammar_generator(),
-        last_command_storage=get_last_command_storage()
+        last_command_storage=get_last_command_storage(),
+        stt_response_cache=get_stt_response_cache()
     )
     return await service.generate_text(request, topic)
 
@@ -45,6 +47,7 @@ async def generate_text(request: GenerationRequest) -> GenerationResponse:
         topic_manager=get_topic_manager(),
         backend_manager=get_backend_manager(),
         backend_grammar_generator=get_backend_grammar_generator(),
-        last_command_storage=get_last_command_storage()
+        last_command_storage=get_last_command_storage(),
+        stt_response_cache=get_stt_response_cache()
     )
     return await service.generate_text(request, "general")

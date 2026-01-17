@@ -22,6 +22,8 @@ from orac.homeassistant.config import HomeAssistantConfig
 from orac.topic_manager import TopicManager
 from orac.backend_manager import BackendManager
 from orac.backend_grammar_generator import BackendGrammarGenerator
+from orac.cache import STTResponseCache
+from orac.config import CacheConfig
 
 logger = get_logger(__name__)
 
@@ -31,6 +33,7 @@ _ha_client: HomeAssistantClient = None
 _topic_manager: TopicManager = None
 _backend_manager: BackendManager = None
 _backend_grammar_generator: BackendGrammarGenerator = None
+_stt_response_cache: STTResponseCache = None
 
 # Storage for last command (global state)
 _last_command_storage: Dict[str, Any] = {
@@ -110,6 +113,21 @@ def get_backend_grammar_generator() -> BackendGrammarGenerator:
         backend_manager = get_backend_manager()
         _backend_grammar_generator = BackendGrammarGenerator(backend_manager)
     return _backend_grammar_generator
+
+
+def get_stt_response_cache() -> STTResponseCache:
+    """Get or create the STTResponseCache singleton instance."""
+    global _stt_response_cache
+    if _stt_response_cache is None:
+        logger.info("Initializing STTResponseCache")
+        data_dir = os.getenv("DATA_DIR", "/app/data")
+        cache_file = os.path.join(data_dir, "stt_cache.json")
+        _stt_response_cache = STTResponseCache(
+            max_size=CacheConfig.STT_CACHE_MAX_SIZE,
+            cache_file=cache_file,
+            persist_to_disk=CacheConfig.STT_CACHE_PERSIST
+        )
+    return _stt_response_cache
 
 
 def get_last_command_storage() -> Dict[str, Any]:

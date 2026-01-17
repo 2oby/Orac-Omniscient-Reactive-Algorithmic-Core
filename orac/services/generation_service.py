@@ -21,12 +21,13 @@ from typing import Optional, Dict, Any
 from fastapi import HTTPException
 
 from orac.logger import get_logger
-from orac.config import load_model_configs, NetworkConfig
+from orac.config import load_model_configs, NetworkConfig, CacheConfig
 from orac.models import GenerationRequest, GenerationResponse
 from orac.llama_cpp_client import LlamaCppClient
 from orac.topic_manager import TopicManager
 from orac.backend_manager import BackendManager
 from orac.backend_grammar_generator import BackendGrammarGenerator
+from orac.cache import STTResponseCache
 
 logger = get_logger(__name__)
 
@@ -40,13 +41,15 @@ class GenerationService:
         topic_manager: TopicManager,
         backend_manager: BackendManager,
         backend_grammar_generator: BackendGrammarGenerator,
-        last_command_storage: Dict[str, Any]
+        last_command_storage: Dict[str, Any],
+        stt_response_cache: Optional[STTResponseCache] = None
     ):
         self.client = client
         self.topic_manager = topic_manager
         self.backend_manager = backend_manager
         self.backend_grammar_generator = backend_grammar_generator
         self.last_command_storage = last_command_storage
+        self.stt_response_cache = stt_response_cache
 
     async def generate_text(
         self,
@@ -91,6 +94,41 @@ class GenerationService:
             timing["llm_start_time"] = start_time.isoformat()
             self.last_command_storage["timing"] = timing
 
+            # Strip wake word early (needed for cache lookup and error correction)
+            stripped_prompt = self._strip_wake_word(request.prompt)
+
+            # Check for error correction trigger ("computer error", etc.)
+            if self.stt_response_cache and self._is_error_correction_trigger(stripped_prompt):
+                removed = self.stt_response_cache.remove_last_entry(
+                    timeout_seconds=CacheConfig.ERROR_CORRECTION_TIMEOUT
+                )
+                if removed:
+                    logger.info("Error correction: Removed last cache entry")
+                    # Return acknowledgment response
+                    end_time = datetime.now()
+                    elapsed_ms = (end_time - start_time).total_seconds() * 1000
+                    self.last_command_storage["status"] = "complete"
+                    self.last_command_storage["end_time"] = end_time
+                    self.last_command_storage["elapsed_ms"] = elapsed_ms
+                    self.last_command_storage["success"] = True
+                    return GenerationResponse(
+                        status="success",
+                        response='{"action": "error_correction", "result": "removed_last_entry"}',
+                        elapsed_ms=elapsed_ms,
+                        model=None
+                    )
+
+            # Check STT response cache BEFORE LLM
+            cache_hit = False
+            cached_json = None
+            if self.stt_response_cache:
+                cache_entry = self.stt_response_cache.get(stripped_prompt)
+                if cache_entry:
+                    cache_hit = True
+                    cached_json = cache_entry.get("json_output")
+                    logger.info(f"Cache HIT - skipping LLM for: '{stripped_prompt}'")
+                    self.last_command_storage["cache_hit"] = True
+
             # Get or auto-discover topic
             topic = self.topic_manager.get_topic(topic_id)
             if not topic:
@@ -128,33 +166,55 @@ class GenerationService:
             max_tokens = request.max_tokens if request.max_tokens is not None else topic.settings.max_tokens
             json_mode = request.json_mode if request.json_mode is not None else topic.settings.force_json
 
-            # Resolve grammar file
-            grammar_file = self._resolve_grammar_file(request, topic, topic_id)
+            # Use cached JSON or generate via LLM
+            if cache_hit and cached_json:
+                # Cache hit - use cached JSON directly, skip LLM
+                response_text = json.dumps(cached_json)
+                logger.info(f"Using cached response: {response_text}")
+                timing["llm_skipped"] = True
+                timing["cache_hit"] = True
+            else:
+                # Cache miss - run LLM
+                # Resolve grammar file
+                grammar_file = self._resolve_grammar_file(request, topic, topic_id)
 
-            # Format the prompt
-            formatted_prompt = self._format_prompt(request, topic, model_config, grammar_file)
+                # Format the prompt
+                formatted_prompt = self._format_prompt(request, topic, model_config, grammar_file)
 
-            # Generate text
-            response = await self.client.generate(
-                model=model_to_use,
-                prompt=formatted_prompt,
-                stream=request.stream,
-                temperature=temperature,
-                top_p=top_p,
-                top_k=top_k,
-                max_tokens=max_tokens,
-                timeout=NetworkConfig.DEFAULT_TIMEOUT,
-                json_mode=json_mode,
-                grammar_file=grammar_file
-            )
+                # Generate text
+                response = await self.client.generate(
+                    model=model_to_use,
+                    prompt=formatted_prompt,
+                    stream=request.stream,
+                    temperature=temperature,
+                    top_p=top_p,
+                    top_k=top_k,
+                    max_tokens=max_tokens,
+                    timeout=NetworkConfig.DEFAULT_TIMEOUT,
+                    json_mode=json_mode,
+                    grammar_file=grammar_file
+                )
 
-            # Post-process response text (fix JSON if needed)
-            response_text = self._post_process_response(response.text, grammar_file)
+                # Post-process response text (fix JSON if needed)
+                response_text = self._post_process_response(response.text, grammar_file)
 
             # Execute backend command if topic has backend configured
             backend_result = await self._execute_backend_command(
                 topic, topic_id, response_text
             )
+
+            # Store in cache if: cache enabled, was cache miss, and backend succeeded
+            if (self.stt_response_cache and
+                not cache_hit and
+                backend_result and
+                backend_result.get("success", False)):
+                try:
+                    parsed_json = json.loads(response_text)
+                    entity_id = backend_result.get("entity_id")
+                    self.stt_response_cache.store(stripped_prompt, parsed_json, entity_id)
+                    logger.info(f"Cached successful response for: '{stripped_prompt}'")
+                except json.JSONDecodeError:
+                    logger.warning(f"Could not cache response - invalid JSON: {response_text}")
 
             # Mark processing complete
             end_time = datetime.now()
@@ -321,6 +381,19 @@ class GenerationService:
                     return stripped
 
         return original_prompt
+
+    def _is_error_correction_trigger(self, prompt: str) -> bool:
+        """Check if prompt is an error correction trigger phrase.
+
+        Used to detect phrases like "computer error" or "that was wrong"
+        which should remove the last cached entry.
+        """
+        normalized = prompt.lower().strip()
+        for phrase in CacheConfig.ERROR_CORRECTION_PHRASES:
+            if normalized == phrase or normalized.startswith(phrase + " "):
+                logger.info(f"Detected error correction trigger: '{prompt}'")
+                return True
+        return False
 
     def _format_prompt(
         self,

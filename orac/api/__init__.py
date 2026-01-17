@@ -37,6 +37,7 @@ from orac.api.routes import backends
 from orac.api.routes import configuration
 from orac.api.routes import homeassistant
 from orac.api.routes import web
+from orac.api.routes import cache
 
 # Import existing routers
 from orac.api_topics import router as topics_router
@@ -76,6 +77,7 @@ app.include_router(backends.router)
 app.include_router(configuration.router)
 app.include_router(homeassistant.router)
 app.include_router(web.router)
+app.include_router(cache.router)
 
 # Include existing external routers
 app.include_router(topics_router)
