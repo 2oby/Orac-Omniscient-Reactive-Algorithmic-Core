@@ -9,6 +9,7 @@ Handles:
 """
 
 import os
+import glob
 
 from orac.logger import get_logger
 from orac.llama_cpp_client import LlamaCppClient
@@ -16,6 +17,24 @@ from orac.config import load_favorites, ModelConfig
 from orac.api.dependencies import get_client, cleanup_dependencies
 
 logger = get_logger(__name__)
+
+
+def _find_backend_grammar(data_dir: str) -> str | None:
+    """Find the most recently modified backend-generated grammar file.
+
+    Backend grammars are generated from Home Assistant entity discovery
+    and stored as backend_*.gbnf. Using the most recent one ensures we
+    start with the grammar that matches the current HA configuration.
+    """
+    grammar_dir = os.path.join(data_dir, "grammars")
+    pattern = os.path.join(grammar_dir, "backend_*.gbnf")
+    backend_grammars = glob.glob(pattern)
+
+    if not backend_grammars:
+        return None
+
+    # Return the most recently modified backend grammar
+    return max(backend_grammars, key=os.path.getmtime)
 
 
 async def on_startup():
@@ -30,44 +49,32 @@ async def on_startup():
             try:
                 logger.info(f"Loading default model: {favorites['default_model']}")
 
-                # Start with default.gbnf grammar for Home Assistant commands (using static default, not HA-generated)
                 # Use DATA_DIR env var (set in container) for correct path resolution
                 data_dir = os.getenv("DATA_DIR", "/app/data")
-                grammar_file = os.path.join(data_dir, "grammars", "default.gbnf")
 
-                if os.path.exists(grammar_file):
-                    logger.info(f"Starting default model with default.gbnf grammar (static, not HA-generated): {grammar_file}")
-                    await client._ensure_server_running(
-                        model=favorites["default_model"],
-                        temperature=ModelConfig.GRAMMAR_TEMPERATURE,
-                        top_p=ModelConfig.GRAMMAR_TOP_P,
-                        top_k=ModelConfig.GRAMMAR_TOP_K,
-                        json_mode=True,
-                        grammar_file=grammar_file
-                    )
+                # Priority: backend-generated grammar > static default.gbnf
+                # Backend grammars are created from HA entity discovery and persist across restarts
+                grammar_file = _find_backend_grammar(data_dir)
+
+                if grammar_file:
+                    logger.info(f"Starting with backend-generated grammar: {grammar_file}")
                 else:
-                    logger.warning(f"default.gbnf not found at {grammar_file}, falling back to set_temp.gbnf")
-                    fallback_grammar = os.path.join(data_dir, "grammars", "set_temp.gbnf")
-
-                    if os.path.exists(fallback_grammar):
-                        logger.info(f"Using fallback grammar: {fallback_grammar}")
-                        await client._ensure_server_running(
-                            model=favorites["default_model"],
-                            temperature=ModelConfig.GRAMMAR_TEMPERATURE,
-                            top_p=ModelConfig.GRAMMAR_TOP_P,
-                            top_k=ModelConfig.GRAMMAR_TOP_K,
-                            json_mode=True,
-                            grammar_file=fallback_grammar
-                        )
+                    # Fall back to static default.gbnf
+                    grammar_file = os.path.join(data_dir, "grammars", "default.gbnf")
+                    if os.path.exists(grammar_file):
+                        logger.info(f"No backend grammar found, using static default: {grammar_file}")
                     else:
-                        logger.warning(f"Fallback grammar not found, starting with default JSON grammar")
-                        await client._ensure_server_running(
-                            model=favorites["default_model"],
-                            temperature=ModelConfig.DEFAULT_TEMPERATURE,
-                            top_p=ModelConfig.DEFAULT_TOP_P,
-                            top_k=ModelConfig.DEFAULT_TOP_K,
-                            json_mode=True
-                        )
+                        grammar_file = None
+                        logger.warning(f"No grammar files found, starting without grammar")
+
+                await client._ensure_server_running(
+                    model=favorites["default_model"],
+                    temperature=ModelConfig.GRAMMAR_TEMPERATURE,
+                    top_p=ModelConfig.GRAMMAR_TOP_P,
+                    top_k=ModelConfig.GRAMMAR_TOP_K,
+                    json_mode=True,
+                    grammar_file=grammar_file
+                )
 
                 logger.info("Default model loaded successfully")
 
