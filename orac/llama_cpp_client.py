@@ -333,8 +333,10 @@ class LlamaCppClient:
                     return server
             else:
                 # Server died, clean it up
+                exit_code = server.process.poll()
+                logger.warning(f"Server for model {model} died (exit code: {exit_code}), restarting...")
                 await self._stop_server(model)
-        
+
         # Find an available port
         port = self._find_available_port()
         
