@@ -419,26 +419,35 @@ class LlamaCppClient:
             env=self.env
         )
         
-        # Wait for server to start
-        for _ in range(10):  # Try for 5 seconds
+        # Wait for server to start AND model to load
+        # Note: /health returns 200 with {"status":"loading model"} while loading,
+        # and {"status":"ok"} when ready
+        for attempt in range(30):  # Try for 15 seconds (model loading can take a while)
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(f"http://{host}:{port}/health") as response:
                         if response.status == 200:
-                            # Create a new session for this server
-                            server_session = aiohttp.ClientSession(
-                                base_url=f"http://{host}:{port}",
-                                timeout=aiohttp.ClientTimeout(total=DEFAULT_TIMEOUT)
-                            )
-                            return ServerState(
-                                process=process,
-                                host=host,
-                                port=port,
-                                model=model,
-                                session=server_session,
-                                last_used=asyncio.get_event_loop().time(),
-                                grammar_file=grammar_file
-                            )
+                            health_data = await response.json()
+                            status = health_data.get("status", "")
+                            if status == "ok":
+                                # Model is fully loaded and ready
+                                logger.info(f"Server ready for model {model} on port {port}")
+                                server_session = aiohttp.ClientSession(
+                                    base_url=f"http://{host}:{port}",
+                                    timeout=aiohttp.ClientTimeout(total=DEFAULT_TIMEOUT)
+                                )
+                                return ServerState(
+                                    process=process,
+                                    host=host,
+                                    port=port,
+                                    model=model,
+                                    session=server_session,
+                                    last_used=asyncio.get_event_loop().time(),
+                                    grammar_file=grammar_file
+                                )
+                            elif "loading" in status.lower():
+                                # Model still loading, wait and retry
+                                logger.debug(f"Model still loading on port {port}...")
             except Exception:
                 pass
             await asyncio.sleep(0.5)
