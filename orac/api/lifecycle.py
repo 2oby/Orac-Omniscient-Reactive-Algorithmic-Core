@@ -31,10 +31,9 @@ async def on_startup():
                 logger.info(f"Loading default model: {favorites['default_model']}")
 
                 # Start with default.gbnf grammar for Home Assistant commands (using static default, not HA-generated)
-                grammar_file = os.path.join(
-                    os.path.dirname(os.path.dirname(__file__)),
-                    "data", "grammars", "default.gbnf"
-                )
+                # Use DATA_DIR env var (set in container) for correct path resolution
+                data_dir = os.getenv("DATA_DIR", "/app/data")
+                grammar_file = os.path.join(data_dir, "grammars", "default.gbnf")
 
                 if os.path.exists(grammar_file):
                     logger.info(f"Starting default model with default.gbnf grammar (static, not HA-generated): {grammar_file}")
@@ -48,10 +47,7 @@ async def on_startup():
                     )
                 else:
                     logger.warning(f"default.gbnf not found at {grammar_file}, falling back to set_temp.gbnf")
-                    fallback_grammar = os.path.join(
-                        os.path.dirname(os.path.dirname(__file__)),
-                        "data", "grammars", "set_temp.gbnf"
-                    )
+                    fallback_grammar = os.path.join(data_dir, "grammars", "set_temp.gbnf")
 
                     if os.path.exists(fallback_grammar):
                         logger.info(f"Using fallback grammar: {fallback_grammar}")
