@@ -542,6 +542,32 @@ class LlamaCppClient:
             logger.warning(f"Failed to pre-warm cache: {e}")
             return False
 
+    async def prewarm_kv_cache(self, model: str, system_prompt: str = "") -> bool:
+        """
+        Public method to pre-warm KV cache for a model.
+
+        Call this after _ensure_server_running() to pre-warm the cache
+        before the first actual request. This saves ~200ms on first request.
+
+        Args:
+            model: The model name to pre-warm
+            system_prompt: Optional system prompt to cache (uses default if empty)
+
+        Returns:
+            True if pre-warming was successful
+        """
+        if model not in self._servers:
+            logger.warning(f"Cannot pre-warm cache: no server running for {model}")
+            return False
+
+        server = self._servers[model]
+
+        # Use a default grammar-mode system prompt if none provided
+        if not system_prompt:
+            system_prompt = "/no_think Match input to JSON."
+
+        return await self._prewarm_cache(server, system_prompt)
+
     @asynccontextmanager
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create an aiohttp session."""

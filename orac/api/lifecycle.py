@@ -76,6 +76,9 @@ async def on_startup():
                     grammar_file=grammar_file
                 )
 
+                # Pre-warm KV cache to avoid delay on first request
+                await client.prewarm_kv_cache(favorites["default_model"])
+
                 logger.info("Default model loaded successfully")
 
             except Exception as e:
