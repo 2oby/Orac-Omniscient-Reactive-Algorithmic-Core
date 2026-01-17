@@ -72,6 +72,7 @@ class ServerState:
     session: Optional[aiohttp.ClientSession] = None
     last_used: float = 0.0
     grammar_file: Optional[str] = None  # Track grammar to avoid unnecessary restarts
+    pre_warmed: bool = False  # Whether KV cache has been pre-warmed with system prompt
 
 class LlamaCppClient:
     """Client for interacting with llama.cpp binaries."""
@@ -448,6 +449,66 @@ class LlamaCppClient:
         error = stderr.decode('utf-8', errors='replace')
         raise Exception(f"Failed to start llama server: {error}")
 
+    async def _prewarm_cache(self, server: ServerState, system_prompt: str) -> bool:
+        """
+        Pre-warm the KV cache by sending a minimal request with the system prompt.
+
+        This populates the cache with the tokenized system prompt so subsequent
+        requests can reuse it, saving ~100ms of prompt processing time.
+
+        Args:
+            server: The server state to pre-warm
+            system_prompt: The system prompt to cache
+
+        Returns:
+            True if pre-warming was successful
+        """
+        if server.pre_warmed:
+            return True
+
+        try:
+            # Get model config for prompt template
+            model_config = self.model_configs.get("models", {}).get(server.model, {})
+            prompt_format = model_config.get("prompt_format", {})
+            template = prompt_format.get("template", "{system_prompt}\n\n{user_prompt}")
+
+            # Format a minimal warm-up prompt
+            warmup_prompt = template.format(
+                system_prompt=system_prompt,
+                user_prompt="warmup"  # Minimal user input
+            )
+
+            # Send warm-up request with cache_prompt enabled
+            warmup_data = {
+                "prompt": warmup_prompt,
+                "max_tokens": 1,  # Generate minimal tokens
+                "temperature": 0.0,
+                "cache_prompt": True  # Explicitly enable caching
+            }
+
+            logger.info(f"Pre-warming KV cache for model {server.model}...")
+            start_time = asyncio.get_event_loop().time()
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"http://{server.host}:{server.port}/completion",
+                    json=warmup_data,
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as response:
+                    if response.status == 200:
+                        elapsed = asyncio.get_event_loop().time() - start_time
+                        server.pre_warmed = True
+                        logger.info(f"KV cache pre-warmed for {server.model} in {elapsed:.3f}s")
+                        return True
+                    else:
+                        error = await response.text()
+                        logger.warning(f"Pre-warm request failed: {error}")
+                        return False
+
+        except Exception as e:
+            logger.warning(f"Failed to pre-warm cache: {e}")
+            return False
+
     @asynccontextmanager
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create an aiohttp session."""
@@ -562,7 +623,11 @@ class LlamaCppClient:
                 json_mode=json_mode,
                 grammar_file=grammar_file
             )
-            
+
+            # Pre-warm KV cache if not already done (saves ~100ms on first request)
+            if not server.pre_warmed:
+                await self._prewarm_cache(server, system_prompt)
+
             # Prepare request data
             request_data = {
                 "prompt": formatted_prompt,
@@ -570,7 +635,8 @@ class LlamaCppClient:
                 "top_p": top_p,
                 "top_k": top_k,
                 "max_tokens": max_tokens,
-                "stop": [] if json_mode else ["<|im_end|>", "<|im_start|>", "<think>", "</think>"]
+                "stop": [] if json_mode else ["<|im_end|>", "<|im_start|>", "<think>", "</think>"],
+                "cache_prompt": True  # Enable KV cache reuse for common prompt prefix
             }
             
             # Only include grammar in request if json_mode is True AND no grammar file is specified
