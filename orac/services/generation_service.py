@@ -95,6 +95,7 @@ class GenerationService:
             self.last_command_storage["timing"] = timing
 
             # Strip wake word early (needed for cache lookup)
+            # NOTE: Wake word stripping should eventually move to ORAC STT
             stripped_prompt = self._strip_wake_word(request.prompt)
 
             # Check for error correction trigger ("computer error", etc.)

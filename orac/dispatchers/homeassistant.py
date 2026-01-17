@@ -57,16 +57,6 @@ class HomeAssistantDispatcher(BaseDispatcher):
 
         # Timing tracking
         self.last_command_timing = {}
-
-        # Legacy entity mappings (for backward compatibility)
-        self.entity_mappings = {
-            'living room': {
-                'lights': 'switch.tretakt_smart_plug'
-            },
-            'lounge': {
-                'lights': 'switch.tretakt_smart_plug'
-            }
-        }
     
     def execute(self, llm_output: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -151,33 +141,17 @@ class HomeAssistantDispatcher(BaseDispatcher):
 
                 except UnmappedError as e:
                     logger.warning(f"Unmapped combination: {e}")
-                    # Fall through to legacy mapping
                 except InvalidEntityError as e:
                     logger.error(f"Invalid entity: {e}")
-                    # Fall through to legacy mapping
 
-            # Fall back to legacy mappings if new system didn't resolve
-            if not entity_id:
-                if location in self.entity_mappings:
-                    if device in self.entity_mappings[location]:
-                        entity_id = self.entity_mappings[location][device]
-                        mapping_source = "legacy"
-                        logger.info(f"Found legacy entity mapping: {entity_id}")
-
-            # Final fallback
+            # No fallback - require explicit device mapping
             if not entity_id:
                 logger.warning(f"No entity mapping for {device} in {location}")
-                # Fallback to lounge lamp for any light command
-                if device == 'lights':
-                    entity_id = 'switch.tretakt_smart_plug'
-                    mapping_source = "fallback"
-                    logger.info(f"Using fallback entity: {entity_id}")
-                else:
-                    return {
-                        'success': False,
-                        'result': None,
-                        'error': f'No entity mapping found for {device} in {location}'
-                    }
+                return {
+                    'success': False,
+                    'result': None,
+                    'error': f'No entity mapping found for {device} in {location}'
+                }
 
             # Determine domain from entity_id
             domain = entity_id.split('.')[0]
