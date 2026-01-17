@@ -107,21 +107,26 @@ class GenerationService:
                 removed = self.stt_response_cache.remove_last_entry(
                     timeout_seconds=CacheConfig.ERROR_CORRECTION_TIMEOUT
                 )
+                # Always early-return for error correction - don't process as a command
                 if removed:
                     logger.info("Error correction: Removed last cache entry")
-                    # Return acknowledgment response
-                    end_time = datetime.now()
-                    elapsed_ms = (end_time - start_time).total_seconds() * 1000
-                    self.last_command_storage["status"] = "complete"
-                    self.last_command_storage["end_time"] = end_time
-                    self.last_command_storage["elapsed_ms"] = elapsed_ms
-                    self.last_command_storage["success"] = True
-                    return GenerationResponse(
-                        status="success",
-                        response='{"action": "error_correction", "result": "removed_last_entry"}',
-                        elapsed_ms=elapsed_ms,
-                        model=None
-                    )
+                    result = "removed_last_entry"
+                else:
+                    logger.info("Error correction: No recent entry to remove")
+                    result = "nothing_to_remove"
+
+                end_time = datetime.now()
+                elapsed_ms = (end_time - start_time).total_seconds() * 1000
+                self.last_command_storage["status"] = "complete"
+                self.last_command_storage["end_time"] = end_time
+                self.last_command_storage["elapsed_ms"] = elapsed_ms
+                self.last_command_storage["success"] = True
+                return GenerationResponse(
+                    status="success",
+                    response=f'{{"action": "error_correction", "result": "{result}"}}',
+                    elapsed_ms=elapsed_ms,
+                    model=None
+                )
 
             # Check STT response cache BEFORE LLM
             cache_hit = False
