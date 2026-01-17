@@ -489,21 +489,45 @@ class LlamaCppClient:
             logger.info(f"Pre-warming KV cache for model {server.model}...")
             start_time = asyncio.get_event_loop().time()
 
+            # Retry loop to handle "Loading model" 503 errors
+            max_retries = 10
+            retry_delay = 0.5  # seconds
+
             async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"http://{server.host}:{server.port}/completion",
-                    json=warmup_data,
-                    timeout=aiohttp.ClientTimeout(total=30)
-                ) as response:
-                    if response.status == 200:
-                        elapsed = asyncio.get_event_loop().time() - start_time
-                        server.pre_warmed = True
-                        logger.info(f"KV cache pre-warmed for {server.model} in {elapsed:.3f}s")
-                        return True
-                    else:
-                        error = await response.text()
-                        logger.warning(f"Pre-warm request failed: {error}")
-                        return False
+                for attempt in range(max_retries):
+                    try:
+                        async with session.post(
+                            f"http://{server.host}:{server.port}/completion",
+                            json=warmup_data,
+                            timeout=aiohttp.ClientTimeout(total=30)
+                        ) as response:
+                            if response.status == 200:
+                                elapsed = asyncio.get_event_loop().time() - start_time
+                                server.pre_warmed = True
+                                logger.info(f"KV cache pre-warmed for {server.model} in {elapsed:.3f}s")
+                                return True
+                            elif response.status == 503:
+                                # Model still loading, wait and retry
+                                error_text = await response.text()
+                                if "Loading model" in error_text and attempt < max_retries - 1:
+                                    logger.debug(f"Model still loading, retrying in {retry_delay}s...")
+                                    await asyncio.sleep(retry_delay)
+                                    continue
+                                else:
+                                    logger.warning(f"Pre-warm request failed after retries: {error_text}")
+                                    return False
+                            else:
+                                error = await response.text()
+                                logger.warning(f"Pre-warm request failed: {error}")
+                                return False
+                    except asyncio.TimeoutError:
+                        if attempt < max_retries - 1:
+                            logger.debug(f"Pre-warm timeout, retrying...")
+                            await asyncio.sleep(retry_delay)
+                            continue
+                        raise
+
+            return False
 
         except Exception as e:
             logger.warning(f"Failed to pre-warm cache: {e}")
