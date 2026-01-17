@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORAC Core - STT Cache</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000;
+            color: #00ff41;
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+        }
+
+        .orac-container {
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .orac-frame {
+            border: 3px solid #00ff41;
+            border-radius: 12px;
+            padding: 30px;
+            min-height: calc(100vh - 60px);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+        }
+
+        .orac-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+        }
+
+        .banner-image {
+            max-width: 400px;
+            width: auto;
+            height: auto;
+            display: block;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .nav-button {
+            padding: 12px 24px;
+            border: 3px solid #00ff41;
+            border-radius: 8px;
+            background: rgba(0, 255, 65, 0.1);
+            color: #00ff41;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-button:hover {
+            background: rgba(0, 255, 65, 0.2);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #00ff41;
+        }
+
+        .page-title {
+            font-size: 24px;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px #00ff41;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 30px;
+            font-size: 14px;
+        }
+
+        .stat-item {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .stat-label {
+            opacity: 0.7;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #00ff41;
+            text-shadow: 0 0 5px #00ff41;
+        }
+
+        .action-bar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+            gap: 15px;
+        }
+
+        .action-button {
+            padding: 10px 20px;
+            border: 2px solid #00ff41;
+            border-radius: 6px;
+            background: rgba(0, 255, 65, 0.1);
+            color: #00ff41;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .action-button:hover {
+            background: rgba(0, 255, 65, 0.2);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.5);
+        }
+
+        .action-button.danger {
+            border-color: #ff4444;
+            color: #ff4444;
+            background: rgba(255, 68, 68, 0.1);
+        }
+
+        .action-button.danger:hover {
+            background: rgba(255, 68, 68, 0.2);
+            box-shadow: 0 0 15px rgba(255, 68, 68, 0.5);
+        }
+
+        .cache-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .cache-entry {
+            border: 2px solid #00ff41;
+            border-radius: 8px;
+            padding: 15px 20px;
+            background: rgba(0, 255, 65, 0.02);
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 20px;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .cache-entry:hover {
+            background: rgba(0, 255, 65, 0.05);
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+        }
+
+        .entry-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .entry-phrase {
+            font-size: 16px;
+            font-weight: bold;
+            color: #00ff41;
+            text-shadow: 0 0 5px #00ff41;
+        }
+
+        .entry-json {
+            font-size: 12px;
+            color: #888;
+            font-family: 'Courier New', monospace;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: nowrap;
+            max-width: 100%;
+        }
+
+        .entry-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            font-size: 11px;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        .entry-hits {
+            color: #00ff41;
+            font-weight: bold;
+        }
+
+        .delete-button {
+            padding: 8px 16px;
+            border: 2px solid #ff4444;
+            border-radius: 6px;
+            background: transparent;
+            color: #ff4444;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .delete-button:hover {
+            background: rgba(255, 68, 68, 0.2);
+            box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+            font-size: 18px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #00ff41;
+            font-size: 16px;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        /* Confirm Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: #000;
+            margin: 20% auto;
+            padding: 30px;
+            border: 3px solid #ff4444;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 0 30px rgba(255, 68, 68, 0.7);
+            text-align: center;
+        }
+
+        .modal-title {
+            color: #ff4444;
+            font-size: 20px;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px #ff4444;
+        }
+
+        .modal-text {
+            color: #00ff41;
+            margin-bottom: 25px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 2000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success {
+            background: #00ff41;
+            color: #000;
+            box-shadow: 0 0 20px #00ff41;
+        }
+
+        .toast.error {
+            background: #ff4444;
+            color: #fff;
+            box-shadow: 0 0 20px #ff4444;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="orac-container">
+        <div class="orac-frame">
+            <!-- Header with Logo and Nav -->
+            <div class="orac-header">
+                <a href="/">
+                    <img src="{{ url_for('static', path='/images/ORAC_CORE_Banner.png') }}" alt="ORAC Core" class="banner-image">
+                </a>
+                <div class="nav-buttons">
+                    <a href="/" class="nav-button">HOME</a>
+                    <a href="/topics" class="nav-button">TOPICS</a>
+                    <a href="/backends" class="nav-button">BACKENDS</a>
+                </div>
+            </div>
+
+            <!-- Page Header with Stats -->
+            <div class="page-header">
+                <h1 class="page-title">STT RESPONSE CACHE</h1>
+                <div class="stats-bar">
+                    <div class="stat-item">
+                        <span class="stat-label">ENTRIES:</span>
+                        <span class="stat-value" id="entryCount">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">TOTAL HITS:</span>
+                        <span class="stat-value" id="totalHits">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">MAX SIZE:</span>
+                        <span class="stat-value" id="maxSize">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Bar -->
+            <div class="action-bar">
+                <button class="action-button" onclick="refreshCache()">REFRESH</button>
+                <button class="action-button danger" onclick="confirmClearAll()">DELETE ALL</button>
+            </div>
+
+            <!-- Cache Entries List -->
+            <div class="cache-list" id="cacheList">
+                <div class="loading" id="loadingIndicator">LOADING CACHE</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete All Modal -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">CONFIRM DELETE ALL</div>
+            <div class="modal-text">This will remove all cached STT responses. Are you sure?</div>
+            <div class="modal-buttons">
+                <button class="action-button" onclick="closeModal()">CANCEL</button>
+                <button class="action-button danger" onclick="clearAllCache()">DELETE ALL</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let cacheEntries = [];
+
+        // Load cache data
+        async function loadCache() {
+            try {
+                // Load stats
+                const statsRes = await fetch('/v1/cache/stt/stats');
+                if (statsRes.ok) {
+                    const stats = await statsRes.json();
+                    document.getElementById('entryCount').textContent = stats.entries;
+                    document.getElementById('totalHits').textContent = stats.total_hits;
+                    document.getElementById('maxSize').textContent = stats.max_size;
+                }
+
+                // Load entries
+                const entriesRes = await fetch('/v1/cache/stt/entries?limit=100');
+                if (entriesRes.ok) {
+                    const data = await entriesRes.json();
+                    cacheEntries = data.entries;
+                    renderCacheList();
+                }
+            } catch (error) {
+                console.error('Failed to load cache:', error);
+                showToast('Failed to load cache', 'error');
+            }
+        }
+
+        // Render cache entries
+        function renderCacheList() {
+            const container = document.getElementById('cacheList');
+
+            if (cacheEntries.length === 0) {
+                container.innerHTML = '<div class="empty-state">NO CACHED ENTRIES</div>';
+                return;
+            }
+
+            container.innerHTML = cacheEntries.map(entry => `
+                <div class="cache-entry" data-text="${escapeHtml(entry.stt_text)}">
+                    <div class="entry-content">
+                        <div class="entry-phrase">"${escapeHtml(entry.stt_text)}"</div>
+                        <div class="entry-json">${escapeHtml(JSON.stringify(entry.json_output))}</div>
+                    </div>
+                    <div class="entry-meta">
+                        <span class="entry-hits">${entry.success_count} hits</span>
+                        <span>Created: ${formatDate(entry.created_at)}</span>
+                        <span>Last used: ${formatDate(entry.last_used_at)}</span>
+                    </div>
+                    <button class="delete-button" onclick="deleteEntry('${escapeHtml(entry.stt_text)}')">DELETE</button>
+                </div>
+            `).join('');
+        }
+
+        // Delete single entry
+        async function deleteEntry(text) {
+            try {
+                const res = await fetch(`/v1/cache/stt/entry/${encodeURIComponent(text)}`, {
+                    method: 'DELETE'
+                });
+
+                if (res.ok) {
+                    showToast('Entry deleted', 'success');
+                    loadCache();
+                } else {
+                    const error = await res.json();
+                    showToast(error.detail || 'Failed to delete', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to delete entry:', error);
+                showToast('Failed to delete entry', 'error');
+            }
+        }
+
+        // Clear all cache
+        async function clearAllCache() {
+            closeModal();
+            try {
+                const res = await fetch('/v1/cache/stt/clear', {
+                    method: 'DELETE'
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    showToast(`Cleared ${data.entries_removed} entries`, 'success');
+                    loadCache();
+                } else {
+                    showToast('Failed to clear cache', 'error');
+                }
+            } catch (error) {
+                console.error('Failed to clear cache:', error);
+                showToast('Failed to clear cache', 'error');
+            }
+        }
+
+        // Refresh cache
+        function refreshCache() {
+            document.getElementById('cacheList').innerHTML = '<div class="loading" id="loadingIndicator">LOADING CACHE</div>';
+            loadCache();
+        }
+
+        // Confirm modal
+        function confirmClearAll() {
+            document.getElementById('confirmModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('confirmModal').style.display = 'none';
+        }
+
+        // Toast notification
+        function showToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // Utility functions
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return 'N/A';
+            const date = new Date(dateStr);
+            return date.toLocaleString();
+        }
+
+        // Close modal on outside click
+        window.onclick = function(event) {
+            const modal = document.getElementById('confirmModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', loadCache);
+    </script>
+</body>
+</html>

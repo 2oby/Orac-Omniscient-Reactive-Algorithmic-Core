@@ -177,12 +177,38 @@
             align-items: center;
             justify-content: center;
         }
-        
+
         .topic-config-btn:hover {
             background-color: var(--primary-green);
             color: #000;
             box-shadow: 0 0 15px var(--primary-green);
             transform: rotate(90deg);
+        }
+
+        .cache-btn {
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+            background-color: rgba(0, 200, 255, 0.2);
+            color: #00c8ff;
+            border: 1px solid #00c8ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .cache-btn:hover {
+            background-color: rgba(0, 200, 255, 0.4);
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.6);
+        }
+
+        .topic-status-buttons {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         
         .add-topic-card {

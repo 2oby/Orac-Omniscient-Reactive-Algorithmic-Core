@@ -90,3 +90,12 @@ async def model_config(request: Request):
         "model_config.html",
         {"request": request, "title": "ORAC - Model Configuration"}
     )
+
+
+@router.get("/cache", response_class=HTMLResponse)
+async def cache_page(request: Request):
+    """Serve the STT response cache management interface."""
+    return templates.TemplateResponse(
+        "cache.html",
+        {"request": request, "title": "ORAC - STT Cache"}
+    )
