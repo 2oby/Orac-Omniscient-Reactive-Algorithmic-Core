@@ -83,10 +83,14 @@ class STTResponseCache:
         This ensures that different topics with different backends/JSON formats
         have separate cache entries for the same STT text.
 
+        Topic ID is normalized to lowercase for consistent matching
+        (handles case where API receives "Computa" but UI uses "computa").
+
         Example: "computa:turn on the light" vs "other_topic:turn on the light"
         """
-        normalized = self.normalize(stt_text)
-        return f"{topic_id}:{normalized}"
+        normalized_text = self.normalize(stt_text)
+        normalized_topic = topic_id.lower()
+        return f"{normalized_topic}:{normalized_text}"
 
     def get(self, stt_text: str, topic_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -137,6 +141,7 @@ class STTResponseCache:
         """
         key = self._make_key(stt_text, topic_id)
         normalized_text = self.normalize(stt_text)
+        normalized_topic = topic_id.lower()
         now = datetime.now().isoformat()
 
         if key in self._cache:
@@ -146,10 +151,10 @@ class STTResponseCache:
             self._cache.move_to_end(key)
             logger.debug(f"Cache UPDATE: '{key}' (count: {self._cache[key]['success_count']})")
         else:
-            # Create new entry with topic_id for display/filtering
+            # Create new entry with normalized topic_id for display/filtering
             entry = {
                 "stt_text": normalized_text,
-                "topic_id": topic_id,
+                "topic_id": normalized_topic,
                 "json_output": json_output,
                 "entity_id": entity_id,
                 "success_count": 1,
