@@ -7,6 +7,7 @@ JSON output from the LLM and executing the appropriate actions.
 
 import os
 import json
+import time
 import requests
 import logging
 from datetime import datetime
@@ -167,6 +168,10 @@ class HomeAssistantDispatcher(BaseDispatcher):
             # Call Home Assistant API
             logger.info(f"Calling HA service: {domain}/{service} for entity {entity_id}")
             result = self._call_ha_service(domain, service, entity_id)
+
+            # Wait for Home Assistant to update entity state
+            # Z-Wave and other devices can take 100-500ms to report state changes
+            time.sleep(0.3)  # 300ms delay for state propagation
 
             # Get entity state AFTER command (for state change verification)
             new_state_data = self._get_entity_state(entity_id)
