@@ -120,9 +120,12 @@ function createTopicCard(topicId, topic) {
             <span class="status-badge ${topic.enabled ? 'enabled' : 'disabled'}">
                 ${topic.enabled ? 'Enabled' : 'Disabled'}
             </span>
-            <button class="topic-config-btn" onclick="configTopic('${topicId}')" title="Configure Topic">
-                ⚙️
-            </button>
+            <div class="topic-status-buttons">
+                <a href="/cache?topic=${topicId}" class="cache-btn" title="View Cache for ${topicId}">Cache</a>
+                <button class="topic-config-btn" onclick="configTopic('${topicId}')" title="Configure Topic">
+                    ⚙️
+                </button>
+            </div>
         </div>
     `;
     

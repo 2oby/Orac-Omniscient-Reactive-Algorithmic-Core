@@ -589,8 +589,33 @@
             }
         }
 
+        // Get topic from URL query parameter
+        function getTopicFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('topic');
+        }
+
         // Initialize
-        document.addEventListener('DOMContentLoaded', loadCache);
+        document.addEventListener('DOMContentLoaded', function() {
+            const topicFromUrl = getTopicFromUrl();
+            if (topicFromUrl) {
+                // Pre-set the filter dropdown (will be populated after load)
+                // Load with filter, then set dropdown value
+                loadCache(topicFromUrl).then(() => {
+                    const select = document.getElementById('topicFilter');
+                    // Add the topic option if it doesn't exist yet
+                    if (!Array.from(select.options).some(opt => opt.value === topicFromUrl)) {
+                        const option = document.createElement('option');
+                        option.value = topicFromUrl;
+                        option.textContent = topicFromUrl.toUpperCase();
+                        select.appendChild(option);
+                    }
+                    select.value = topicFromUrl;
+                });
+            } else {
+                loadCache();
+            }
+        });
     </script>
 </body>
 </html>
