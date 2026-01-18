@@ -76,17 +76,30 @@ class STTResponseCache:
         """
         return ' '.join(text.lower().split())
 
-    def get(self, stt_text: str) -> Optional[Dict[str, Any]]:
+    def _make_key(self, stt_text: str, topic_id: str) -> str:
         """
-        Look up cached response for STT text.
+        Create composite cache key from topic and normalized text.
+
+        This ensures that different topics with different backends/JSON formats
+        have separate cache entries for the same STT text.
+
+        Example: "computa:turn on the light" vs "other_topic:turn on the light"
+        """
+        normalized = self.normalize(stt_text)
+        return f"{topic_id}:{normalized}"
+
+    def get(self, stt_text: str, topic_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Look up cached response for STT text within a specific topic.
 
         Args:
             stt_text: The STT transcription text
+            topic_id: The topic identifier (ensures cache isolation per topic)
 
         Returns:
             Cached entry dict if found, None otherwise
         """
-        key = self.normalize(stt_text)
+        key = self._make_key(stt_text, topic_id)
 
         if key in self._cache:
             # Move to end (most recently used)
@@ -94,6 +107,11 @@ class STTResponseCache:
 
             entry = self._cache[key]
             entry["last_used_at"] = datetime.now().isoformat()
+
+            # Track this as the last cache operation for error correction
+            # This ensures "computer error" works even for cache hits, not just new stores
+            self._last_cached_key = key
+            self._last_cache_time = datetime.now()
 
             logger.info(f"Cache HIT: '{key}' (used {entry.get('success_count', 0)} times)")
             return entry
@@ -104,18 +122,21 @@ class STTResponseCache:
     def store(
         self,
         stt_text: str,
+        topic_id: str,
         json_output: Dict[str, Any],
         entity_id: Optional[str] = None
     ) -> None:
         """
-        Store a successful STT -> JSON mapping in the cache.
+        Store a successful STT -> JSON mapping in the cache for a specific topic.
 
         Args:
             stt_text: The original STT transcription text
+            topic_id: The topic identifier (ensures cache isolation per topic)
             json_output: The LLM-generated JSON output
             entity_id: The resolved Home Assistant entity ID (optional)
         """
-        key = self.normalize(stt_text)
+        key = self._make_key(stt_text, topic_id)
+        normalized_text = self.normalize(stt_text)
         now = datetime.now().isoformat()
 
         if key in self._cache:
@@ -125,9 +146,10 @@ class STTResponseCache:
             self._cache.move_to_end(key)
             logger.debug(f"Cache UPDATE: '{key}' (count: {self._cache[key]['success_count']})")
         else:
-            # Create new entry
+            # Create new entry with topic_id for display/filtering
             entry = {
-                "stt_text": key,
+                "stt_text": normalized_text,
+                "topic_id": topic_id,
                 "json_output": json_output,
                 "entity_id": entity_id,
                 "success_count": 1,
@@ -150,20 +172,44 @@ class STTResponseCache:
         if self.persist_to_disk:
             self._save_to_disk()
 
+    def clear_last_entry_tracking(self) -> None:
+        """
+        Clear the last entry tracking (used when a command is NOT cached).
+
+        This ensures error correction only removes entries from commands that
+        were actually cached. If a command fails or doesn't result in a state
+        change, we clear the tracking so "computer error" won't remove a
+        previously cached (correct) entry.
+        """
+        self._last_cached_key = None
+        self._last_cache_time = None
+        logger.debug("Cleared last entry tracking (command was not cached)")
+
     def remove_last_entry(self, timeout_seconds: int = 60) -> bool:
         """
         Remove the last cached entry (for error correction).
 
         Called when user says "computer error" to undo the last cache entry.
 
+        Only removes if ALL of these conditions are met:
+        1. The most recent command involved the cache (either a new store OR a cache hit)
+        2. That cache operation happened within timeout_seconds
+        3. The tracking hasn't been cleared (cleared when a command doesn't use cache)
+
+        This ensures:
+        - "computer error" after a cached command → removes entry ✓
+        - "computer error" after a cache hit → removes entry ✓
+        - "computer error" after a non-cached command → removes nothing ✓
+        - "computer error" after 60+ seconds → removes nothing ✓
+
         Args:
-            timeout_seconds: Only remove if cached within this many seconds
+            timeout_seconds: Only remove if cache was used within this many seconds
 
         Returns:
             True if entry was removed, False otherwise
         """
         if not self._last_cached_key or not self._last_cache_time:
-            logger.info("Error correction: No recent cache entry to remove")
+            logger.info("Error correction: No recent cache entry to remove (last command was not cached)")
             return False
 
         # Check if within timeout
@@ -234,7 +280,11 @@ class STTResponseCache:
         return entries[:limit]
 
     def _load_from_disk(self) -> None:
-        """Load cache from disk file."""
+        """Load cache from disk file.
+
+        Handles both old format (v1, no topic_id) and new format (v2, with topic_id).
+        Old entries without topic_id are skipped to prevent cross-topic contamination.
+        """
         if not self.cache_file.exists():
             logger.debug(f"No cache file found at {self.cache_file}")
             return
@@ -243,13 +293,34 @@ class STTResponseCache:
             with open(self.cache_file, 'r') as f:
                 data = json.load(f)
 
+            version = data.get("version", 1)
+            loaded = 0
+            skipped = 0
+
             # Reconstruct OrderedDict from list of entries
             for entry in data.get("entries", []):
-                key = entry.get("stt_text")
-                if key:
-                    self._cache[key] = entry
+                stt_text = entry.get("stt_text")
+                topic_id = entry.get("topic_id")
 
-            logger.info(f"Loaded {len(self._cache)} entries from {self.cache_file}")
+                if not stt_text:
+                    skipped += 1
+                    continue
+
+                # Skip old entries without topic_id (incompatible format)
+                if not topic_id:
+                    skipped += 1
+                    logger.debug(f"Skipping old cache entry without topic_id: '{stt_text}'")
+                    continue
+
+                # Reconstruct composite key from topic_id and stt_text
+                key = f"{topic_id}:{stt_text}"
+                self._cache[key] = entry
+                loaded += 1
+
+            if skipped > 0:
+                logger.info(f"Loaded {loaded} entries from {self.cache_file} (skipped {skipped} old entries without topic_id)")
+            else:
+                logger.info(f"Loaded {loaded} entries from {self.cache_file}")
 
         except Exception as e:
             logger.warning(f"Failed to load cache from disk: {e}")
@@ -261,8 +332,9 @@ class STTResponseCache:
             self.cache_file.parent.mkdir(parents=True, exist_ok=True)
 
             # Save as list of entries (preserves order)
+            # Version 2: entries now include topic_id field
             data = {
-                "version": 1,
+                "version": 2,
                 "saved_at": datetime.now().isoformat(),
                 "entries": list(self._cache.values())
             }

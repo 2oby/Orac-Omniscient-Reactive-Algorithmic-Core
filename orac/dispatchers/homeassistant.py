@@ -159,9 +159,26 @@ class HomeAssistantDispatcher(BaseDispatcher):
             # Record pre-API call timing
             self.last_command_timing['ha_api_call'] = datetime.now().isoformat()
 
+            # Get entity state BEFORE command (for state change verification)
+            old_state_data = self._get_entity_state(entity_id)
+            old_state = old_state_data.get('state') if old_state_data else None
+            logger.info(f"Entity {entity_id} state BEFORE: {old_state}")
+
             # Call Home Assistant API
             logger.info(f"Calling HA service: {domain}/{service} for entity {entity_id}")
             result = self._call_ha_service(domain, service, entity_id)
+
+            # Get entity state AFTER command (for state change verification)
+            new_state_data = self._get_entity_state(entity_id)
+            new_state = new_state_data.get('state') if new_state_data else None
+            logger.info(f"Entity {entity_id} state AFTER: {new_state}")
+
+            # Determine if state actually changed
+            state_changed = (old_state is not None and new_state is not None and old_state != new_state)
+            if state_changed:
+                logger.info(f"State CHANGED: {old_state} -> {new_state}")
+            else:
+                logger.info(f"State UNCHANGED (was: {old_state}, now: {new_state})")
 
             # Record completion timing
             end_time = datetime.now()
@@ -173,6 +190,10 @@ class HomeAssistantDispatcher(BaseDispatcher):
 
             return {
                 'success': True,
+                'entity_id': entity_id,
+                'state_changed': state_changed,
+                'old_state': old_state,
+                'new_state': new_state,
                 'result': {
                     'entity': entity_id,
                     'action': service,
@@ -195,15 +216,42 @@ class HomeAssistantDispatcher(BaseDispatcher):
                 'error': str(e)
             }
     
+    def _get_entity_state(self, entity_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get the current state of a Home Assistant entity.
+
+        Args:
+            entity_id: Entity ID to query (e.g., 'light.living_room')
+
+        Returns:
+            Entity state dict with 'state' and 'attributes', or None if failed
+        """
+        url = f"{self.ha_url}/api/states/{entity_id}"
+        headers = {
+            'Authorization': f'Bearer {self.ha_token}',
+            'Content-Type': 'application/json'
+        }
+
+        try:
+            response = requests.get(url, headers=headers, timeout=NetworkConfig.HA_TIMEOUT)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.warning(f"Failed to get state for {entity_id}: HTTP {response.status_code}")
+                return None
+        except Exception as e:
+            logger.warning(f"Error getting state for {entity_id}: {e}")
+            return None
+
     def _call_ha_service(self, domain: str, service: str, entity_id: str) -> Dict[str, Any]:
         """
         Call a Home Assistant service.
-        
+
         Args:
             domain: Service domain (e.g., 'light')
             service: Service name (e.g., 'turn_on')
             entity_id: Entity to control
-        
+
         Returns:
             Response from Home Assistant
         """
@@ -215,11 +263,11 @@ class HomeAssistantDispatcher(BaseDispatcher):
         data = {
             'entity_id': entity_id
         }
-        
+
         logger.info(f"Calling HA API: {url} with entity: {entity_id}")
         response = requests.post(url, headers=headers, json=data, timeout=NetworkConfig.HA_TIMEOUT)
         response.raise_for_status()
-        
+
         return response.json() if response.text else {'status': 'success'}
     
     def get_mapping_stats(self, topic_id: str) -> Dict[str, Any]:

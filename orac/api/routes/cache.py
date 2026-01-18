@@ -25,6 +25,7 @@ router = APIRouter(prefix="/v1/cache/stt", tags=["Cache"])
 class CacheEntryResponse(BaseModel):
     """Response model for a cache entry."""
     stt_text: str
+    topic_id: Optional[str] = None
     json_output: Dict[str, Any]
     entity_id: Optional[str] = None
     success_count: int
@@ -62,10 +63,23 @@ async def get_cache_stats() -> CacheStatsResponse:
 
 
 @router.get("/entries", response_model=CacheListResponse)
-async def list_cache_entries(limit: int = 50) -> CacheListResponse:
-    """List STT response cache entries (most recently used first)."""
+async def list_cache_entries(
+    limit: int = 50,
+    topic_id: Optional[str] = None
+) -> CacheListResponse:
+    """List STT response cache entries (most recently used first).
+
+    Args:
+        limit: Maximum number of entries to return
+        topic_id: Optional filter to show only entries for a specific topic
+    """
     cache = get_stt_response_cache()
     entries = cache.list_entries(limit=limit)
+
+    # Filter by topic_id if specified
+    if topic_id:
+        entries = [e for e in entries if e.get("topic_id") == topic_id]
+
     return CacheListResponse(
         entries=[CacheEntryResponse(**e) for e in entries],
         total=len(cache._cache)
@@ -81,20 +95,29 @@ async def clear_cache() -> CacheClearResponse:
     return CacheClearResponse(status="cleared", entries_removed=count)
 
 
-@router.delete("/entry/{stt_text:path}")
-async def remove_cache_entry(stt_text: str) -> Dict[str, Any]:
-    """Remove a specific cache entry by STT text."""
+@router.delete("/entry")
+async def remove_cache_entry(
+    stt_text: str,
+    topic_id: str
+) -> Dict[str, Any]:
+    """Remove a specific cache entry by STT text and topic.
+
+    Args:
+        stt_text: The STT text to remove
+        topic_id: The topic ID (required to form composite cache key)
+    """
     cache = get_stt_response_cache()
     normalized = cache.normalize(stt_text)
+    key = f"{topic_id}:{normalized}"
 
-    if normalized in cache._cache:
-        del cache._cache[normalized]
+    if key in cache._cache:
+        del cache._cache[key]
         if cache.persist_to_disk:
             cache._save_to_disk()
-        logger.info(f"Cache entry removed via API: '{normalized}'")
-        return {"status": "removed", "stt_text": normalized}
+        logger.info(f"Cache entry removed via API: '{key}'")
+        return {"status": "removed", "stt_text": normalized, "topic_id": topic_id}
     else:
-        raise HTTPException(status_code=404, detail=f"Cache entry not found: '{normalized}'")
+        raise HTTPException(status_code=404, detail=f"Cache entry not found: '{key}'")
 
 
 @router.post("/error-correction")

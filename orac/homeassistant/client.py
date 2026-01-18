@@ -235,9 +235,26 @@ class HomeAssistantClient:
             # Return empty list if device registry endpoint is not available
             return []
 
+    async def get_entity_state(self, entity_id: str) -> Optional[Dict[str, Any]]:
+        """Get the current state of a specific entity.
+
+        Args:
+            entity_id: The entity ID to query (e.g., 'light.living_room')
+
+        Returns:
+            Entity state dict if found, None otherwise.
+            The dict contains 'state' (e.g., 'on', 'off') and 'attributes'.
+        """
+        try:
+            state = await self._request("GET", f"{API_STATES}/{entity_id}")
+            return state
+        except aiohttp.ClientError as e:
+            logger.warning(f"Failed to get state for entity {entity_id}: {e}")
+            return None
+
     async def validate_connection(self) -> bool:
         """Validate the connection to Home Assistant.
-        
+
         Returns:
             bool: True if connection is successful
         """

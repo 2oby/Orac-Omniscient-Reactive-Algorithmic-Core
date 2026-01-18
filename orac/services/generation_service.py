@@ -130,10 +130,11 @@ class GenerationService:
                 )
 
             # Check STT response cache BEFORE LLM
+            # Note: Cache is per-topic to prevent cross-topic contamination
             cache_hit = False
             cached_json = None
             if self.stt_response_cache:
-                cache_entry = self.stt_response_cache.get(stripped_prompt)
+                cache_entry = self.stt_response_cache.get(stripped_prompt, topic_id)
                 if cache_entry:
                     cache_hit = True
                     cached_json = cache_entry.get("json_output")
@@ -214,18 +215,38 @@ class GenerationService:
                 topic, topic_id, response_text
             )
 
-            # Store in cache if: cache enabled, was cache miss, and backend succeeded
+            # Store in cache if: cache enabled, was cache miss, backend succeeded, AND state changed
+            # Note: Cache is per-topic to prevent cross-topic contamination
+            # Note: Only cache if state actually changed (prevents caching wrong mappings when device was already in requested state)
             if (self.stt_response_cache and
                 not cache_hit and
                 backend_result and
-                backend_result.get("success", False)):
+                backend_result.get("success", False) and
+                backend_result.get("state_changed", False)):
                 try:
                     parsed_json = json.loads(response_text)
                     entity_id = backend_result.get("entity_id")
-                    self.stt_response_cache.store(stripped_prompt, parsed_json, entity_id)
-                    logger.info(f"Cached successful response for: '{stripped_prompt}'")
+                    self.stt_response_cache.store(stripped_prompt, topic_id, parsed_json, entity_id)
+                    old_state = backend_result.get("old_state")
+                    new_state = backend_result.get("new_state")
+                    logger.info(f"Cached response for topic '{topic_id}': '{stripped_prompt}' (state: {old_state} -> {new_state})")
                 except json.JSONDecodeError:
                     logger.warning(f"Could not cache response - invalid JSON: {response_text}")
+                    # Clear tracking so error correction won't remove a previous valid entry
+                    self.stt_response_cache.clear_last_entry_tracking()
+            elif self.stt_response_cache and not cache_hit:
+                # Command was NOT cached - clear tracking so error correction
+                # won't accidentally remove a previous (correct) cache entry
+                self.stt_response_cache.clear_last_entry_tracking()
+
+                # Log the specific reason
+                if backend_result and backend_result.get("success", False) and not backend_result.get("state_changed", False):
+                    old_state = backend_result.get("old_state")
+                    logger.info(f"NOT caching for topic '{topic_id}': '{stripped_prompt}' (no state change, state remained: {old_state})")
+                elif backend_result and not backend_result.get("success", False):
+                    logger.info(f"NOT caching for topic '{topic_id}': '{stripped_prompt}' (backend failed)")
+                elif not backend_result:
+                    logger.info(f"NOT caching for topic '{topic_id}': '{stripped_prompt}' (no backend result)")
 
             # Mark processing complete
             end_time = datetime.now()

@@ -371,6 +371,9 @@
 
             <!-- Action Bar -->
             <div class="action-bar">
+                <select id="topicFilter" class="action-button" onchange="filterByTopic()" style="cursor: pointer;">
+                    <option value="">ALL TOPICS</option>
+                </select>
                 <button class="action-button" onclick="refreshCache()">REFRESH</button>
                 <button class="action-button danger" onclick="confirmClearAll()">DELETE ALL</button>
             </div>
@@ -398,7 +401,7 @@
         let cacheEntries = [];
 
         // Load cache data
-        async function loadCache() {
+        async function loadCache(topicFilter = null) {
             try {
                 // Load stats
                 const statsRes = await fetch('/v1/cache/stt/stats');
@@ -409,16 +412,50 @@
                     document.getElementById('maxSize').textContent = stats.max_size;
                 }
 
+                // Build entries URL with optional topic filter
+                let entriesUrl = '/v1/cache/stt/entries?limit=100';
+                if (topicFilter) {
+                    entriesUrl += `&topic_id=${encodeURIComponent(topicFilter)}`;
+                }
+
                 // Load entries
-                const entriesRes = await fetch('/v1/cache/stt/entries?limit=100');
+                const entriesRes = await fetch(entriesUrl);
                 if (entriesRes.ok) {
                     const data = await entriesRes.json();
                     cacheEntries = data.entries;
                     renderCacheList();
+
+                    // Populate topic filter dropdown (only on initial load)
+                    if (!topicFilter) {
+                        populateTopicFilter(data.entries);
+                    }
                 }
             } catch (error) {
                 console.error('Failed to load cache:', error);
                 showToast('Failed to load cache', 'error');
+            }
+        }
+
+        // Populate topic filter dropdown with unique topics
+        function populateTopicFilter(entries) {
+            const topics = [...new Set(entries.map(e => e.topic_id).filter(Boolean))].sort();
+            const select = document.getElementById('topicFilter');
+            const currentValue = select.value;
+
+            // Clear existing options except "ALL TOPICS"
+            select.innerHTML = '<option value="">ALL TOPICS</option>';
+
+            // Add topic options
+            topics.forEach(topic => {
+                const option = document.createElement('option');
+                option.value = topic;
+                option.textContent = topic.toUpperCase();
+                select.appendChild(option);
+            });
+
+            // Restore previous selection if it still exists
+            if (currentValue && topics.includes(currentValue)) {
+                select.value = currentValue;
             }
         }
 
@@ -432,25 +469,34 @@
             }
 
             container.innerHTML = cacheEntries.map(entry => `
-                <div class="cache-entry" data-text="${escapeHtml(entry.stt_text)}">
+                <div class="cache-entry" data-text="${escapeHtml(entry.stt_text)}" data-topic="${escapeHtml(entry.topic_id || '')}">
                     <div class="entry-content">
                         <div class="entry-phrase">"${escapeHtml(entry.stt_text)}"</div>
                         <div class="entry-json">${escapeHtml(JSON.stringify(entry.json_output))}</div>
                     </div>
                     <div class="entry-meta">
+                        <span class="entry-topic" style="color: #00aaff;">${entry.topic_id || 'N/A'}</span>
                         <span class="entry-hits">${entry.success_count} hits</span>
                         <span>Created: ${formatDate(entry.created_at)}</span>
                         <span>Last used: ${formatDate(entry.last_used_at)}</span>
                     </div>
-                    <button class="delete-button" onclick="deleteEntry('${escapeHtml(entry.stt_text)}')">DELETE</button>
+                    <button class="delete-button" onclick="deleteEntry('${escapeHtml(entry.stt_text)}', '${escapeHtml(entry.topic_id || '')}')">DELETE</button>
                 </div>
             `).join('');
         }
 
         // Delete single entry
-        async function deleteEntry(text) {
+        async function deleteEntry(text, topicId) {
+            if (!topicId) {
+                showToast('Cannot delete: missing topic ID', 'error');
+                return;
+            }
             try {
-                const res = await fetch(`/v1/cache/stt/entry/${encodeURIComponent(text)}`, {
+                const params = new URLSearchParams({
+                    stt_text: text,
+                    topic_id: topicId
+                });
+                const res = await fetch(`/v1/cache/stt/entry?${params}`, {
                     method: 'DELETE'
                 });
 
@@ -465,6 +511,12 @@
                 console.error('Failed to delete entry:', error);
                 showToast('Failed to delete entry', 'error');
             }
+        }
+
+        // Filter by topic
+        function filterByTopic() {
+            const selectedTopic = document.getElementById('topicFilter').value;
+            loadCache(selectedTopic);
         }
 
         // Clear all cache
@@ -491,7 +543,8 @@
         // Refresh cache
         function refreshCache() {
             document.getElementById('cacheList').innerHTML = '<div class="loading" id="loadingIndicator">LOADING CACHE</div>';
-            loadCache();
+            const selectedTopic = document.getElementById('topicFilter').value;
+            loadCache(selectedTopic || null);
         }
 
         // Confirm modal
