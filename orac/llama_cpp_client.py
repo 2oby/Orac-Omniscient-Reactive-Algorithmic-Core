@@ -73,6 +73,9 @@ class ServerState:
     last_used: float = 0.0
     grammar_file: Optional[str] = None  # Track grammar to avoid unnecessary restarts
     pre_warmed: bool = False  # Whether KV cache has been pre-warmed with system prompt
+    consecutive_failures: int = 0  # Health check failure counter
+    last_health_check: Optional[float] = None  # Timestamp of last health check
+    restart_count: int = 0  # Number of times server was restarted
 
 class LlamaCppClient:
     """Client for interacting with llama.cpp binaries."""
@@ -113,6 +116,11 @@ class LlamaCppClient:
         self._session: Optional[aiohttp.ClientSession] = None
         self._cleanup_task: Optional[asyncio.Task] = None
         self._shutdown_event = asyncio.Event()
+
+        # Health monitoring settings
+        self._health_check_timeout = 5.0  # seconds
+        self._max_consecutive_failures = 2  # restart after this many failures
+        self._total_restart_count = 0  # total restarts across all models
         
         # Ensure the binaries are executable
         for binary in [LLAMA_CLI, LLAMA_SERVER]:
@@ -217,17 +225,102 @@ class LlamaCppClient:
             # No more instances, clean up ports
             cls._server_ports.clear()
 
+    async def _check_server_health(self, model: str, server: ServerState) -> bool:
+        """Check if a server is healthy by pinging its /health endpoint.
+
+        Args:
+            model: Model name
+            server: Server state
+
+        Returns:
+            True if server is healthy, False otherwise
+        """
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    f"http://{server.host}:{server.port}/health",
+                    timeout=aiohttp.ClientTimeout(total=self._health_check_timeout)
+                ) as response:
+                    if response.status == 200:
+                        health_data = await response.json()
+                        status = health_data.get("status", "")
+                        if status == "ok":
+                            return True
+                        elif "loading" in status.lower():
+                            # Model loading, consider healthy
+                            return True
+            return False
+        except asyncio.TimeoutError:
+            logger.warning(f"Health check timed out for model {model} on port {server.port}")
+            return False
+        except Exception as e:
+            logger.warning(f"Health check failed for model {model}: {e}")
+            return False
+
     async def _periodic_cleanup(self):
-        """Periodically clean up unused servers."""
+        """Periodically clean up unused servers and check health."""
         try:
             while not self._shutdown_event.is_set():
                 current_time = asyncio.get_event_loop().time()
                 for model, server in list(self._servers.items()):
-                    if current_time - server.last_used > 300:  # 5 minutes
+                    # Check if server process is still running
+                    if server.process.poll() is not None:
+                        exit_code = server.process.poll()
+                        logger.warning(f"Server for model {model} died (exit code: {exit_code})")
+                        await self._stop_server(model)
+                        continue
+
+                    # Perform health check
+                    server.last_health_check = current_time
+                    healthy = await self._check_server_health(model, server)
+
+                    if not healthy:
+                        server.consecutive_failures += 1
+                        logger.warning(
+                            f"llama-server health check failed for {model} "
+                            f"({server.consecutive_failures}/{self._max_consecutive_failures})"
+                        )
+
+                        if server.consecutive_failures >= self._max_consecutive_failures:
+                            logger.error(
+                                f"llama-server for {model} unresponsive for "
+                                f"{server.consecutive_failures} checks, restarting..."
+                            )
+                            # Store grammar file for restart
+                            grammar_file = server.grammar_file
+                            await self._stop_server(model)
+
+                            # Restart the server
+                            try:
+                                new_server = await self._start_internal_server(
+                                    model=model,
+                                    host=DEFAULT_HOST,
+                                    port=self._find_available_port(),
+                                    grammar_file=grammar_file
+                                )
+                                new_server.restart_count = server.restart_count + 1
+                                self._servers[model] = new_server
+                                self._server_ports.add(new_server.port)
+                                self._total_restart_count += 1
+                                logger.info(
+                                    f"llama-server for {model} restarted successfully "
+                                    f"(restart #{new_server.restart_count})"
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to restart llama-server for {model}: {e}")
+                    else:
+                        if server.consecutive_failures > 0:
+                            logger.info(f"llama-server for {model} recovered")
+                        server.consecutive_failures = 0
+
+                    # Clean up unused servers (5 minutes idle)
+                    if current_time - server.last_used > 300:
                         try:
+                            logger.info(f"Stopping idle server for model {model}")
                             await self._stop_server(model)
                         except Exception as e:
                             logger.error(f"Error cleaning up server for model {model}: {str(e)}")
+
                 await asyncio.sleep(60)  # Check every minute
         except asyncio.CancelledError:
             # Ensure we clean up any remaining servers on cancellation
@@ -240,6 +333,45 @@ class LlamaCppClient:
         except Exception as e:
             logger.error(f"Error in periodic cleanup: {str(e)}")
             raise
+
+    def get_health_status(self) -> Dict[str, Any]:
+        """Get health status of all managed servers.
+
+        Returns:
+            Dictionary with health information
+        """
+        servers_status = []
+        total_consecutive_failures = 0
+
+        for model, server in self._servers.items():
+            process_running = server.process.poll() is None
+            servers_status.append({
+                "model": model,
+                "port": server.port,
+                "process_running": process_running,
+                "consecutive_failures": server.consecutive_failures,
+                "restart_count": server.restart_count,
+                "last_health_check": server.last_health_check,
+                "last_used": server.last_used,
+            })
+            total_consecutive_failures += server.consecutive_failures
+
+        # Determine overall health
+        if not self._servers:
+            overall_status = "no_servers"
+        elif total_consecutive_failures >= self._max_consecutive_failures:
+            overall_status = "unhealthy"
+        elif total_consecutive_failures > 0:
+            overall_status = "degraded"
+        else:
+            overall_status = "healthy"
+
+        return {
+            "status": overall_status,
+            "total_restart_count": self._total_restart_count,
+            "max_consecutive_failures": self._max_consecutive_failures,
+            "servers": servers_status,
+        }
 
     async def _stop_server(self, model: str):
         """Stop a server instance."""

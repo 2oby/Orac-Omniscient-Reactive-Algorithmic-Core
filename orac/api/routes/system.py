@@ -39,6 +39,48 @@ class PerformanceLogRequest(BaseModel):
     config_notes: Optional[str] = None
 
 
+@router.get("/health")
+async def health_check() -> Dict[str, Any]:
+    """Health check endpoint with llama-server status."""
+    try:
+        client = await get_client()
+        llama_health = client.get_health_status()
+
+        # Determine overall status
+        if llama_health["status"] == "unhealthy":
+            overall_status = "unhealthy"
+        elif llama_health["status"] == "degraded":
+            overall_status = "degraded"
+        elif llama_health["status"] == "no_servers":
+            overall_status = "healthy"  # No servers is OK - they start on demand
+        else:
+            overall_status = "healthy"
+
+        return {
+            "status": overall_status,
+            "timestamp": datetime.utcnow().isoformat(),
+            "version": APIConfig.VERSION,
+            "checks": {
+                "api": "healthy",
+                "llama_server": llama_health["status"],
+                "llama_restart_count": llama_health["total_restart_count"],
+                "llama_servers": llama_health["servers"],
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error in health check: {e}")
+        return {
+            "status": "unhealthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "version": APIConfig.VERSION,
+            "checks": {
+                "api": "healthy",
+                "llama_server": "error",
+                "error": str(e),
+            }
+        }
+
+
 @router.get("/v1/status")
 async def get_status() -> Dict[str, Any]:
     """Get system status."""
