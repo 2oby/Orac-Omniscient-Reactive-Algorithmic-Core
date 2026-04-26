@@ -390,8 +390,8 @@ async def get_available_backends():
 
         backend_list = []
         for backend_data in backends_list:
-            # Get device statistics
-            devices = backend_data.get("devices", [])
+            # Get device statistics (device_mappings is a dict keyed by entity_id)
+            devices = list(backend_data.get("device_mappings", {}).values())
             enabled_devices = [d for d in devices if d.get("enabled")]
             mapped_devices = [d for d in enabled_devices if d.get("device_type") and d.get("location")]
 

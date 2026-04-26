@@ -313,14 +313,6 @@ class LlamaCppClient:
                             logger.info(f"llama-server for {model} recovered")
                         server.consecutive_failures = 0
 
-                    # Clean up unused servers (5 minutes idle)
-                    if current_time - server.last_used > 300:
-                        try:
-                            logger.info(f"Stopping idle server for model {model}")
-                            await self._stop_server(model)
-                        except Exception as e:
-                            logger.error(f"Error cleaning up server for model {model}: {str(e)}")
-
                 await asyncio.sleep(60)  # Check every minute
         except asyncio.CancelledError:
             # Ensure we clean up any remaining servers on cancellation

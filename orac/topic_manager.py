@@ -481,8 +481,9 @@ class TopicManager:
         grammar_path = grammar_generator.get_grammar_file_path(topic.backend_id)
         grammar_exists = grammar_path.exists()
 
-        # Get device statistics
-        enabled_devices = [d for d in backend.get("devices", []) if d.get("enabled")]
+        # Get device statistics (device_mappings is a dict keyed by entity_id)
+        all_devices = list(backend.get("device_mappings", {}).values())
+        enabled_devices = [d for d in all_devices if d.get("enabled")]
         mapped_devices = [d for d in enabled_devices if d.get("device_type") and d.get("location")]
         device_types = list(set(d.get("device_type") for d in mapped_devices if d.get("device_type")))
         locations = list(set(d.get("location") for d in mapped_devices if d.get("location")))
@@ -493,7 +494,7 @@ class TopicManager:
             "type": backend.get("type", "unknown"),
             "status": backend.get("status", {}),
             "statistics": {
-                "total_devices": len(backend.get("devices", [])),
+                "total_devices": len(all_devices),
                 "enabled_devices": len(enabled_devices),
                 "mapped_devices": len(mapped_devices)
             },
