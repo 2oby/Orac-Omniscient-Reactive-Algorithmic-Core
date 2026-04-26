@@ -315,7 +315,15 @@ class GenerationService:
         grammar_file = request.grammar_file
 
         if not grammar_file and topic.backend_id:
-            # Topic is linked to a backend - use backend-generated grammar
+            # Topic is linked to a backend - use backend-generated grammar.
+            # When a backend is bound, any topic.grammar config is ignored on
+            # purpose; the backend grammar is the source of truth.
+            if topic.grammar.enabled and topic.grammar.file:
+                logger.info(
+                    f"Topic '{topic_id}' has static grammar '{topic.grammar.file}' "
+                    f"configured but is bound to backend '{topic.backend_id}'; "
+                    f"backend grammar takes precedence."
+                )
             backend = self.backend_manager.get_backend(topic.backend_id)
 
             if not backend:

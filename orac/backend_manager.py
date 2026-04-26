@@ -105,27 +105,18 @@ class BackendManager:
 
             logger.info(f"Saved backend {backend_id} to {backend_file}")
 
-            # Auto-regenerate grammar when backend device mappings change
+            # Auto-regenerate grammar after every save so the .gbnf reflects
+            # the current enabled-device set. The generator handles the empty
+            # case by writing an UNKNOWN-only grammar.
             try:
                 from orac.backend_grammar_generator import BackendGrammarGenerator
                 grammar_generator = BackendGrammarGenerator(self, str(self.data_dir))
-
-                # Check if any devices are configured
-                backend = self.backends[backend_id]
-                has_mapped_devices = any(
-                    d.get("enabled") and d.get("device_type") and d.get("location")
-                    for d in backend.get("devices", [])
-                )
-
-                if has_mapped_devices:
-                    logger.info(f"Auto-regenerating grammar for backend {backend_id} after device changes")
-                    result = grammar_generator.generate_and_save_grammar(backend_id)
-                    if result["success"]:
-                        logger.info(f"Grammar regenerated successfully for backend {backend_id}")
-                    else:
-                        logger.warning(f"Failed to regenerate grammar: {result.get('error')}")
+                logger.info(f"Auto-regenerating grammar for backend {backend_id} after device changes")
+                result = grammar_generator.generate_and_save_grammar(backend_id)
+                if result["success"]:
+                    logger.info(f"Grammar regenerated successfully for backend {backend_id}")
                 else:
-                    logger.info(f"No mapped devices for backend {backend_id}, skipping grammar generation")
+                    logger.warning(f"Failed to regenerate grammar: {result.get('error')}")
             except Exception as e:
                 logger.warning(f"Failed to auto-regenerate grammar for backend {backend_id}: {e}")
                 # Don't fail the save operation if grammar generation fails

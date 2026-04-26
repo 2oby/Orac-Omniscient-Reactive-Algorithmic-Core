@@ -255,17 +255,9 @@ set-temp-action ::= "set " temp'''
                     "error": f"Backend {backend_id} not found"
                 }
 
-            # Check if backend has any enabled devices
-            device_mappings = backend.get('device_mappings', {})
-            enabled_devices = [m for m in device_mappings.values() if m.get('enabled')]
-
-            if not enabled_devices:
-                return {
-                    "success": False,
-                    "error": "No enabled devices found in backend configuration"
-                }
-
-            # Generate grammar
+            # Generate grammar. With no enabled devices, this still writes a
+            # valid grammar containing only UNKNOWN — the LLM is constrained
+            # away from stale leftover values.
             grammar = self.generate_dynamic_grammar(backend_id)
 
             # Save to file
