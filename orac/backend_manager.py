@@ -115,6 +115,18 @@ class BackendManager:
                 result = grammar_generator.generate_and_save_grammar(backend_id)
                 if result["success"]:
                     logger.info(f"Grammar regenerated successfully for backend {backend_id}")
+                    # Drop running llama-server KV cache so the model's conditioning
+                    # doesn't lag behind the on-disk grammar. Next generation request
+                    # lazy-spawns a fresh server.
+                    try:
+                        from orac.api import dependencies
+                        client = dependencies._client
+                        if client is not None:
+                            client.stop_all_servers_sync(
+                                reason=f"grammar regen for backend {backend_id}"
+                            )
+                    except Exception as cache_err:
+                        logger.warning(f"Failed to reset llama-server after grammar regen: {cache_err}")
                 else:
                     logger.warning(f"Failed to regenerate grammar: {result.get('error')}")
             except Exception as e:

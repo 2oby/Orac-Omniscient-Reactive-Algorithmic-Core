@@ -386,6 +386,32 @@ class LlamaCppClient:
                 logger.error(f"Error stopping server for model {model}: {str(e)}")
                 raise
 
+    def stop_all_servers_sync(self, reason: str = "") -> int:
+        """Synchronously terminate all running llama-server subprocesses.
+
+        Used after grammar regeneration to drop stale KV-cache state.
+        The next generation request will lazy-spawn a fresh server.
+        Returns the number of servers stopped.
+        """
+        stopped = 0
+        for model in list(self._servers.keys()):
+            try:
+                server = self._servers[model]
+                if server.process and server.process.poll() is None:
+                    server.process.terminate()
+                    try:
+                        server.process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        server.process.kill()
+                self._server_ports.discard(server.port)
+                del self._servers[model]
+                stopped += 1
+            except Exception as e:
+                logger.error(f"Error stopping server for model {model}: {e}")
+        if stopped:
+            logger.info(f"Stopped {stopped} llama-server subprocess(es); reason: {reason or 'unspecified'}")
+        return stopped
+
     async def list_models(self) -> List[Dict[str, Any]]:
         """
         List available GGUF models in the models directory.
